@@ -7,7 +7,7 @@ Capstone de Alan Basso, Alonso Cruz y Angel Rubio
 
 ---
 
-## 📌 Descripción
+## Descripción
 
 Este proyecto consiste en el desarrollo de una **Plataforma Web Progresiva (PWA)** que conecta a entrenadores con sus alumnos, centralizando el proceso de planificación y seguimiento del entrenamiento.
 
@@ -19,7 +19,7 @@ La plataforma centralizará estos registros para generar información útil sobr
 
 ---
 
-## 🎯 Objetivo
+## Objetivo
 
 Desarrollar una plataforma que permita **centralizar la planificación, ejecución, registro y análisis del entrenamiento personalizado**, reduciendo la fragmentación existente entre herramientas como Excel, mensajería y registros manuales.
 
@@ -43,7 +43,7 @@ Nueva planificación
 
 ---
 
-## ❗ Problemática
+## Problemática
 
 Los entrenadores que trabajan con múltiples alumnos suelen utilizar distintas herramientas para administrar sus programas de entrenamiento, como hojas de cálculo, aplicaciones de mensajería y registros manuales.
 
@@ -61,7 +61,7 @@ Por otro lado, los alumnos pueden recibir sus entrenamientos mediante distintos 
 
 ---
 
-## 💡 Propuesta de solución
+## Propuesta de solución
 
 La plataforma busca centralizar este proceso mediante una única PWA con **vistas diferenciadas según el rol del usuario**.
 
@@ -98,7 +98,7 @@ Utilizará principalmente la plataforma desde un dispositivo móvil para:
 
 ---
 
-## 📅 Estructura de entrenamiento
+## Estructura de entrenamiento
 
 La planificación se organizará mediante una estructura jerárquica:
 
@@ -123,7 +123,7 @@ Esto permitirá al entrenador trabajar con programas de distinta duración y man
 
 ---
 
-## 📊 Registro de desempeño
+## Registro de desempeño
 
 Los entrenamientos realizados por los alumnos generarán información estructurada.
 
@@ -151,7 +151,7 @@ Estos registros permitirán construir un historial de entrenamiento para cada al
 
 ---
 
-## 📈 Ciencia de Datos y predicción
+## Ciencia de Datos y predicción
 
 El proyecto incorporará un componente de **Ciencia de Datos** utilizando los registros generados por la plataforma.
 
@@ -176,7 +176,7 @@ La predicción será definida durante las primeras etapas del proyecto de acuerd
 
 ---
 
-## 📥 Importación mediante Excel
+## Importación mediante Excel
 
 Una de las funcionalidades principales será permitir al entrenador importar planificaciones existentes mediante archivos Excel.
 
@@ -212,7 +212,7 @@ La estructura de datos deberá ser diseñada antes de implementar esta funcional
 
 ---
 
-## 🧪 Aseguramiento de Calidad
+## Aseguramiento de Calidad
 
 El proyecto incorporará un enfoque de **Quality Assurance (QA)** durante todo el desarrollo.
 
@@ -232,7 +232,7 @@ El objetivo es garantizar la confiabilidad tanto de la plataforma como de los da
 
 ---
 
-## 📱 Progressive Web App
+## Progressive Web App
 
 La plataforma será desarrollada como una **PWA responsiva**.
 
@@ -247,7 +247,7 @@ La misma plataforma deberá adaptarse a diferentes dispositivos:
                            │
              ┌─────────────┴─────────────┐
              │                           │
-       💻 Computador                📱 Móvil
+        Computador                     Móvil
              │                           │
          Entrenador                    Alumno
 ```
@@ -256,7 +256,7 @@ El alumno podrá agregar la PWA a la pantalla de inicio de su dispositivo, permi
 
 ---
 
-## 👥 Roles del sistema
+## Roles del sistema
 
 ### `COACH`
 
@@ -282,9 +282,9 @@ Responsable de:
 
 ---
 
-## 🏗️ Estado actual del proyecto
+## Estado actual del proyecto
 
-**Estado:** 🟡 Planificación inicial
+**Estado:** Planificación inicial
 
 El proyecto se encuentra en etapa de definición y planificación.
 
@@ -313,7 +313,7 @@ El proyecto se encuentra en etapa de definición y planificación.
 - [ ] Roadmap de desarrollo.
 - [ ] División definitiva de responsabilidades.
 
-## 🔮 Proyección futura
+## Proyección futura
 
 La arquitectura deberá permitir ampliar posteriormente la plataforma con funcionalidades como:
 
@@ -332,7 +332,7 @@ Estas funcionalidades quedan fuera del alcance inicial y podrán evaluarse poste
 
 ---
 
-## 🎯 Visión del proyecto
+## Visión del proyecto
 
 El objetivo a largo plazo es construir una plataforma donde:
 
@@ -342,7 +342,7 @@ La solución busca evolucionar desde una herramienta de gestión de entrenamient
 
 ---
 
-## 👨‍💻 Equipo
+## Equipo
 
 Proyecto desarrollado por un equipo de 3 integrantes con especialización en:
 
@@ -354,7 +354,7 @@ Las responsabilidades específicas serán definidas durante la etapa de planific
 
 ---
 
-## 📌 Nota
+## Nota
 
 Este README corresponde a una **propuesta inicial de trabajo** y se encuentra sujeto a modificaciones durante la etapa de análisis, diseño y validación técnica.
 
