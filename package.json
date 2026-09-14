@@ -1,0 +1,16 @@
+{
+  "name": "proyecto-titulo-aaa",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plataforma de Gestión y Seguimiento de Entrenamiento — monorepo (frontend, backend, docs). Scripts de conveniencia; frontend/ y backend/ son proyectos npm independientes, cada uno con su propio package.json y package-lock.json.",
+  "scripts": {
+    "install:all": "npm install --prefix frontend && npm install --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "npm run start:dev --prefix backend",
+    "build:frontend": "npm run build --prefix frontend",
+    "build:backend": "npm run build --prefix backend",
+    "lint:frontend": "npm run lint --prefix frontend",
+    "lint:backend": "npm run lint --prefix backend",
+    "test:backend": "npm run test --prefix backend"
+  }
+}

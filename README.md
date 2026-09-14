@@ -15,347 +15,153 @@ El entrenador podrá utilizar la plataforma principalmente desde un computador p
 
 El alumno podrá acceder a la misma plataforma desde un dispositivo móvil mediante una interfaz adaptada a pantallas pequeñas, consultar sus entrenamientos y registrar directamente los resultados obtenidos durante cada sesión.
 
-La plataforma centralizará estos registros para generar información útil sobre el progreso y desempeño del alumno, incorporando posteriormente una funcionalidad de análisis y predicción basada en los datos recopilados.
-
----
-
 ## Objetivo
 
 Desarrollar una plataforma que permita **centralizar la planificación, ejecución, registro y análisis del entrenamiento personalizado**, reduciendo la fragmentación existente entre herramientas como Excel, mensajería y registros manuales.
 
-El sistema busca establecer un flujo continuo:
-
 ```text
-Planificación
-     ↓
-Asignación
-     ↓
-Entrenamiento
-     ↓
-Registro
-     ↓
-Análisis
-     ↓
-Toma de decisiones
-     ↓
-Nueva planificación
+Planificación → Asignación → Entrenamiento → Registro → Análisis → Toma de decisiones → Nueva planificación
 ```
-
----
 
 ## Problemática
 
-Los entrenadores que trabajan con múltiples alumnos suelen utilizar distintas herramientas para administrar sus programas de entrenamiento, como hojas de cálculo, aplicaciones de mensajería y registros manuales.
+Los entrenadores que trabajan con múltiples alumnos suelen utilizar distintas herramientas para administrar sus programas de entrenamiento (hojas de cálculo, mensajería, registros manuales), lo que dificulta gestionar alumnos, mantener planificaciones organizadas, registrar el desempeño y analizar la evolución. Los alumnos, por su parte, reciben información por canales distintos, dificultando consultar su sesión y registrar sus resultados de forma estructurada.
 
-Esta fragmentación dificulta:
+## Arquitectura y tecnologías
 
-- Gestionar múltiples alumnos.
-- Mantener organizadas las planificaciones.
-- Actualizar entrenamientos.
-- Registrar sistemáticamente el desempeño.
-- Consultar el historial de cada alumno.
-- Analizar la evolución del rendimiento.
-- Utilizar los datos recopilados para apoyar futuras decisiones.
+Decisiones documentadas en detalle en [`docs/architecture.md`](docs/architecture.md).
 
-Por otro lado, los alumnos pueden recibir sus entrenamientos mediante distintos canales, dificultando la consulta de la sesión correspondiente y el registro estructurado de sus resultados.
+| Capa | Tecnología |
+|---|---|
+| Frontend | React + TypeScript (Vite), PWA responsiva |
+| Backend | Node.js + TypeScript (NestJS) |
+| Base de datos | PostgreSQL (ORM: Prisma) |
+| Ciencia de datos (futuro, desacoplado) | Python + Pandas + Scikit-learn |
 
----
+Una sola aplicación con vistas diferenciadas por rol: **Coach** (desktop/tablet) y **Alumno** (mobile-first). El backend es siempre la fuente de verdad de la autorización; la ciencia de datos es una extensión opcional que no es requisito para que la plataforma funcione.
 
-## Propuesta de solución
+## Estructura del repositorio
 
-La plataforma busca centralizar este proceso mediante una única PWA con **vistas diferenciadas según el rol del usuario**.
+```text
+ProyectoTituloAAA/
+├── frontend/            # React + TypeScript (Vite) — PWA
+├── backend/             # Node.js + TypeScript (NestJS + Prisma)
+├── data-science/        # Reservado para el servicio de ciencia de datos (futuro)
+├── docs/                # Documentación técnica (arquitectura, requisitos, BD, API, seguridad, testing, roadmap)
+├── tests/               # Pruebas E2E cross-cutting (futuro, ver tests/README.md)
+└── Requisitos Academicos/ # Evidencias académicas del ramo (no forma parte del código del producto)
+```
 
-### Entrenador
+## Instalación y ejecución
 
-Utilizará principalmente la plataforma desde un computador para:
+Requisitos: Node.js 20+ y npm. PostgreSQL solo es necesario a partir de que exista el modelo de datos (aún no implementado).
 
-- Gestionar alumnos.
-- Crear y administrar ejercicios.
-- Crear rutinas.
-- Crear bloques de entrenamiento.
-- Programar semanas y sesiones.
-- Asignar entrenamientos.
-- Importar planificaciones mediante Excel.
-- Revisar el cumplimiento de los alumnos.
-- Analizar métricas de rendimiento.
-- Consultar historiales.
-- Comunicarse con sus alumnos.
+```bash
+# Instalar dependencias de ambos proyectos
+npm run install:all
 
-### Alumno
+# Frontend (http://localhost:5173)
+npm run dev:frontend
 
-Utilizará principalmente la plataforma desde un dispositivo móvil para:
+# Backend (http://localhost:3000, rutas bajo /api/v1)
+npm run dev:backend
+```
 
-- Consultar el entrenamiento del día.
-- Revisar su bloque de entrenamiento.
-- Visualizar ejercicios e indicaciones.
-- Registrar series y repeticiones.
-- Registrar cargas utilizadas.
-- Registrar RPE/RIR.
-- Registrar percepción de esfuerzo y comentarios.
-- Marcar sesiones como completadas.
-- Consultar su historial y progreso.
-- Comunicarse con su entrenador.
+`frontend/` y `backend/` son proyectos npm independientes (cada uno con su propio `package.json`); los scripts de la raíz son solo un atajo. También se pueden ejecutar directamente con `cd frontend && npm install && npm run dev` / `cd backend && npm install && npm run start:dev`.
 
----
+### Variables de entorno
+
+Cada proyecto tiene su propio `.env.example`:
+
+- `frontend/.env.example` → copiar a `frontend/.env.local` (URL de la API).
+- `backend/.env.example` → copiar a `backend/.env` (puerto, origen permitido para CORS, cadena de conexión a PostgreSQL).
+
+Ningún archivo `.env` real se sube al repositorio.
+
+### Nota sobre Prisma
+
+El backend usa Prisma como ORM (`backend/prisma/schema.prisma`, sin modelos de negocio todavía). Después de `npm install`, el script `postinstall` ejecuta `prisma generate` automáticamente; si esto falla por falta de acceso a internet en el entorno de instalación, ejecutar manualmente `npx prisma generate` dentro de `backend/` una vez que haya conexión.
 
 ## Estructura de entrenamiento
 
-La planificación se organizará mediante una estructura jerárquica:
-
 ```text
 Programa
-   │
-   ├── Bloque
-   │     │
-   │     ├── Semana
-   │     │     │
-   │     │     ├── Sesión
-   │     │     │     │
-   │     │     │     └── Ejercicios
-   │     │     │             └── Series
-   │     │
-   │     └── ...
-   │
-   └── ...
+   └── Bloque
+         └── Semana
+               └── Sesión
+                     └── Ejercicios
+                           └── Series
 ```
 
-Esto permitirá al entrenador trabajar con programas de distinta duración y mantener una visión completa de la planificación.
-
----
+Ver el detalle completo del modelo (y la separación entre lo prescrito por el coach y lo realmente registrado por el alumno) en [`docs/database.md`](docs/database.md).
 
 ## Registro de desempeño
 
-Los entrenamientos realizados por los alumnos generarán información estructurada.
-
-Entre los datos contemplados se encuentran:
-
-### Por ejercicio
-
-- Carga.
-- Repeticiones.
-- Series realizadas.
-- RPE.
-- RIR.
-- Comentarios.
-
-### Por sesión
-
-- Cumplimiento.
-- RPE general.
-- Percepción de esfuerzo.
-- Fatiga.
-- Comentarios.
-- Duración, cuando corresponda.
-
-Estos registros permitirán construir un historial de entrenamiento para cada alumno.
-
----
+Por ejercicio: carga, repeticiones, series realizadas, RPE, RIR, comentarios. Por sesión: cumplimiento, RPE general, percepción de esfuerzo, fatiga, comentarios, duración. Detalle funcional completo en [`docs/requirements.md`](docs/requirements.md).
 
 ## Ciencia de Datos y predicción
 
-El proyecto incorporará un componente de **Ciencia de Datos** utilizando los registros generados por la plataforma.
-
-El objetivo será transformar los datos de entrenamiento en información útil para el entrenador mediante:
-
-- Análisis de evolución.
-- Indicadores de rendimiento.
-- Análisis de cumplimiento.
-- Evolución de cargas y volumen.
-- Análisis de RPE/RIR.
-- Identificación de tendencias.
-- Predicción de una variable relacionada con el desempeño del alumno.
-
-La predicción será definida durante las primeras etapas del proyecto de acuerdo con:
-
-- Disponibilidad de datos.
-- Viabilidad técnica.
-- Utilidad para el entrenador.
-- Capacidad de evaluación dentro del período del proyecto.
-
-> El componente predictivo funcionará como apoyo para la toma de decisiones y no como reemplazo del criterio del entrenador.
-
----
+Componente **desacoplado y de última prioridad** (ver [`docs/architecture.md`](docs/architecture.md), sección 8): la plataforma funciona completamente sin él. Se implementará cuando existan datos reales suficientes y una variable de predicción justificada — ver [`data-science/README.md`](data-science/README.md).
 
 ## Importación mediante Excel
 
-Una de las funcionalidades principales será permitir al entrenador importar planificaciones existentes mediante archivos Excel.
-
-Flujo esperado:
-
 ```text
-Excel
-  ↓
-Validación
-  ↓
-Normalización
-  ↓
-Procesamiento
-  ↓
-Base de datos
-  ↓
-Programación del alumno
+Excel → Validación → Vista previa/errores → Confirmación → Normalización → Base de datos → Programación del alumno
 ```
 
-La importación deberá contemplar la validación de información relacionada con:
-
-- Ejercicios.
-- Semanas.
-- Sesiones.
-- Series.
-- Repeticiones.
-- Cargas.
-- RPE/RIR.
-- Descansos.
-- Indicaciones.
-
-La estructura de datos deberá ser diseñada antes de implementar esta funcionalidad para garantizar consistencia y evitar problemas posteriores en el análisis.
-
----
+Los datos importados se transforman siempre al modelo relacional normalizado; nunca se almacena una copia plana del archivo. Detalle en [`docs/api.md`](docs/api.md) y [`docs/security.md`](docs/security.md).
 
 ## Aseguramiento de Calidad
 
-El proyecto incorporará un enfoque de **Quality Assurance (QA)** durante todo el desarrollo.
-
-Se contemplan:
-
-- Pruebas funcionales.
-- Pruebas de integración.
-- Validación de datos.
-- Pruebas de importación de Excel.
-- Pruebas de los flujos de entrenador y alumno.
-- Pruebas de la PWA.
-- Pruebas de diferentes tamaños de pantalla.
-- Registro y seguimiento de errores.
-- Validación de los resultados generados por el sistema.
-
-El objetivo es garantizar la confiabilidad tanto de la plataforma como de los datos utilizados posteriormente para análisis y predicción.
-
----
+Estrategia de testing integrada desde etapas tempranas del desarrollo (no solo al final): unitarias, integración, API, E2E, black-box, seguridad, permisos, importación de Excel y responsive. Detalle en [`docs/testing.md`](docs/testing.md).
 
 ## Progressive Web App
 
-La plataforma será desarrollada como una **PWA responsiva**.
-
-No se desarrollarán inicialmente aplicaciones móviles independientes para Android o iOS.
-
-La misma plataforma deberá adaptarse a diferentes dispositivos:
-
-```text
-                ┌──────────────────────┐
-                │       PWA            │
-                └──────────┬───────────┘
-                           │
-             ┌─────────────┴─────────────┐
-             │                           │
-        Computador                     Móvil
-             │                           │
-         Entrenador                    Alumno
-```
-
-El alumno podrá agregar la PWA a la pantalla de inicio de su dispositivo, permitiendo acceder mediante un icono y obtener una experiencia similar a una aplicación móvil.
-
----
+PWA responsiva instalable (manifest + service worker), sin aplicaciones nativas independientes. El soporte offline-first de datos queda fuera del alcance del MVP.
 
 ## Roles del sistema
 
 ### `COACH`
-
-Responsable de:
-
-- Administrar alumnos.
-- Crear ejercicios.
-- Crear programas.
-- Programar entrenamientos.
-- Importar planificaciones.
-- Analizar resultados.
-- Comunicarse con alumnos.
+Administra alumnos, crea ejercicios y programas, programa entrenamientos, importa planificaciones, analiza resultados y se comunica con sus alumnos.
 
 ### `STUDENT`
-
-Responsable de:
-
-- Consultar entrenamientos.
-- Ejecutar sesiones.
-- Registrar resultados.
-- Consultar progreso.
-- Comunicarse con el coach.
-
----
+Consulta entrenamientos, ejecuta sesiones, registra resultados, consulta su progreso y se comunica con su coach.
 
 ## Estado actual del proyecto
 
-**Estado:** Planificación inicial
+**Estado:** Inicialización técnica completada (PROMPT 01). Sin funcionalidades de negocio implementadas todavía.
 
-El proyecto se encuentra en etapa de definición y planificación.
+### Definido
+- [x] Problema, público objetivo y concepto general de la plataforma.
+- [x] Arquitectura técnica y stack tecnológico (`docs/architecture.md`).
+- [x] Requisitos funcionales y no funcionales (`docs/requirements.md`).
+- [x] Modelo de datos conceptual (`docs/database.md`).
+- [x] Diseño de API (`docs/api.md`).
+- [x] Estrategia de seguridad (`docs/security.md`).
+- [x] Estrategia de testing (`docs/testing.md`).
+- [x] Roadmap de 18 semanas (`docs/roadmap.md`).
+- [x] Estructura del repositorio, base de frontend (React+TS+Vite) y backend (NestJS) inicializadas, sin lógica de negocio.
 
-### Actualmente definido
-
-- [x] Problema identificado.
-- [x] Público objetivo.
-- [x] Concepto general de la plataforma.
-- [x] Enfoque PWA.
-- [x] Diferenciación de vistas Coach/Alumno.
-- [x] Gestión de bloques y sesiones.
-- [x] Importación mediante Excel.
-- [x] Registro de desempeño.
-- [x] Incorporación de Ciencia de Datos.
-- [x] Incorporación de QA.
-
-### Pendiente de definición
-
-- [ ] Stack tecnológico definitivo.
-- [ ] Arquitectura técnica.
-- [ ] Modelo de datos definitivo.
-- [ ] Diseño UI/UX.
-- [ ] Definición de la variable a predecir.
-- [ ] Metodología de generación/preparación de datos.
-- [ ] Diseño de pruebas.
-- [ ] Roadmap de desarrollo.
-- [ ] División definitiva de responsabilidades.
+### Pendiente
+- [ ] Diseño UI/UX detallado.
+- [ ] Modelo de datos definitivo implementado en PostgreSQL (tablas y migraciones).
+- [ ] Autenticación y autorización.
+- [ ] Funcionalidades de negocio (alumnos, ejercicios, programas, registro, dashboard, mensajería, Excel).
+- [ ] Definición de la variable a predecir por ciencia de datos.
+- [ ] División definitiva de responsabilidades del equipo por sprint.
 
 ## Proyección futura
 
-La arquitectura deberá permitir ampliar posteriormente la plataforma con funcionalidades como:
-
-- IA generativa como asistente del entrenador.
-- Recomendaciones avanzadas.
-- Integración con wearables.
-- Notificaciones.
-- Gestión de centros deportivos.
-- Múltiples entrenadores por organización.
-- Planes y suscripciones.
-- Biblioteca avanzada de ejercicios.
-- Aplicaciones móviles nativas.
-- Análisis predictivo avanzado.
-
-Estas funcionalidades quedan fuera del alcance inicial y podrán evaluarse posteriormente según el avance del proyecto.
-
----
+Fuera del alcance inicial, evaluables según avance del proyecto: IA generativa como asistente, recomendaciones avanzadas, integración con wearables, notificaciones, gestión de centros deportivos, múltiples entrenadores por organización, planes y suscripciones, biblioteca avanzada de ejercicios, aplicaciones móviles nativas, análisis predictivo avanzado. Ver `docs/roadmap.md`.
 
 ## Visión del proyecto
 
-El objetivo a largo plazo es construir una plataforma donde:
-
 > **El entrenador planifica, el alumno registra, la plataforma analiza y los datos apoyan la toma de decisiones.**
-
-La solución busca evolucionar desde una herramienta de gestión de entrenamientos hacia una plataforma capaz de centralizar y aprovechar la información generada durante todo el proceso deportivo.
-
----
 
 ## Equipo
 
-Proyecto desarrollado por un equipo de 3 integrantes con especialización en:
-
-- **Desarrollo de software**
-- **Machine Learning / Ciencia de Datos**
-- **Quality Assurance (QA)**
-
-Las responsabilidades específicas serán definidas durante la etapa de planificación del proyecto.
-
----
+Proyecto desarrollado por un equipo de 3 integrantes con especialización en Desarrollo de software, Machine Learning / Ciencia de Datos, y Quality Assurance (QA).
 
 ## Nota
 
-Este README corresponde a una **propuesta inicial de trabajo** y se encuentra sujeto a modificaciones durante la etapa de análisis, diseño y validación técnica.
-
-Las tecnologías, arquitectura, metodología de datos y funcionalidad predictiva definitiva aún no han sido seleccionadas.
+Las tecnologías y la arquitectura documentadas en `docs/` son la fuente de verdad para el desarrollo. Este README se actualiza a medida que el proyecto avanza; evitar describir aquí funcionalidades que todavía no existen como si estuvieran terminadas.

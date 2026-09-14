@@ -1,0 +1,13 @@
+// Prisma schema — infraestructura preparada en PROMPT 01.
+// El modelo de datos definitivo (User, Program, Session, WorkoutLog, etc.)
+// se implementa en el prompt correspondiente, según docs/database.md.
+// No se definen modelos todavía para no anticipar el esquema final.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}

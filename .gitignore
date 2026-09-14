@@ -1,0 +1,38 @@
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+frontend/dist/
+backend/dist/
+
+# Variables de entorno (nunca se sube el .env real)
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Prisma
+backend/prisma/migrations/dev.db
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Tests / cobertura
+coverage/
+
+# Editores / SO
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+
+# Vite
+frontend/.vite/
