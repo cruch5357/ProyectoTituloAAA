@@ -91,3 +91,86 @@ Message N───1 User (receiver)
 - `SessionExercise(session_id)` y `Session(week_id)` — navegación de la jerarquía de prescripción.
 - `Program(coach_id)` y `Exercise(coach_id)` — scoping por coach en cada request.
 - `Message(sender_id, receiver_id, created_at)` — hilos de conversación.
+
+---
+
+## 8. Estado de implementación (PROMPT 02)
+
+Las secciones 1 a 7 de este documento describen el modelo **conceptual** (PROMPT 00). Esta sección describe el modelo **realmente implementado** en `backend/prisma/schema.prisma` y su migración inicial, y es la que prevalece ante cualquier diferencia menor de detalle con las secciones anteriores.
+
+### 8.1 Decisiones de implementación
+
+- **IDs como `String @default(cuid())`** en todas las entidades, en vez de enteros autoincrementales. Motivo: un ID secuencial adivinable (`/api/v1/programs/42`, `/43`, `/44`...) facilita intentos de acceso a recursos ajenos; usar `cuid()` es una capa adicional de defensa en profundidad junto a la autorización por recurso (`docs/security.md`, puntos 3 y 4), sin costo de complejidad relevante.
+- **Nombres de columna en `snake_case`** vía `@map`/`@@map`, para que las tablas de PostgreSQL coincidan exactamente con los nombres usados en la sección conceptual de este documento (`password_hash`, `coach_id`, `muscle_group`, etc.), mientras el código TypeScript sigue usando `camelCase` (convención de Prisma/JS).
+- **`User.tokenVersion`** (`token_version`, entero, default `0`): estructura mínima que el mecanismo de invalidación de refresh tokens descrito en `docs/security.md` (punto 12) necesita. No se usa todavía — se conecta en PROMPT 03 (autenticación). No se agregó una tabla `RefreshToken` separada porque, para el alcance del MVP, invalidar por versión alcanza y evita una entidad adicional no justificada.
+- **`target_reps` como rango relacional**: `target_reps_min` y `target_reps_max` (ambos enteros opcionales). Un valor fijo se representa con `min = max`; un rango, con `min < max`. Se descartó JSON porque el rango se representa perfectamente con dos columnas normalizadas y consultables.
+- **Valores de enums no detallados en la sección conceptual**, definidos como decisión mínima de implementación:
+  - `WorkoutCompletionStatus`: `COMPLETED`, `PARTIAL`, `SKIPPED`.
+  - `ProgramAssignmentStatus`: `ACTIVE`, `FINISHED` (tal como se describía como "activo/finalizado").
+  - `ExcelImportStatus`: `PENDING_REVIEW`, `CONFIRMED`, `REJECTED`.
+  - `ExcelImportRowStatus`: `VALID`, `INVALID`.
+- **Restricciones que Prisma no expresa de forma portable en su DSL** se agregaron directamente en la migración SQL (no en `schema.prisma`), siguiendo el patrón recomendado por Prisma para estos casos:
+  - Un **índice único parcial** en `program_assignments(program_id, student_id) WHERE status = 'ACTIVE'`, que impide una asignación activa duplicada sin bloquear una reasignación futura del mismo programa una vez finalizado.
+  - **`CHECK` constraints** numéricos: RPE (`target_rpe`, `actual_rpe`, `overall_rpe`) entre 0 y 10; RIR (`target_rir`, `actual_rir`) ≥ 0; `target_sets` > 0; `target_reps_min`/`max` ≥ 0 y `max ≥ min`; `rest_seconds`, `duration_minutes`, `actual_reps`, `actual_load` ≥ 0; `set_number` y `row_number` > 0; `fatigue` entre 0 y 10 (valor no detallado en la sección conceptual, definido aquí como rango razonable); `duration_weeks` > 0.
+
+### 8.2 Estrategia de borrado implementada
+
+Se usó `CASCADE` dentro de la jerarquía de prescripción (`Program → Block → Week → Session → SessionExercise`), porque borrar un nodo de planificación sin historial real asociado es una operación segura y esperada.
+
+Se usó `RESTRICT` exactamente en los dos puntos donde la rama de ejecución referencia a la rama de prescripción: `workout_logs.session_id → sessions.id` y `set_logs.session_exercise_id → session_exercises.id`. Esto tiene un efecto importante y deliberado: como el borrado en cascada es una única transacción, si se intenta borrar un `Program` (o cualquier nodo por encima) y en algún punto de la jerarquía existe una `Session` con `WorkoutLog` o una `SessionExercise` con `SetLog`, PostgreSQL rechaza el `DELETE` completo. En otras palabras, **es imposible borrar accidentalmente un `Program` que contenga historial real de entrenamiento en cualquier nivel de su jerarquía**, sin necesidad de lógica adicional en el backend. Esto se verificó explícitamente (ver sección 8.4).
+
+`Exercise` también usa `RESTRICT` hacia `SessionExercise`: un ejercicio no puede eliminarse mientras esté prescrito en alguna sesión.
+
+`AuditLog.actorId` usa `SET NULL` (no `RESTRICT`): el registro de auditoría debe sobrevivir aunque el usuario actor sea eliminado en el futuro, a diferencia del historial de entrenamiento.
+
+### 8.3 Migración
+
+La migración inicial vive en `backend/prisma/migrations/20260916150000_init_prescripcion_ejecucion/migration.sql`.
+
+**Limitación del entorno (importante):** en el entorno donde se preparó esta migración, `binaries.prisma.sh` (de donde Prisma CLI descarga sus motores nativos `schema-engine` y `query-engine`) está bloqueado por la política de red del entorno (403 Forbidden) — la misma limitación ya reportada en el informe de PROMPT 01 para `prisma generate`. Esto impide ejecutar `npx prisma migrate dev`, `prisma validate` o `prisma generate` en ese entorno.
+
+Por esta razón, la migración se escribió a mano siguiendo exactamente la estructura que `schema.prisma` describe y el formato de carpeta/archivo que usa Prisma Migrate (`prisma/migrations/<timestamp>_<nombre>/migration.sql` + `migration_lock.toml`), de modo que sea indistinguible de una migración generada por la herramienta y que el equipo pueda seguir usando `prisma migrate dev`/`deploy` normalmente desde aquí en adelante.
+
+**Antes de dar por buena esta migración, el equipo debe, en un entorno con acceso normal a internet y PostgreSQL disponible:**
+1. Ejecutar `npx prisma generate` (genera el cliente TypeScript).
+2. Ejecutar `npx prisma migrate deploy` (o `migrate dev` en desarrollo) contra una base de datos vacía y confirmar que Prisma la reconoce sin pedir una migración adicional (sin *drift*).
+
+### 8.4 Verificación realizada
+
+Como Prisma CLI no pudo ejecutarse en el entorno de preparación, el SQL de la migración se verificó ejecutándolo contra una instancia real de PostgreSQL compilada a WebAssembly (`@electric-sql/pglite`, usada solo como herramienta de verificación puntual, no es una dependencia del proyecto). Se comprobó:
+
+- La migración completa se aplica sin errores.
+- La relación `coach → alumnos` (`users.coachId`) funciona correctamente.
+- Los `CHECK` de `target_rpe` (rango 0–10) y del rango `target_reps_min/max` rechazan valores inválidos.
+- El índice único parcial de `program_assignments` rechaza una segunda asignación `ACTIVE` duplicada, pero permite una asignación `FINISHED` adicional del mismo programa/alumno.
+- El `CHECK` de `set_number > 0` rechaza `0`.
+- **El caso central del modelo**: intentar borrar una `Session` con un `WorkoutLog` real asociado es rechazado por `RESTRICT`; intentar borrar el `Program` completo que contiene esa `Session` también es rechazado (la cascada se detiene en el punto protegido). Un `Program` sin historial real sí se borra en cascada correctamente.
+- `users.email` único rechaza un correo duplicado.
+
+### 8.5 Seed de desarrollo
+
+Se agregó `backend/prisma/seed.ts`: crea un coach, un alumno, un ejercicio, un programa con un bloque/semana/sesión/ejercicio prescrito de ejemplo, y una asignación — todo con datos claramente ficticios y sin contraseñas ni hashes reales (placeholder explícito `DEV_SEED_NO_REAL_HASH`, ya que el hashing se implementa en PROMPT 03). No se sembraron `WorkoutLog`/`SetLog`: simular "ejecución real" del alumno no aporta valor de prueba en esta etapa y se presta a confundirse con datos reales. Por la misma limitación de entorno del punto 8.3, este seed no pudo ejecutarse en el entorno de preparación (requiere un cliente Prisma generado); el equipo debe correrlo localmente con `npm run prisma:seed` una vez configurado `DATABASE_URL`.
+
+---
+
+## 9. Estado de implementación (PROMPT 03)
+
+Agrega dos tablas de soporte a autenticación (migración `backend/prisma/migrations/20260916190000_auth_refresh_sessions_invitations/migration.sql`), sobre el modelo ya implementado en la sección 8.
+
+### 9.1 `refresh_sessions`
+
+Una fila por sesión de refresh token emitida (login o rotación). Columnas: `id`, `user_id` (FK a `users`, `ON DELETE CASCADE` — una sesión no es historial real que deba preservarse), `token_hash` (único, SHA-256 del token opaco — nunca el valor en texto plano), `expires_at`, `revoked_at` (nulo mientras la sesión está vigente), `replaced_by_id` (**no es una foreign key real**, solo trazabilidad/depuración de qué sesión reemplazó a esta durante la rotación — deliberadamente sin FK auto-referenciada para no agregar complejidad de integridad referencial innecesaria, ya que la lógica de seguridad real depende únicamente de `revoked_at`/`expires_at`), `user_agent`, `ip_address`, `created_at`.
+
+**Reemplaza, para el caso concreto del refresh token, el mecanismo de `User.tokenVersion`** planteado originalmente en PROMPT 00/02 (ver `docs/security.md`, sección de implementación de PROMPT 03, y `docs/architecture.md`, registro de decisiones): permite revocar/rotar una sesión puntual y detectar reuso, algo que un único contador de versión por usuario no puede expresar. `tokenVersion` se mantiene en `users` (no se eliminó ni se migró) como posible mecanismo futuro de invalidación global gruesa.
+
+### 9.2 `student_invitations`
+
+Una fila por invitación de alumno emitida por un coach. Columnas: `id`, `email` (del alumno invitado), `coach_id` (FK a `users`, `ON DELETE CASCADE`), `token_hash` (único, SHA-256 del token de activación), `expires_at`, `used_at` (nulo hasta que el alumno activa su cuenta; marca de uso único), `created_at`.
+
+### 9.3 Por qué no hay un enum `InvitationStatus`/`RefreshSessionStatus`
+
+Se evaluó agregar estos dos enums (como se hizo con `ProgramAssignmentStatus` en PROMPT 02) pero se descartó: el estado de ambas tablas se deriva completamente de columnas de fecha (`expiresAt`/`revokedAt`/`usedAt`), y un enum de estado adicional sería una segunda fuente de verdad que podría desincronizarse de esas fechas (ej. una fila con `status = ACTIVE` pero `expiresAt` ya vencido). La capa de aplicación (`AuthService`) centraliza el cálculo de estado a partir de las fechas, sin strings mágicos sueltos.
+
+### 9.4 Verificación realizada
+
+Misma limitación de entorno que en PROMPT 02 (`binaries.prisma.sh` bloqueado — ver sección 8.3 y el informe de cierre de PROMPT 03, que además descarta `prisma@8` como alternativa). La migración se verificó con el mismo método (`@electric-sql/pglite`): aplica sin errores sobre la migración de PROMPT 02, el índice único de `token_hash` rechaza duplicados en ambas tablas, la FK hacia `users` rechaza un `user_id`/`coach_id` inexistente, y borrar un `User` elimina en cascada sus `refresh_sessions`/`student_invitations` (verificado explícitamente).

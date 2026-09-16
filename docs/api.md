@@ -76,3 +76,36 @@ El scoping por `coach_id`/`student_id` se aplica siempre en la capa de servicio 
 
 - Límite estricto en `/auth/login`, `/auth/register` y `/auth/refresh` (ej. 5 intentos por minuto por IP) para mitigar fuerza bruta.
 - Límite general más permisivo en el resto de la API, aplicado por usuario autenticado y por IP para peticiones anónimas.
+
+---
+
+## 7. Estado de implementación (PROMPT 03)
+
+Las secciones 1 a 6 son la planificación conceptual (PROMPT 00). Esta sección documenta los endpoints de autenticación **realmente implementados** en `backend/src/auth/` y `backend/src/users/`. El resto de los dominios listados en la sección 4 sigue sin implementar (prompts futuros). La documentación interactiva OpenAPI/Swagger vive en `/api/v1/docs` una vez que el backend corre.
+
+Formato de respuesta real: `{ "data": ..., "error": null, "meta": {} }` en éxito; en error, el filtro global (`AllExceptionsFilter`) produce `{ "data": null, "error": { "code", "message" }, "meta": {...} }`.
+
+### `POST /api/v1/auth/register`
+Público. Body: `{ email, password, name }`. Crea siempre un usuario `COACH` (los alumnos nunca se autorregistran). `409` si el email ya existe. `400` si la contraseña no cumple la política mínima (≥10 caracteres, al menos una letra y un número) o el email es inválido. Rate limit reforzado (`"auth"`).
+
+### `POST /api/v1/auth/students/invite`
+Requiere `Authorization: Bearer` + rol `COACH`. Body: `{ email }`. El `coachId` sale siempre del token, nunca del body. `409` si el email ya tiene cuenta. Respuesta: `{ email, expiresAt, activationToken }`. **Nota importante:** como el envío real de correo está fuera de alcance de PROMPT 03, `activationToken` (el token en texto plano) se retorna una única vez en esta respuesta para que el coach lo entregue manualmente al alumno; nunca se loguea ni se persiste en texto plano (solo su hash SHA-256 en `student_invitations.token_hash`). Debe reemplazarse por un envío de correo real antes de producción.
+
+### `POST /api/v1/auth/activate`
+Público. Body: `{ token, name, password }`. Crea el `User` (`STUDENT`) con el `coachId` de la invitación. `401` genérico si el token no existe, ya fue usado o expiró (mismo mensaje en los tres casos). `409` si por alguna razón el email ya tiene cuenta (colisión de unicidad).
+
+### `POST /api/v1/auth/login`
+Público. Body: `{ email, password }`. Éxito (`200`): `{ accessToken, user }` + cookies `refresh_token` (httpOnly) y `csrf_token` (legible por JS). `401` genérico (`"Credenciales inválidas"`) para email inexistente, usuario inactivo o contraseña incorrecta — nunca se distingue cuál de los tres ocurrió.
+
+### `POST /api/v1/auth/refresh`
+Público, pero requiere la cookie `refresh_token` **y** el header `X-CSRF-Token` con el mismo valor que la cookie `csrf_token` (protección CSRF de doble envío). Rota el refresh token (revoca el anterior, emite uno nuevo) y retorna un nuevo `accessToken`. `401`/`403` genérico ante cookie ausente/inválida/expirada, o `403` si falla la validación CSRF. Si el token presentado ya había sido rotado (reuso), se revocan todas las sesiones del usuario.
+
+### `POST /api/v1/auth/logout`
+Requiere `Authorization: Bearer` **y** CSRF (mismo mecanismo que refresh, porque también actúa sobre la cookie). Revoca la sesión de refresh vigente y limpia ambas cookies. Idempotente.
+
+### `GET /api/v1/users/me`
+Requiere `Authorization: Bearer`. El id del usuario sale únicamente del token verificado. Retorna los datos públicos del usuario autenticado (nunca `passwordHash` ni `tokenVersion`).
+
+### Errores
+
+Todos los endpoints anteriores respetan los códigos de la sección 5: `400` (DTO inválido o campo no declarado — `whitelist`/`forbidNonWhitelisted` global), `401` (no autenticado / credenciales inválidas / token inválido), `403` (rol incorrecto o CSRF fallido), `409` (email duplicado), `429` (rate limit).

@@ -32,11 +32,54 @@ class EnvironmentVariables {
 
   // Todavía no es estrictamente obligatorio: en esta etapa PrismaService no
   // se conecta de forma eager (ver prisma/prisma.service.ts). Cuando se
-  // implemente el modelo de datos y se empiece a consultar la base de datos
-  // real, esta variable debe pasar a ser obligatoria (quitar @IsOptional).
+  // implemente el modelo de datos definitivo, evaluar si conviene conectar
+  // de forma eager para fallar rápido ante una base de datos no disponible.
   @IsString()
   @IsOptional()
   DATABASE_URL?: string;
+
+  // -------------------------------------------------------------------
+  // Autenticación (PROMPT 03, ver docs/security.md puntos 1 y 12).
+  // -------------------------------------------------------------------
+
+  // Secretos de firma JWT. Deliberadamente OBLIGATORIOS (sin valor por
+  // defecto): un secreto por defecto hardcodeado terminaría usándose por
+  // descuido en un ambiente real. Las pruebas automatizadas los definen en
+  // `test/jest.setup.ts` (para e2e) o mockean por completo el servicio de
+  // tokens (para unit tests), nunca dependen de un valor por defecto aquí.
+  @IsString()
+  JWT_ACCESS_SECRET: string;
+
+  @IsString()
+  JWT_REFRESH_SECRET: string;
+
+  // Formato aceptado por `@nestjs/jwt` / `ms` (ej. "15m", "7d").
+  @IsString()
+  @IsOptional()
+  JWT_ACCESS_EXPIRES_IN: string = '15m';
+
+  @IsString()
+  @IsOptional()
+  JWT_REFRESH_EXPIRES_IN: string = '7d';
+
+  // Vigencia del token de invitación de alumno (horas).
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  INVITATION_EXPIRES_IN_HOURS: number = 168; // 7 días
+
+  // Rate limiting reforzado para endpoints de autenticación (docs/security.md
+  // punto 11). Configurable por ambiente para no sobre-limitar en desarrollo
+  // local, y poder endurecerlo en demo/producción sin tocar código.
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  AUTH_THROTTLE_TTL_MS: number = 60000;
+
+  @IsInt()
+  @Min(1)
+  @IsOptional()
+  AUTH_THROTTLE_LIMIT: number = 10;
 }
 
 // Valida las variables de entorno al arrancar la aplicación para fallar rápido

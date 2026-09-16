@@ -82,3 +82,61 @@ Auditoría periódica de dependencias (`npm audit` o equivalente) y actualizaci�
 
 ## 27. Pruebas de seguridad
 Casos de prueba específicos para autorización cruzada (alumno-alumno, coach-coach), validación de entrada en los formularios críticos, y revisión manual orientada a los riesgos más relevantes del OWASP Top 10 para el alcance de esta aplicación (ver `testing.md`).
+
+---
+
+## Estado de implementación (PROMPT 03)
+
+Las secciones 1 a 27 de este documento son la planificación técnica original (PROMPT 00). Esta sección describe lo que **realmente se implementó** en PROMPT 03 (autenticación + primera capa de autorización) y prevalece ante cualquier diferencia de detalle con las secciones anteriores.
+
+### Autenticación (punto 1)
+
+- **Access token:** JWT firmado (HS256, `@nestjs/jwt`), vida corta configurable (`JWT_ACCESS_EXPIRES_IN`, por defecto `15m`), enviado en el header `Authorization: Bearer`. Claims mínimos: `sub` (id de usuario), `role`, `tokenVersion`, `iat`, `exp` — nunca password ni datos innecesarios. Se verifica solo por firma/expiración (sin consulta a la base de datos en cada request); ver `src/auth/tokens/token.service.ts`.
+- **Refresh token:** **decisión revisada respecto a lo planificado en PROMPT 00/02.** En vez de un JWT de refresh, se implementó como un valor aleatorio opaco de 256 bits (`crypto.randomBytes(32)`), del que solo se almacena su hash SHA-256 en la nueva tabla `refresh_sessions` (nunca el valor en texto plano). Motivo: la validez real de un refresh token siempre depende de una fila en la base de datos para poder revocar/rotar/detectar reuso (ver más abajo); un JWT de refresh agregaría una segunda fuente de verdad sin aportar nada. El token viaja únicamente en una cookie `httpOnly`, `Secure` (en producción), `SameSite=Strict`, con `Path` restringido a `/api/v1/auth`.
+- **`User.tokenVersion`:** se mantiene en el modelo (ver `docs/database.md`), pero **no es el mecanismo principal de invalidación de refresh tokens** como se planteó originalmente — se reemplazó por revocación por sesión individual en `refresh_sessions` (ver abajo), que permite invalidar una sesión puntual sin cerrar todas las demás. `tokenVersion` queda disponible como claim del access token para un futuro mecanismo de invalidación global gruesa (ej. "cerrar sesión en todos los dispositivos"), no implementado todavía.
+
+### Autorización basada en roles (punto 2)
+
+`JwtAuthGuard` (autenticación) + `RolesGuard` + `@Roles(Role.COACH | Role.STUDENT)` (`src/auth/guards/`, `src/auth/decorators/roles.decorator.ts`). Se usan siempre en ese orden (`@UseGuards(JwtAuthGuard, RolesGuard)`). Un endpoint sin `@Roles(...)` solo exige autenticación.
+
+### Autorización sobre recursos/objetos (puntos 3, 4, 5)
+
+**Preparada, no implementada sobre recursos concretos todavía** (PROMPT 03 no agrega endpoints de negocio). Se dejó la abstracción reutilizable `assertOwnsResource()` en `src/auth/authorization/resource-ownership.ts`, documentada con los casos de prueba obligatorios (alumno-alumno, coach-coach) que los prompts futuros deben implementar junto con cada recurso real, con pruebas unitarias ya cubriendo la función genérica (`resource-ownership.spec.ts`).
+
+### CSRF (punto 9)
+
+Patrón de doble envío de token, extendido deliberadamente a **dos** endpoints (no solo `/auth/refresh` como decía el punto 9 original): `/auth/refresh` y `/auth/logout`, porque ambos actúan sobre la cookie de refresh. Mecanismo: al hacer login/refresh exitoso se setea, además de la cookie de refresh, una cookie NO `httpOnly` (`csrf_token`) con un valor aleatorio independiente; el frontend debe repetir su valor en el header `X-CSRF-Token`. `CsrfGuard` (`src/auth/guards/csrf.guard.ts`) compara ambos valores con `crypto.timingSafeEqual`. No se removió por tener `SameSite=Strict` (instrucción explícita de PROMPT 03): es defensa en profundidad adicional.
+
+### Rate limiting (punto 11)
+
+Throttler nombrado `"auth"` (`@nestjs/throttler`, named throttlers) aplicado a `register`, `students/invite`, `activate` y `login`, configurable vía `AUTH_THROTTLE_TTL_MS`/`AUTH_THROTTLE_LIMIT` (`.env`), independiente del throttler `"default"` general. Ver `src/app.module.ts`.
+
+### Manejo de sesiones/tokens (punto 12)
+
+Nueva tabla `refresh_sessions` (ver `docs/database.md`, sección "Estado de implementación (PROMPT 03)"): cada login/refresh crea una fila con `tokenHash`, `expiresAt`, `revokedAt`. Rotación: cada `POST /auth/refresh` válido marca la sesión usada como `revokedAt = now()` y crea una nueva. **Detección de reuso:** si se presenta un token cuya sesión ya tiene `revokedAt` distinto de `null`, se asume compromiso y se revocan **todas** las sesiones activas del usuario (defensivo), y se registra `auth.refresh_reuse_detected` en `AuditLog`. Ver `AuthService.refresh()`.
+
+### Contraseñas (punto 13)
+
+**Argon2id** (paquete `argon2`, bindings nativos), no bcrypt. Justificación: es la opción preferida explícitamente por este mismo documento, resiste mejor ataques por GPU/ASIC que bcrypt, y se verificó que la librería funciona en el entorno de desarrollo sin depender de binarios descargados en la instalación (a diferencia de los motores de Prisma — ver limitación de entorno más abajo). Funciones separadas `hashPassword`/`verifyPassword` en `src/auth/password/password.service.ts`; ningún llamador conoce el algoritmo ni sus parámetros.
+
+### Manejo seguro de errores / no enumeración (puntos 16, 17)
+
+- `login()` devuelve exactamente el mismo mensaje genérico (`"Credenciales inválidas"`) para: usuario inexistente, usuario inactivo y contraseña incorrecta — verificado con una prueba unitaria explícita que compara los tres mensajes. Además, siempre ejecuta un `argon2.verify()` (contra un hash de relleno si el usuario no existe) para mitigar enumeración de usuarios por temporización.
+- `activate()` devuelve el mismo mensaje genérico para token inexistente, expirado o ya usado.
+- Ningún log ni metadata de `AuditLog` incluye contraseñas, tokens completos ni el contenido de las cookies — verificado explícitamente en pruebas unitarias.
+
+### Auditoría (punto 18)
+
+Nuevo `AuditService` (`src/audit/`), global, usado por `AuthService` para registrar: registro de coach, invitación de alumno, activación, login exitoso/fallido, logout, rotación de refresh y reuso de refresh detectado. Un fallo al escribir el audit log nunca interrumpe el flujo principal (se captura y se loguea aparte).
+
+### Documentación (Swagger/OpenAPI)
+
+`@nestjs/swagger` configurado en `src/main.ts`, expuesto en `/api/v1/docs`. Documenta únicamente los endpoints de `/auth/*` y `/users/me` que existen hoy.
+
+### Frontend
+
+No se construyó ninguna UI de login en PROMPT 03 (instrucción explícita: la lógica de auth es responsabilidad del backend). No se modificó `frontend/`.
+
+### Limitación de entorno persistente (Prisma)
+
+`prisma generate`/`migrate` siguen sin poder ejecutarse en el entorno de preparación por el bloqueo de red hacia `binaries.prisma.sh` ya reportado en PROMPT 01/02. En PROMPT 03 se evaluó explícitamente actualizar a `prisma@8` (rc) como posible salida: se descartó porque esa versión reestructura la CLI en torno a "Prisma Platform" (comandos `deploy`/`project`/`postgres`/etc.) y **ya no tiene un comando `generate` clásico equivalente**, por lo que no es compatible con el flujo de PostgreSQL autoalojado de este proyecto. El detalle de cómo se verificó el código igualmente (shim local de tipos, no versionado) está en el informe de cierre de PROMPT 03.

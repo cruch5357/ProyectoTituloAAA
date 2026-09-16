@@ -1,7 +1,23 @@
-// Prisma schema — infraestructura preparada en PROMPT 01.
-// El modelo de datos definitivo (User, Program, Session, WorkoutLog, etc.)
-// se implementa en el prompt correspondiente, según docs/database.md.
-// No se definen modelos todavía para no anticipar el esquema final.
+// Prisma schema — modelo de datos definitivo (PROMPT 02).
+// Fuente de verdad conceptual: docs/database.md.
+//
+// Principio central (docs/database.md, seccion 1): la rama de PRESCRIPCION
+// (Program -> Block -> Week -> Session -> SessionExercise) y la rama de
+// EJECUCION (WorkoutLog -> SetLog) nunca comparten tabla. Se conectan solo
+// por referencia (WorkoutLog.sessionId, SetLog.sessionExerciseId).
+//
+// Decisiones de implementacion tomadas en PROMPT 02 (documentadas tambien en
+// docs/database.md, seccion "Registro de decisiones de implementacion"):
+// - IDs: `String @default(cuid())` en todas las entidades (en vez de enteros
+//   autoincrementales) para no exponer IDs secuenciales adivinables, como
+//   capa adicional de defensa junto a la autorizacion por recurso (ver
+//   docs/security.md, puntos 3 y 4).
+// - Nombres de columnas en snake_case via @map/@@map, para que el esquema
+//   real de PostgreSQL coincida exactamente con los nombres usados en
+//   docs/database.md.
+// - Restricciones que Prisma no expresa de forma portable en el DSL (checks
+//   numericos, un indice unico parcial) se agregan a mano en la migracion
+//   SQL generada, no en este archivo. Ver prisma/migrations/.
 
 generator client {
   provider = "prisma-client-js"
@@ -10,4 +26,433 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// ENUMS
+// ---------------------------------------------------------------------------
+
+enum Role {
+  COACH
+  STUDENT
+}
+
+enum ProgramAssignmentStatus {
+  ACTIVE
+  FINISHED
+}
+
+// Valores no detallados en docs/database.md; se definen aqui como decision
+// de implementacion minima y razonable para el MVP.
+enum WorkoutCompletionStatus {
+  COMPLETED
+  PARTIAL
+  SKIPPED
+}
+
+enum ExcelImportStatus {
+  PENDING_REVIEW
+  CONFIRMED
+  REJECTED
+}
+
+enum ExcelImportRowStatus {
+  VALID
+  INVALID
+}
+
+// ---------------------------------------------------------------------------
+// IDENTIDAD Y RELACION COACH-ALUMNO
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  role         Role
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+
+  // Mecanismo de invalidacion de refresh tokens (docs/security.md, punto 12:
+  // "version de token en la tabla User"). Incrementarlo invalida todos los
+  // refresh tokens emitidos previamente (logout global, cambio de clave).
+  // No se usa todavia: la logica de autenticacion se implementa en PROMPT 03.
+  tokenVersion Int      @default(0) @map("token_version")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relacion Coach -> Alumnos. MVP: un alumno pertenece a un unico coach.
+  coachId  String?
+  coach    User?   @relation("CoachStudents", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  students User[]  @relation("CoachStudents")
+
+  exercisesOwned      Exercise[]          @relation("CoachExercises")
+  programsOwned       Program[]           @relation("CoachPrograms")
+  assignmentsAsStudent ProgramAssignment[] @relation("StudentAssignments")
+  workoutLogs         WorkoutLog[]        @relation("StudentWorkoutLogs")
+  excelImportBatches  ExcelImportBatch[]  @relation("CoachImportBatches")
+  sentMessages        Message[]           @relation("SentMessages")
+  receivedMessages    Message[]           @relation("ReceivedMessages")
+  auditLogs           AuditLog[]          @relation("ActorAuditLogs")
+
+  // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
+  refreshSessions    RefreshSession[]
+  studentInvitations StudentInvitation[]
+
+  @@index([coachId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// CATALOGO DEL COACH
+// ---------------------------------------------------------------------------
+
+model Exercise {
+  id           String   @id @default(cuid())
+  coachId      String   @map("coach_id")
+  coach        User     @relation("CoachExercises", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  name         String
+  muscleGroup  String?  @map("muscle_group")
+  instructions String?
+  videoUrl     String?  @map("video_url")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  sessionExercises SessionExercise[]
+
+  @@index([coachId])
+  @@map("exercises")
+}
+
+// ---------------------------------------------------------------------------
+// PRESCRIPCION: Program -> Block -> Week -> Session -> SessionExercise
+// ---------------------------------------------------------------------------
+
+model Program {
+  id            String   @id @default(cuid())
+  coachId       String   @map("coach_id")
+  coach         User     @relation("CoachPrograms", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  name          String
+  description   String?
+  durationWeeks Int?     @map("duration_weeks")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  blocks      Block[]
+  assignments ProgramAssignment[]
+
+  @@index([coachId])
+  @@map("programs")
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  programId String   @map("program_id")
+  program   Program  @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  name      String
+  order     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  weeks Week[]
+
+  @@unique([programId, order])
+  @@index([programId])
+  @@map("blocks")
+}
+
+model Week {
+  id        String   @id @default(cuid())
+  blockId   String   @map("block_id")
+  block     Block    @relation(fields: [blockId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // Numero visible para el usuario (ej. "Semana 3"), distinto de `order`
+  // (posicion de presentacion), segun docs/database.md.
+  number    Int
+  order     Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  sessions Session[]
+
+  @@unique([blockId, order])
+  @@index([blockId])
+  @@map("weeks")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  weekId    String    @map("week_id")
+  week      Week      @relation(fields: [weekId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  name      String
+  dayOfWeek Int?      @map("day_of_week")
+  order     Int
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  sessionExercises SessionExercise[]
+  // Restrict: ver relacion inversa en WorkoutLog. Una Session con historial
+  // real no puede eliminarse (docs/database.md, seccion "Integridad y
+  // constraints").
+  workoutLogs      WorkoutLog[]
+  contextMessages  Message[]
+
+  @@unique([weekId, order])
+  @@index([weekId])
+  @@map("sessions")
+}
+
+model SessionExercise {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  exerciseId String   @map("exercise_id")
+  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  order      Int
+
+  targetSets Int? @map("target_sets")
+
+  // Representacion relacional de un valor fijo o un rango de repeticiones,
+  // sin usar JSON (docs/database.md, seccion 8 de PROMPT 02): un valor fijo
+  // se guarda con min = max (ej. 10/10); un rango como min < max (ej. 8/12).
+  targetRepsMin Int? @map("target_reps_min")
+  targetRepsMax Int? @map("target_reps_max")
+
+  targetRpe   Decimal? @db.Decimal(3, 1) @map("target_rpe")
+  targetRir   Int?     @map("target_rir")
+  restSeconds Int?     @map("rest_seconds")
+  notes       String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Restrict: no se puede eliminar una prescripcion de ejercicio si ya tiene
+  // series realmente registradas por el alumno.
+  setLogs     SetLog[]
+  importRows  ExcelImportRow[]
+  contextMessages Message[]
+
+  @@unique([sessionId, order])
+  @@index([sessionId])
+  @@map("session_exercises")
+}
+
+// ---------------------------------------------------------------------------
+// ASIGNACION DE PROGRAMAS
+// ---------------------------------------------------------------------------
+
+model ProgramAssignment {
+  id         String                  @id @default(cuid())
+  programId  String                  @map("program_id")
+  program    Program                 @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studentId  String                  @map("student_id")
+  student    User                    @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  status     ProgramAssignmentStatus @default(ACTIVE)
+  assignedAt DateTime                @default(now()) @map("assigned_at")
+  createdAt  DateTime                @default(now()) @map("created_at")
+  updatedAt  DateTime                @updatedAt @map("updated_at")
+
+  // La restriccion que evita una asignacion ACTIVA duplicada del mismo
+  // programa al mismo alumno es un indice unico PARCIAL (solo WHERE status =
+  // 'ACTIVE'), que Prisma no expresa de forma nativa en el DSL: se agrega a
+  // mano en la migracion SQL (ver prisma/migrations/ y docs/database.md).
+  @@index([studentId])
+  @@index([programId])
+  @@map("program_assignments")
+}
+
+// ---------------------------------------------------------------------------
+// EJECUCION: WorkoutLog -> SetLog (nunca fusionada con la prescripcion)
+// ---------------------------------------------------------------------------
+
+model WorkoutLog {
+  id        String  @id @default(cuid())
+  sessionId String  @map("session_id")
+  // Restrict: protege el principio central del modelo. Ver docs/database.md.
+  session   Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  studentId String  @map("student_id")
+  student   User    @relation("StudentWorkoutLogs", fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  performedAt      DateTime                @default(now()) @map("performed_at")
+  completionStatus WorkoutCompletionStatus @map("completion_status")
+  overallRpe       Decimal?                @db.Decimal(3, 1) @map("overall_rpe")
+  fatigue          Int?
+  comments         String?
+  durationMinutes  Int?                    @map("duration_minutes")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  setLogs SetLog[]
+
+  @@index([studentId, performedAt])
+  @@index([sessionId])
+  @@map("workout_logs")
+}
+
+model SetLog {
+  id                String          @id @default(cuid())
+  workoutLogId      String          @map("workout_log_id")
+  workoutLog        WorkoutLog      @relation(fields: [workoutLogId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sessionExerciseId String          @map("session_exercise_id")
+  // Restrict: protege el principio central del modelo. Ver docs/database.md.
+  sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  setNumber  Int      @map("set_number")
+  actualReps Int?     @map("actual_reps")
+  actualLoad Decimal? @db.Decimal(6, 2) @map("actual_load")
+  actualRpe  Decimal? @db.Decimal(3, 1) @map("actual_rpe")
+  actualRir  Int?     @map("actual_rir")
+  comments   String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([workoutLogId, sessionExerciseId, setNumber])
+  @@index([sessionExerciseId])
+  @@map("set_logs")
+}
+
+// ---------------------------------------------------------------------------
+// IMPORTACION DE EXCEL (trazabilidad; nunca una copia plana del archivo)
+// ---------------------------------------------------------------------------
+
+model ExcelImportBatch {
+  id               String            @id @default(cuid())
+  coachId          String            @map("coach_id")
+  coach            User              @relation("CoachImportBatches", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  originalFilename String            @map("original_filename")
+  status           ExcelImportStatus @default(PENDING_REVIEW)
+  uploadedAt       DateTime          @default(now()) @map("uploaded_at")
+  confirmedAt      DateTime?         @map("confirmed_at")
+
+  rows ExcelImportRow[]
+
+  @@index([coachId])
+  @@map("excel_import_batches")
+}
+
+model ExcelImportRow {
+  id        String               @id @default(cuid())
+  batchId   String               @map("batch_id")
+  batch     ExcelImportBatch     @relation(fields: [batchId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  rowNumber Int                  @map("row_number")
+  // Datos crudos de la fila, solo para trazabilidad/depuracion de la
+  // importacion (docs/database.md). Nunca reemplaza al modelo normalizado.
+  rawData   Json                 @map("raw_data")
+  status    ExcelImportRowStatus
+  errors    Json?
+
+  // Referencia opcional a la prescripcion normalizada resultante una vez
+  // confirmada la importacion.
+  resultSessionExerciseId String?          @map("result_session_exercise_id")
+  resultSessionExercise   SessionExercise? @relation(fields: [resultSessionExerciseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId])
+  @@map("excel_import_rows")
+}
+
+// ---------------------------------------------------------------------------
+// COMUNICACION
+// ---------------------------------------------------------------------------
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String   @map("sender_id")
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  receiverId String   @map("receiver_id")
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  body       String
+
+  sessionId         String?          @map("session_id")
+  session           Session?         @relation(fields: [sessionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  sessionExerciseId String?          @map("session_exercise_id")
+  sessionExercise   SessionExercise? @relation(fields: [sessionExerciseId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  readAt    DateTime? @map("read_at")
+
+  @@index([senderId, receiverId, createdAt])
+  @@map("messages")
+}
+
+// ---------------------------------------------------------------------------
+// AUDITORIA
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id     String @id @default(cuid())
+  // Nullable + SetNull: el registro de auditoria debe sobrevivir aunque el
+  // usuario actor sea eliminado en el futuro (no aplica el mismo principio
+  // de proteccion que el historial de entrenamiento, que usa Restrict).
+  actorId    String? @map("actor_id")
+  actor      User?   @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  action     String
+  entityType String  @map("entity_type")
+  entityId   String  @map("entity_id")
+  metadata   Json?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([actorId])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// AUTENTICACION Y AUTORIZACION (PROMPT 03)
+// ---------------------------------------------------------------------------
+//
+// Decisiones de implementacion (documentadas tambien en docs/security.md y
+// docs/database.md):
+// - No se agregan enums `InvitationStatus`/`RefreshSessionStatus` en la base
+//   de datos: el estado se deriva de columnas de fecha (`expiresAt`,
+//   `revokedAt`, `usedAt`) para evitar una segunda fuente de verdad que
+//   pueda desincronizarse de esas fechas. La capa de aplicacion centraliza
+//   el calculo de estado en TypeScript (ver `src/auth/authorization/` y
+//   `src/auth/tokens/`), nunca con strings magicos sueltos en los servicios.
+// - Solo se almacena el hash del token de refresh y del token de invitacion
+//   (nunca el valor en texto plano), igual que la contrasena.
+
+model RefreshSession {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  // Solo trazabilidad/depuracion: id de la sesion de refresh que reemplazo a
+  // esta durante la rotacion. Deliberadamente NO es una foreign key (evita
+  // complejidad de integridad referencial auto-referenciada en una tabla
+  // cuya proteccion real ya la dan `revokedAt`/`expiresAt`); la deteccion de
+  // reuso de tokens (docs/security.md, punto 12) no depende de esta columna.
+  replacedById String? @map("replaced_by_id")
+
+  userAgent String? @map("user_agent")
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("refresh_sessions")
+}
+
+model StudentInvitation {
+  id        String    @id @default(cuid())
+  email     String
+  coachId   String    @map("coach_id")
+  coach     User      @relation(fields: [coachId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  // Marca de uso unico: no nula una vez que el alumno activa su cuenta con
+  // este token. Una invitacion usada nunca vuelve a aceptarse.
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([coachId])
+  @@index([email])
+  @@map("student_invitations")
 }

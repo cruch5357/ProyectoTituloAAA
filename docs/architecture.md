@@ -122,3 +122,13 @@ Ver la sección de cierre en la respuesta de este PROMPT 00 y `roadmap.md` para 
 | Pendiente | Ventana de edición de un registro ya enviado (propuesto 24h) | Abierto — se valida con el equipo |
 | Pendiente | Variable a predecir por ciencia de datos | Abierto por diseño — depende de datos reales suficientes |
 | Pendiente | Infraestructura de hosting para demo/producción final | Abierto |
+| PROMPT 02 | Modelo de datos definitivo implementado (14 entidades) en `backend/prisma/schema.prisma` | Confirmado |
+| PROMPT 02 | IDs como `String @default(cuid())` en vez de enteros autoincrementales (defensa en profundidad contra IDs adivinables) | Confirmado |
+| PROMPT 02 | `User.tokenVersion` como mecanismo de invalidación de refresh tokens (sin tabla `RefreshToken` separada) | Confirmado, se conecta en PROMPT 03 |
+| PROMPT 02 | Migración inicial de Prisma escrita a mano y verificada contra PostgreSQL real vía `pglite` (WASM), por bloqueo de red a `binaries.prisma.sh` en el entorno de preparación | Confirmado — pendiente de re-verificación del equipo con `prisma generate`/`migrate deploy` en un entorno con internet normal |
+| PROMPT 03 | Autenticación: access token JWT (header `Authorization`) + refresh token **opaco** (no JWT) en cookie httpOnly, con hash SHA-256 en tabla `refresh_sessions` | Confirmado — reemplaza para el refresh token el mecanismo de `tokenVersion` planteado en PROMPT 00/02 (ver `docs/security.md`/`docs/database.md`, secciones de PROMPT 03) |
+| PROMPT 03 | Hashing de contraseñas con Argon2id (`argon2`), no bcrypt | Confirmado |
+| PROMPT 03 | Guard de autenticación implementado a mano con `@nestjs/jwt` (sin Passport/`passport-jwt`) | Confirmado — menos dependencias, control total sobre el formato de error, suficientemente idiomático en NestJS |
+| PROMPT 03 | CSRF de doble envío de cookie aplicado a `/auth/refresh` **y** `/auth/logout` (no solo refresh como decía el punto 9 original) | Confirmado |
+| PROMPT 03 | Autorización por propiedad de recurso: abstracción (`assertOwnsResource`) preparada y probada, sin endpoints de negocio a los que aplicarla todavía | Confirmado — se conecta a partir de PROMPT 04 |
+| PROMPT 03 | `prisma@8` (rc) evaluado como alternativa al bloqueo de `binaries.prisma.sh` | Descartado — la CLI de v8 reestructura todo en torno a "Prisma Platform" y ya no tiene un comando `generate` clásico; se mantiene `prisma@^5.20.0` |
