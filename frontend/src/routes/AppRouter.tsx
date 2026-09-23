@@ -13,6 +13,7 @@ import { ProgramDetailPage } from '../pages/programs/ProgramDetailPage';
 import { BlockDetailPage } from '../pages/blocks/BlockDetailPage';
 import { WeekDetailPage } from '../pages/weeks/WeekDetailPage';
 import { SessionDetailPage } from '../pages/sessions/SessionDetailPage';
+import { MyAssignedProgramsPage } from '../pages/programs/MyAssignedProgramsPage';
 import { RequireAuth } from '../auth/RequireAuth';
 
 // Rutas de "Mis alumnos" protegidas por sesión + rol COACH (PROMPT 04,
@@ -40,6 +41,12 @@ const router = createBrowserRouter([
           { path: 'blocks/:id', element: <BlockDetailPage /> },
           { path: 'weeks/:id', element: <WeekDetailPage /> },
           { path: 'sessions/:id', element: <SessionDetailPage /> },
+        ],
+      },
+      {
+        element: <RequireAuth allowedRoles={['STUDENT']} />,
+        children: [
+          { path: 'my-programs', element: <MyAssignedProgramsPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

@@ -58,6 +58,18 @@ export const AUDIT_ACTIONS = {
   // reversible), no cada creacion/edicion de Program/Block/Week/Session/
   // SessionExercise (bajo riesgo, recursos propios del coach).
   PROGRAM_STATUS_CHANGED: 'programs.status_changed',
+  // PROMPT 09: a diferencia de Program/Block/Week/Session/SessionExercise
+  // (donde solo se audita el cambio de estado), aca SI se audita tambien la
+  // creacion (PROGRAM_ASSIGNMENT_CREATED). Motivo documentado en
+  // docs/security.md, "Estado de implementacion (PROMPT 09)": asignar un
+  // programa es la accion que efectivamente le da a un ALUMNO acceso a una
+  // programacion — a diferencia de crear/editar un Program/Block/Week/
+  // Session, que sigue siendo un recurso privado del coach hasta que se
+  // asigna, esta operacion tiene una consecuencia cruzada entre usuarios
+  // desde el momento en que ocurre, lo que la vuelve una accion critica
+  // segun RNF-10 (docs/requirements.md).
+  PROGRAM_ASSIGNMENT_CREATED: 'program_assignments.created',
+  PROGRAM_ASSIGNMENT_STATUS_CHANGED: 'program_assignments.status_changed',
 } as const;
 
 export const AUDIT_ENTITY_USER = 'User';
@@ -65,3 +77,4 @@ export const AUDIT_ENTITY_REFRESH_SESSION = 'RefreshSession';
 export const AUDIT_ENTITY_STUDENT_INVITATION = 'StudentInvitation';
 export const AUDIT_ENTITY_EXERCISE = 'Exercise';
 export const AUDIT_ENTITY_PROGRAM = 'Program';
+export const AUDIT_ENTITY_PROGRAM_ASSIGNMENT = 'ProgramAssignment';

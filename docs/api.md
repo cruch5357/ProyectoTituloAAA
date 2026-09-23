@@ -223,3 +223,38 @@ A diferencia de `/programs` y `/exercises` (que sí paginan), los listados anida
 ### Alcance explícitamente fuera de PROMPT 08
 
 No se implementó `DELETE` para ningún recurso de esta jerarquía (`programs`, `blocks`, `weeks`, `sessions`, `session-exercises`): el enunciado del prompt solo pide "crear, listar, consultar, editar" (y, únicamente para `Program`, "cambiar su estado") en cada nivel — nunca menciona eliminar bloques/semanas/sesiones/ítems de prescripción, así que no se agregó esa funcionalidad no solicitada. Tampoco se implementó `POST /programs/:id/assign` (asignación de un programa a un alumno, `ProgramAssignment`) ni ningún endpoint de registro de entrenamiento real (`WorkoutLog`/`SetLog`) — ambos permanecen conceptuales (sección 4), fuera de alcance según `docs/roadmap.md`.
+
+## 11. Estado de implementación (PROMPT 09)
+
+Documenta lo agregado en PROMPT 09: la asignación de `Program` a alumnos (`ProgramAssignment`, `backend/src/program-assignments/`) — el puente entre la jerarquía de PRESCRIPCIÓN (sección 10) y, en un prompt futuro, la de EJECUCIÓN (`WorkoutLog`/`SetLog`, fuera de alcance). Formato de respuesta y códigos de error: idénticos a los ya documentados (envoltorio `{ data, error, meta }`).
+
+### Endpoints
+
+- `POST /api/v1/programs/:programId/assign` — asigna un programa propio a un alumno propio. Body: `{ studentId }`.
+- `GET /api/v1/programs/:programId/assignments` — lista las asignaciones de un programa propio (vista Coach), sin paginación (mismo criterio que `blocks`/`weeks`/`sessions`/`session-exercises`: un programa acumula un número acotado de asignaciones).
+- `GET /api/v1/program-assignments/:id` — detalle de una asignación propia (vista Coach).
+- `PATCH /api/v1/program-assignments/:id/status` — activa/finaliza una asignación propia (vista Coach). Body: `{ status: 'ACTIVE' | 'FINISHED' }`.
+- `GET /api/v1/program-assignments/me` — lista las asignaciones del **alumno autenticado** (vista Alumno). Requiere rol `STUDENT` en vez de `COACH` — el único grupo de endpoints del proyecto que combina ambos roles bajo el mismo controller (ver `docs/security.md` para el detalle de por qué `listOwn()` está declarado antes que `detail()` en el código, evitando que Express confunda `/program-assignments/me` con `:id = "me"`).
+
+### `POST /programs/:programId/assign` acepta un único `studentId`, no una lista
+
+La sección 4 de este documento (planificación conceptual, PROMPT 00) describía este endpoint con un body de **lista** de `studentId` ("asigna un programa a uno o varios alumnos"). Se implementa en cambio con un único `studentId` por llamada — exactamente como describe el enunciado de PROMPT 09 en su diagrama de flujo ("Coach → Programa propio → Selecciona Alumno propio → Asigna Programa", siempre en singular, tanto en la sección de reglas de propiedad como en la de frontend) y en su punto 1 ("Asignar un programa a **un** alumno"). Asignar a varios alumnos se logra invocando este mismo endpoint una vez por alumno; cada invocación se valida y audita de forma completamente independiente, lo que además evita tener que decidir un comportamiento "todo o nada" vs. "parcial" ante una lista con algún `studentId` inválido, que ni el enunciado ni `requirements.md` piden.
+
+### Validación de la asignación (secuencia completa)
+
+1-2-3. El `Program` debe existir y pertenecer al coach autenticado (`ProgramsService.findOwnedProgramOrThrow()`, reutilizado sin cambios desde PROMPT 08) → `404` genérico si no.
+4-5. El `studentId` debe existir, ser `STUDENT` y pertenecer al coach autenticado → `404` genérico si no (mismo criterio de no-enumeración que el resto del proyecto: cross-coach nunca distingue "no existe" de "es de otro coach").
+6. El alumno debe estar **activo** (`User.isActive`) → si existe, es propio, pero está inactivo, responde **`422`** (no `404`): el coach ya sabe que ese alumno es suyo (lo ve en `GET /students`), así que informar la causa exacta no es una fuga de información — es una regla de negocio, exactamente como los casos ya documentados de `422` en `session-exercises` (PROMPT 08, `targetRepsMax < targetRepsMin`).
+7. No debe violar la restricción de asignación activa duplicada (`docs/database.md`, sección 13.1) → `409` si ya existe una asignación `ACTIVE` del mismo programa al mismo alumno. Se valida primero con una consulta explícita (mensaje de error más específico) y, como respaldo ante una condición de carrera, capturando el código `P2002` de Prisma si la base de datos rechaza el `INSERT` por el índice único parcial — mismo patrón ya usado en `AuthService.activate()` para el email único de `User`.
+
+### `PATCH /program-assignments/:id/status` — enum, no booleano
+
+A diferencia de `PATCH /programs/:id/status`, `/exercises/:id/status` y `/students/:id/status` (todos con un campo `isActive: boolean`), este endpoint acepta `status: 'ACTIVE' | 'FINISHED'`, porque `ProgramAssignment.status` ya era un enum real desde PROMPT 02 (`docs/database.md`, sección 8.1) — no se agregó un booleano `isActive` nuevo que duplicaría la misma información. Reactivar una asignación (`FINISHED` → `ACTIVE`) vuelve a validar la restricción de no-duplicados, por si mientras tanto se creó una nueva asignación `ACTIVE` del mismo programa/alumno.
+
+### `GET /program-assignments/me` — acceso del Alumno
+
+Primer endpoint del proyecto exclusivo del rol `STUDENT` fuera de `/auth/*`. El `studentId` usado para filtrar sale siempre de `CurrentUser()` (JWT ya verificado) — este endpoint no acepta ningún id externo, así que un alumno no tiene forma de pedir ni ver las asignaciones de otro alumno. Responde el resumen embebido del programa (`{ id, name, description, durationWeeks, isActive }`), pero **no** incluye información de `Block`/`Week`/`Session`: la navegación real del alumno a esa jerarquía (RF-09, RF-16 de `docs/requirements.md`) queda explícitamente fuera de alcance de este prompt, ya que `GET /programs/:id` y el resto de los endpoints de la sección 10 siguen siendo exclusivos de `COACH`.
+
+### Alcance explícitamente fuera de PROMPT 09
+
+No se implementó `DELETE /program-assignments/:id` (la única forma de "desactivar" una asignación es `PATCH .../status`, mismo criterio de no-borrado-físico ya establecido en todo el proyecto). No se implementó ningún endpoint de `WorkoutLog`/`SetLog` ni de navegación de solo lectura del alumno hacia `Block`/`Week`/`Session` — ambos quedan para prompts futuros, según `docs/roadmap.md`.

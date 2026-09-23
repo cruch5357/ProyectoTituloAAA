@@ -16,6 +16,7 @@ import { BlocksModule } from './blocks/blocks.module';
 import { WeeksModule } from './weeks/weeks.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SessionExercisesModule } from './session-exercises/session-exercises.module';
+import { ProgramAssignmentsModule } from './program-assignments/program-assignments.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -56,6 +57,7 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     WeeksModule,
     SessionsModule,
     SessionExercisesModule,
+    ProgramAssignmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

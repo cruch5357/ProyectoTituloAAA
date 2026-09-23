@@ -7,9 +7,17 @@ import {
   useUpdateProgramStatus,
 } from '../../api/programs';
 import { useBlocks, useCreateBlock } from '../../api/blocks';
+import { useStudents } from '../../api/students';
+import {
+  useProgramAssignments,
+  useAssignProgram,
+  useUpdateProgramAssignmentStatus,
+} from '../../api/programAssignments';
 import { ApiError } from '../../lib/apiClient';
 import { ProgramStatusBadge } from './ProgramStatusBadge';
+import { AssignmentStatusBadge } from './AssignmentStatusBadge';
 import type { Program } from '../../types/program';
+import type { ProgramAssignmentStatus } from '../../types/programAssignment';
 
 // Detalle + edición de un programa propio, más la administración de sus
 // bloques (PROMPT 08: "Program -> Block -> Week -> Session"). Estructura
@@ -159,6 +167,8 @@ function ProgramEditForm({ program }: { program: Program }) {
       )}
 
       <ProgramBlocksSection programId={program.id} />
+
+      <ProgramAssignmentsSection programId={program.id} />
     </section>
   );
 }
@@ -224,6 +234,138 @@ function ProgramBlocksSection({ programId }: { programId: string }) {
       {createBlockMutation.isError && (
         <p role="alert" className="field-error">
           No se pudo crear el bloque.
+        </p>
+      )}
+    </section>
+  );
+}
+// Asignación de este programa a alumnos propios (PROMPT 09, "el puente entre
+// PRESCRIPCIÓN y EJECUCIÓN"). Solo alumnos ACTIVOS aparecen en el selector
+// (asignar a un alumno inactivo es rechazado por el backend con 422 — ver
+// docs/api.md, "Estado de implementación (PROMPT 09)"); filtrar en el
+// frontend es únicamente una ayuda de UX, la validación real vuelve a
+// ocurrir en el backend igual que en el resto del proyecto.
+function ProgramAssignmentsSection({ programId }: { programId: string }) {
+  const assignmentsQuery = useProgramAssignments(programId);
+  const studentsQuery = useStudents({ page: 1, limit: 100 });
+  const assignMutation = useAssignProgram(programId);
+  const updateStatusMutation = useUpdateProgramAssignmentStatus(programId);
+
+  const [studentId, setStudentId] = useState('');
+
+  const activeStudents =
+    studentsQuery.data?.items.filter((student) => student.isActive) ?? [];
+
+  async function handleAssign(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      await assignMutation.mutateAsync(studentId);
+      setStudentId('');
+    } catch {
+      // El error queda disponible en assignMutation.error.
+    }
+  }
+
+  function handleToggleStatus(
+    assignmentId: string,
+    currentStatus: ProgramAssignmentStatus,
+  ) {
+    updateStatusMutation.mutate({
+      id: assignmentId,
+      status: currentStatus === 'ACTIVE' ? 'FINISHED' : 'ACTIVE',
+    });
+  }
+
+  return (
+    <section>
+      <h2>Alumnos asignados</h2>
+
+      {assignmentsQuery.isLoading && <p>Cargando asignaciones…</p>}
+
+      {assignmentsQuery.isSuccess && assignmentsQuery.data.length === 0 && (
+        <p>Este programa todavía no está asignado a ningún alumno.</p>
+      )}
+
+      {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
+        <table className="students-table">
+          <thead>
+            <tr>
+              <th>Alumno</th>
+              <th>Correo</th>
+              <th>Estado</th>
+              <th>Asignado</th>
+              <th aria-label="Acciones" />
+            </tr>
+          </thead>
+          <tbody>
+            {assignmentsQuery.data.map((assignment) => (
+              <tr key={assignment.id}>
+                <td>{assignment.student?.name ?? '—'}</td>
+                <td>{assignment.student?.email ?? '—'}</td>
+                <td>
+                  <AssignmentStatusBadge status={assignment.status} />
+                </td>
+                <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+                <td>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleToggleStatus(assignment.id, assignment.status)
+                    }
+                    disabled={
+                      updateStatusMutation.isPending &&
+                      updateStatusMutation.variables?.id === assignment.id
+                    }
+                  >
+                    {assignment.status === 'ACTIVE' ? 'Finalizar' : 'Reactivar'}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <form onSubmit={handleAssign} className="inline-create-form">
+        <label className="field">
+          <span>Asignar a alumno</span>
+          <select
+            required
+            value={studentId}
+            onChange={(event) => setStudentId(event.target.value)}
+            disabled={studentsQuery.isLoading || assignMutation.isPending}
+          >
+            <option value="">Selecciona un alumno…</option>
+            {activeStudents.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name} ({student.email})
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={assignMutation.isPending || studentId.length === 0}
+        >
+          {assignMutation.isPending ? 'Asignando…' : 'Asignar programa'}
+        </button>
+      </form>
+
+      {studentsQuery.isSuccess && activeStudents.length === 0 && (
+        <p>No tienes alumnos activos disponibles para asignar.</p>
+      )}
+
+      {assignMutation.isError && (
+        <p role="alert" className="field-error">
+          {assignMutation.error instanceof ApiError
+            ? assignMutation.error.message
+            : 'No se pudo asignar el programa.'}
+        </p>
+      )}
+
+      {updateStatusMutation.isError && (
+        <p role="alert" className="field-error">
+          No se pudo actualizar el estado de la asignación.
         </p>
       )}
     </section>

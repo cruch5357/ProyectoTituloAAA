@@ -329,3 +329,58 @@ Primera versión funcional de "Mis programas" (React Router + TanStack Query, mi
 ### Limitación de entorno: nueva, específica de este prompt
 
 Se confirmó que el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) **también** aplica al puente de ejecución de comandos hacia la máquina real del equipo (no solo al entorno de preparación en la nube): `npx prisma migrate status` fue intentado directamente desde ese puente y devolvió el mismo error `403 Forbidden`. En consecuencia, ninguna migración de este proyecto puede aplicarse ni verificarse contra una base de datos real desde ningún entorno accesible por el asistente — siempre debe ejecutarla el equipo, en su propia terminal, fuera de este puente. Adicionalmente, se descubrió que ese mismo puente **no puede ejecutar las pruebas e2e** (`test/*.e2e-spec.ts`) de ningún módulo, incluyendo los ya existentes de PROMPT 04/07: el cliente Prisma real allí instalado fue generado para el motor nativo de Windows (`query_engine-windows.dll.node`), pero el puente corre sobre una VM Linux, que requiere el motor `debian-openssl-3.0.x` (no incluido en `binaryTargets`, y no descargable por el bloqueo de red anterior). Se verificó que esto no es una regresión de este prompt reproduciendo el mismo error contra `test/exercises.e2e-spec.ts` (ya existente, sin cambios) antes de asumir que era un problema del código nuevo. El resto de la verificación (pruebas unitarias con Prisma mockeado, `tsc`, `eslint`, `nest build`, `vitest`, `vite build`) no depende de un motor real y se ejecutó sin problema — ver el informe de cierre de este prompt para el detalle completo.
+
+## Estado de implementación (PROMPT 09)
+
+Documenta la autorización de `ProgramAssignment` (`backend/src/program-assignments/`), el primer recurso del proyecto que conecta dos entidades propiedad de un mismo coach (`Program` y `User`/Student) **sin que exista una relación directa entre ambas** fuera de la propia tabla puente, y el primer conjunto de endpoints que combina dos roles (`COACH` y `STUDENT`) bajo un criterio de autorización distinto por método.
+
+### Doble verificación de propiedad, independiente (puntos 3, 5)
+
+A diferencia de `SessionExercise` (PROMPT 08), donde una única cadena de relaciones (`session.week.block.program.coachId`) resuelve la propiedad completa, aquí no existe ninguna cadena que conecte `Program` con `User`/Student: son dos ramas separadas del modelo (`docs/database.md`, sección 2) que solo se tocan a través de `ProgramAssignment` mismo. `ProgramAssignmentsService.assign()` por lo tanto verifica **dos propiedades de forma explícita e independiente**, en este orden:
+
+1. El `Program` pertenece al coach autenticado — reutilizando `ProgramsService.findOwnedProgramOrThrow()` sin ninguna modificación (mismo método que ya usa `BlocksService` desde PROMPT 08).
+2. El `studentId` referenciado es un `User` con `role = STUDENT` y `coachId` igual al coach autenticado — consultado directamente contra `User`, mismo patrón que `SessionExercisesService` verificando `Exercise.coachId` de forma independiente a la cadena de `Session` (PROMPT 08, "Segunda verificación de propiedad independiente").
+
+Ambas verificaciones responden **404** (nunca 403) tanto si el recurso no existe como si pertenece a otro coach, sin distinguir los dos casos — mismo criterio ya establecido en todo el proyecto desde PROMPT 04.
+
+### `404` vs. `422`: cuándo informar SÍ es aceptable
+
+Este prompt introduce el primer caso del proyecto donde, tras pasar la verificación de propiedad, se rechaza la operación con **`422`** en vez de **`404`**: un alumno propio pero **inactivo** (`ensureOwnedActiveStudent()`). La distinción es deliberada: un `404` genérico existe para no confirmarle a un coach que un id ajeno corresponde a un recurso real (fuga de información entre coaches); pero el coach que intenta esta asignación **ya sabe** que ese alumno es suyo — lo ve listado en `GET /students` con su propio `isActive`. Informar "está inactivo" en este caso no revela nada que el coach no supiera ya, y es exactamente el tipo de regla de negocio para la que `docs/api.md` (sección 5) reserva el código `422` ("entidad válida en forma pero inválida en reglas de negocio").
+
+### Prevención de duplicados: chequeo proactivo + barrera autoritativa (punto 21)
+
+`ensureNoActiveDuplicate()` consulta explícitamente si ya existe una asignación `ACTIVE` del mismo programa/alumno antes de intentar el `INSERT`/`UPDATE`, dando un mensaje de error específico. Como esa consulta y la escritura no son atómicas entre sí, el código además captura el error `P2002` de Prisma (violación del índice único parcial `program_assignments_active_unique`, `docs/database.md` sección 13.1) como respaldo ante una condición de carrera — mismo patrón exacto ya usado en `AuthService.activate()` para el email único de `User` (ver el `try/catch` de esa función). Este es el primer módulo del proyecto que se apoya en un índice único **parcial** (no uno simple) como barrera autoritativa final.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+`AssignProgramDto` declara únicamente `studentId`; `UpdateProgramAssignmentStatusDto` declara únicamente `status`. `ProgramAssignmentsService` construye su objeto `data` de Prisma campo por campo en ambos casos (`{ programId, studentId }` en `create()`, `{ status: dto.status }` en `updateStatus()`) — nunca con spread del DTO — verificado con una prueba unitaria explícita que inspecciona las claves de `data`. `status` nace siempre `ACTIVE` (default del schema) y `assignedAt` siempre `now()` (default del schema): ninguno de los dos es elegible por el cliente en `POST /programs/:programId/assign`.
+
+### Autorización por rol combinada en un mismo controller
+
+`ProgramAssignmentsController` (`/program-assignments/:id`, `/program-assignments/:id/status`, `/program-assignments/me`) es el primer controller del proyecto que **no** aplica `@Roles(...)` a nivel de clase: `listOwn()` (vista Alumno) exige `Role.STUDENT` y `detail()`/`updateStatus()` (vista Coach) exigen `Role.COACH`, cada uno declarado a nivel de método. Esto es seguro porque `RolesGuard` usa `Reflector.getAllAndOverride()` (`context.getHandler()` antes que `context.getClass()`), así que el metadato del método siempre prevalece sobre el de la clase — que, al no declarar `@Roles(...)`, no restringe por rol por sí sola — verificado con pruebas unitarias que leen el metadato de cada método por separado.
+
+**Orden de declaración de rutas, no solo de guards:** `listOwn()` (`GET /program-assignments/me`) está declarado **antes** que `detail()` (`GET /program-assignments/:id`) en el código fuente del controller. NestJS registra las rutas de un controller en el orden en que se declaran sus métodos, y el router hace matching en ese mismo orden: si `:id` se registrara primero, una request a `/program-assignments/me` coincidiría con `id = "me"` antes de que el método `listOwn()` tuviera oportunidad de ejecutarse (el id inválido recién se rechazaría con `400` dentro de esa rama equivocada, nunca llegando a `listOwn()`). Mismo problema clásico ya resuelto en frameworks REST para `/users/me` vs. `/users/:id`.
+
+### Auditoría — desviación deliberada del criterio de PROMPT 07/08 (punto 18)
+
+Todos los recursos anteriores de la jerarquía de prescripción (`Program`, `Block`, `Week`, `Session`, `SessionExercise`) y el catálogo de `Exercise` auditan **únicamente** su cambio de estado, nunca su creación (criterio establecido en PROMPT 07 y reafirmado en PROMPT 08: crear/editar un recurso propio del coach es una operación de bajo riesgo). `ProgramAssignment` **rompe ese criterio deliberadamente**: se audita tanto `program_assignments.created` como `program_assignments.status_changed`. Motivo: a diferencia de crear un `Program`/`Block`/`Week`/`Session` (que sigue siendo un recurso privado del coach hasta que se asigna), crear una `ProgramAssignment` es la acción que efectivamente **le da a un ALUMNO acceso a una programación** — tiene una consecuencia cruzada entre usuarios desde el instante en que ocurre, lo que la vuelve una acción crítica según RNF-10 (`docs/requirements.md`), a diferencia de las operaciones puramente internas del coach que PROMPT 07/08 decidieron no auditar.
+
+### Sin borrado físico (preservación de historial)
+
+`ProgramAssignmentsController` no expone `DELETE`. La única forma de "desactivar/finalizar" una asignación es `PATCH /program-assignments/:id/status` con `{ status: 'FINISHED' }` — reversible (se puede volver a `ACTIVE` si no viola la restricción de duplicados), mismo criterio de no-borrado-físico ya establecido en todo el proyecto desde PROMPT 04.
+
+### Rate limiting (punto 11)
+
+Todos los endpoints de `program-assignments` usan el throttler `"default"` general, mismo criterio que `/programs`, `/blocks`, `/weeks`, `/sessions`, `/session-exercises` (no son endpoints de autenticación ni de alto riesgo de fuerza bruta).
+
+### Base de datos
+
+Sin ningún cambio de esquema ni migración nueva — ver `docs/database.md`, sección 13.1.
+
+### Frontend
+
+Se integró la asignación dentro del flujo existente de "Mis programas" (vista Coach, en `ProgramDetailPage`) en vez de crear una pantalla separada: seleccionar un alumno propio **activo** de un `<select>` (mismo patrón que el selector de ejercicios del catálogo en `SessionDetailPage`, PROMPT 08) y ver la tabla de asignaciones con su estado. Filtrar el `<select>` a solo alumnos activos es únicamente una ayuda de UX — el backend vuelve a validar `isActive` de forma autoritativa (`422` si se intentara igual). Se agregó además una pantalla mínima nueva para el Alumno (`MyAssignedProgramsPage`, ruta `/my-programs`, protegida por `RequireAuth allowedRoles={['STUDENT']}`) que solo lista sus asignaciones — sin ningún link hacia `Block`/`Week`/`Session`, porque esos endpoints siguen siendo exclusivos de `COACH` en el backend (ver `docs/api.md`, sección 11). Como siempre, la protección de rutas del frontend es únicamente una ayuda de UX; la única barrera de seguridad real son los guards de backend documentados arriba.
+
+### Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada desde PROMPT 01/08 (bloqueo de red hacia `binaries.prisma.sh`; el puente de ejecución hacia la máquina real del equipo tampoco puede correr pruebas e2e con base de datos real ni `prisma generate`/`migrate`). Como este prompt no agrega ninguna migración, no hay ningún paso adicional de `prisma migrate` pendiente más allá de los ya reportados en prompts anteriores.

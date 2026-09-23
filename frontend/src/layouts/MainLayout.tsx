@@ -23,6 +23,9 @@ export function MainLayout() {
               <Link to="/programs">Mis programas</Link>
             </>
           )}
+          {status === 'authenticated' && user?.role === 'STUDENT' && (
+            <Link to="/my-programs">Mis programas asignados</Link>
+          )}
           {status === 'authenticated' && user && (
             <>
               <span>{user.name}</span>

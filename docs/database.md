@@ -259,3 +259,19 @@ El modelo ya definía `order` como columna simple con un índice único compuest
 ### 12.4 Limitación de entorno (sin cambios)
 
 Misma limitación persistente ya documentada desde PROMPT 01 (bloqueo de red hacia `binaries.prisma.sh`, ahora confirmado que también aplica al puente de ejecución hacia la máquina real del equipo, no solo a este entorno de preparación — ver `docs/security.md`, sección "Estado de implementación (PROMPT 08)"). La migración de esta sección es, igual que la de PROMPT 07, un `ALTER TABLE` de una sola columna con default, sin riesgo de pérdida de datos; el equipo debe ejecutar `npx prisma migrate dev` en su entorno real antes de dar por aplicado este cambio.
+
+## 13. Estado de implementación (PROMPT 09)
+
+Documenta el resultado de revisar `ProgramAssignment` antes de tocar cualquier código, tal como exige explícitamente el enunciado de PROMPT 09 ("Revisa especialmente el modelo ProgramAssignment existente en Prisma", "No cambies el modelo si ya soporta correctamente el caso de uso").
+
+### 13.1 Sin ningún cambio de esquema
+
+`ProgramAssignment` ya estaba completo desde PROMPT 02 (sección 8 de este documento): `id`, `programId`, `studentId`, `status` (`ProgramAssignmentStatus`: `ACTIVE`/`FINISHED`), `assignedAt`, `createdAt`, `updatedAt`, con `@@index([studentId])` y `@@index([programId])`. La restricción de "no duplicados" que PROMPT 09 pide respetar (punto 5, "Evitar asignaciones duplicadas cuando las restricciones del modelo lo indiquen") **ya existía** como el índice único parcial `program_assignments_active_unique` (`ON program_assignments(program_id, student_id) WHERE status = 'ACTIVE'`, ver sección 8.1 y la migración inicial `20260916150000_init_prescripcion_ejecucion`), verificado explícitamente en su momento (sección 8.4: "rechaza una segunda asignación ACTIVE duplicada, pero permite una asignación FINISHED adicional del mismo programa/alumno"). No se creó ninguna migración nueva para este prompt — es el primer prompt de negocio del proyecto que no requiere ningún `ALTER TABLE`.
+
+### 13.2 Por qué no hay ninguna cadena de relaciones "gratis" entre Program y Student
+
+A diferencia de `SessionExercise` (PROMPT 08, sección 12), donde `session.week.block.program.coachId` conecta al coach en una sola cadena de relaciones, `ProgramAssignment` conecta dos entidades (`Program` y `User`/Student) que **no tienen relación directa entre sí** más que a través de esta misma tabla puente. Esto significa que verificar "el programa es del coach" y "el alumno es del coach" son dos consultas/verificaciones independientes, nunca una sola cadena `include` anidada — ver `docs/security.md`, "Estado de implementación (PROMPT 09)", para el detalle de cómo se resuelve esto en `ProgramAssignmentsService`.
+
+### 13.3 Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada desde PROMPT 01 (bloqueo de red hacia `binaries.prisma.sh`) y desde PROMPT 08 (el puente de ejecución hacia la máquina real del equipo tampoco puede correr pruebas e2e con base de datos real, ni `prisma generate`/`migrate`). Como este prompt no agrega ninguna migración, no hay nada nuevo que el equipo deba aplicar en `schema.prisma`/`prisma/migrations/` — solo se recuerda que el índice único parcial de la sección 13.1 sigue siendo la barrera autoritativa final, más allá de la validación en la capa de servicio.
