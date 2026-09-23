@@ -17,6 +17,9 @@ import { WeeksModule } from './weeks/weeks.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { SessionExercisesModule } from './session-exercises/session-exercises.module';
 import { ProgramAssignmentsModule } from './program-assignments/program-assignments.module';
+import { StudentTrainingModule } from './student-training/student-training.module';
+import { WorkoutLogsModule } from './workout-logs/workout-logs.module';
+import { SetLogsModule } from './set-logs/set-logs.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -58,6 +61,9 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     SessionsModule,
     SessionExercisesModule,
     ProgramAssignmentsModule,
+    StudentTrainingModule,
+    WorkoutLogsModule,
+    SetLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

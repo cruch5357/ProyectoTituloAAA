@@ -70,6 +70,14 @@ export const AUDIT_ACTIONS = {
   // segun RNF-10 (docs/requirements.md).
   PROGRAM_ASSIGNMENT_CREATED: 'program_assignments.created',
   PROGRAM_ASSIGNMENT_STATUS_CHANGED: 'program_assignments.status_changed',
+  // PROMPT 10: a diferencia de crear/editar un SetLog individual (bajo
+  // riesgo, dato propio del alumno, demasiado granular para auditar uno por
+  // uno), SI se audita iniciar y finalizar un WorkoutLog: son los dos puntos
+  // donde nace y se cierra el primer registro real de ejecucion del sistema
+  // (RNF-10, docs/requirements.md), valioso para trazabilidad y para el
+  // futuro dashboard/comparacion planificado vs. real.
+  WORKOUT_LOG_STARTED: 'workout_logs.started',
+  WORKOUT_LOG_FINISHED: 'workout_logs.finished',
 } as const;
 
 export const AUDIT_ENTITY_USER = 'User';
@@ -78,3 +86,4 @@ export const AUDIT_ENTITY_STUDENT_INVITATION = 'StudentInvitation';
 export const AUDIT_ENTITY_EXERCISE = 'Exercise';
 export const AUDIT_ENTITY_PROGRAM = 'Program';
 export const AUDIT_ENTITY_PROGRAM_ASSIGNMENT = 'ProgramAssignment';
+export const AUDIT_ENTITY_WORKOUT_LOG = 'WorkoutLog';

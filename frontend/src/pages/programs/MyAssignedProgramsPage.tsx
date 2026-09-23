@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useMyProgramAssignments } from '../../api/programAssignments';
 import { ApiError } from '../../lib/apiClient';
 import { AssignmentStatusBadge } from './AssignmentStatusBadge';
@@ -9,13 +10,11 @@ import { AssignmentStatusBadge } from './AssignmentStatusBadge';
 // responsive existente (mismas clases ya usadas en "Mis alumnos"/"Mis
 // programas": `.page-header`, `.students-table`, `.status-badge`).
 //
-// Deliberadamente NO navega todavía a Program -> Block -> Week -> Session:
-// el alumno no tiene acceso a GET /programs/:id (ese endpoint sigue siendo
-// exclusivo de COACH, ver backend/src/programs/programs.controller.ts), así
-// que esta pantalla solo muestra el resumen embebido del programa que ya
-// viene en la respuesta de la asignación. Queda preparada para que un
-// prompt futuro agregue las rutas de solo lectura que el alumno necesitará
-// para entrar a esa jerarquía (RF-09 y RF-16, docs/requirements.md).
+// PROMPT 10 agregó la navegación real hacia Program -> Block -> Week ->
+// Session -> WorkoutLog (backend/src/student-training/, rutas
+// /student/...): el nombre del programa ahora enlaza a esa jerarquía de
+// solo lectura, desde donde el alumno llega a iniciar/registrar su
+// ejecución real (RF-21 a RF-23, docs/requirements.md).
 export function MyAssignedProgramsPage() {
   const assignmentsQuery = useMyProgramAssignments();
 
@@ -52,7 +51,15 @@ export function MyAssignedProgramsPage() {
           <tbody>
             {assignmentsQuery.data.map((assignment) => (
               <tr key={assignment.id}>
-                <td>{assignment.program?.name ?? '—'}</td>
+                <td>
+                  {assignment.program ? (
+                    <Link to={`/student/programs/${assignment.program.id}`}>
+                      {assignment.program.name}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
+                </td>
                 <td>
                   {assignment.program?.durationWeeks
                     ? `${assignment.program.durationWeeks} semanas`

@@ -258,3 +258,69 @@ Primer endpoint del proyecto exclusivo del rol `STUDENT` fuera de `/auth/*`. El 
 ### Alcance explícitamente fuera de PROMPT 09
 
 No se implementó `DELETE /program-assignments/:id` (la única forma de "desactivar" una asignación es `PATCH .../status`, mismo criterio de no-borrado-físico ya establecido en todo el proyecto). No se implementó ningún endpoint de `WorkoutLog`/`SetLog` ni de navegación de solo lectura del alumno hacia `Block`/`Week`/`Session` — ambos quedan para prompts futuros, según `docs/roadmap.md`.
+
+## 12. Estado de implementación (PROMPT 10)
+
+Documenta lo agregado en PROMPT 10: el registro real de entrenamiento del alumno (`WorkoutLog`/`SetLog`), incluyendo el paso previo — inexistente hasta ahora — de que el alumno pueda **navegar de solo lectura** hacia la jerarquía de prescripción (`Program → Block → Week → Session`) que PROMPT 09 dejó pendiente. Formato de respuesta y códigos de error: idénticos a los ya documentados (envoltorio `{ data, error, meta }`).
+
+### Endpoints — navegación del Alumno (solo lectura)
+
+Nuevo controller `backend/src/student-training/`, exclusivo del rol `STUDENT`, siempre autorizado por existencia de un `ProgramAssignment` propio (nunca por `coachId`, que el alumno no tiene):
+
+- `GET /api/v1/student/programs/:id`
+- `GET /api/v1/student/programs/:id/blocks`
+- `GET /api/v1/student/blocks/:id`
+- `GET /api/v1/student/blocks/:id/weeks`
+- `GET /api/v1/student/weeks/:id`
+- `GET /api/v1/student/weeks/:id/sessions`
+- `GET /api/v1/student/sessions/:id` — incluye los `SessionExercise` embebidos (la prescripción completa de la sesión).
+
+Estos endpoints son deliberadamente paralelos a los ya existentes de `/programs`, `/blocks`, `/weeks`, `/sessions` (vista Coach, PROMPT 08) y no los reemplazan ni los reutilizan a nivel de ruta/controller: comparten únicamente los mappers puros (`toPublicProgram`, `toPublicBlock`, etc., que no tienen acoplamiento de autorización) para no duplicar la forma de la respuesta.
+
+### Endpoints — ejecución del Alumno (`WorkoutLog`/`SetLog`)
+
+- `POST /api/v1/sessions/:sessionId/workout-logs` — inicia un registro de entrenamiento para una sesión propia. Requiere que la `ProgramAssignment` correspondiente esté `ACTIVE` (no basta con que exista). Body: `{}` (sin campos; ver diseño de `completionStatus` más abajo).
+- `GET /api/v1/sessions/:sessionId/workout-logs` — lista los `WorkoutLog` propios de esa sesión (un alumno puede repetir una sesión más de una vez).
+- `GET /api/v1/workout-logs/:id` — detalle de un `WorkoutLog` propio, con sus `SetLog` embebidos (cada uno con su `SessionExercise` prescrito embebido, para que el frontend pueda mostrar prescrito-vs-real sin una segunda consulta).
+- `POST /api/v1/workout-logs/:id/set-logs` — registra entre 1 y 50 series en una sola llamada. Body: `{ setLogs: [{ sessionExerciseId, setNumber, actualReps?, actualLoad?, actualRpe?, actualRir?, comments? }, ...] }`.
+- `PATCH /api/v1/workout-logs/:id/finish` — finaliza (o actualiza el resumen de) un entrenamiento. Body: `{ completionStatus, durationMinutes, overallRpe?, fatigue?, comments? }` — `completionStatus` y `durationMinutes` son **obligatorios**.
+
+### `POST /workout-logs/:id/set-logs` acepta un lote, no una serie a la vez
+
+El enunciado de PROMPT 10 pide "Registrar SetLog" como un paso del flujo, sin especificar cardinalidad. Se implementó como lote (1 a 50 ítems) porque es el caso genuino de uso de `Prisma.$transaction` que el mismo enunciado exige ("usa transacciones solo donde varias escrituras relacionadas necesiten atomicidad"): si el alumno termina de registrar varias series de un mismo ejercicio y la serie 3 de 5 viola una restricción, ninguna de las 5 debe quedar guardada a medias. El frontend igual puede usarlo con un arreglo de un solo elemento para el flujo de "una serie a la vez" (ver sección de frontend más abajo) sin perder esta garantía.
+
+### Diseño: `completionStatus` no tiene un valor "en progreso"
+
+`WorkoutCompletionStatus` (`docs/database.md`) solo define `COMPLETED`, `PARTIAL`, `SKIPPED` — no existe un cuarto valor para "entrenamiento iniciado pero aún no finalizado", y el campo es `NOT NULL` sin default. Se decidió **no modificar el schema** (PROMPT 10 exige reutilizar únicamente los campos existentes) y en su lugar:
+
+- `start()` crea el `WorkoutLog` con `completionStatus: PARTIAL` como valor provisorio — nunca visible como "el veredicto final" del alumno, porque `finish()` sobrescribe ese campo con el valor real que el alumno elige.
+- `durationMinutes` (nullable en el schema) se usa como la señal de "finalizado": mientras sea `null`, el `WorkoutLog` se considera en curso; `finish()` lo exige como obligatorio en su DTO, así que un `WorkoutLog` que ya pasó por `finish()` siempre tiene `durationMinutes !== null`.
+- Esa señal habilita una regla de negocio: `POST .../set-logs` responde `409 Conflict` si `durationMinutes !== null` (no se pueden agregar series nuevas a un entrenamiento ya finalizado), pero `finish()` puede volver a llamarse (para corregir el resumen) y los `SetLog` ya existentes se pueden seguir editando, ambos casos sujetos a la ventana de edición de RF-24.
+
+Esta decisión queda documentada también como comentario de clase en `backend/src/workout-logs/workout-logs.service.ts`, para que quede visible en el código y no solo aquí.
+
+### RF-24 — ventana de edición de 24 horas
+
+`backend/src/common/training/edit-window.ts` centraliza la regla (`ensureWithinEditWindow(anchor)`, `EDIT_WINDOW_MS = 24h`) y se aplica en dos lugares con el mismo ancla — **siempre** `WorkoutLog.createdAt`, nunca `SetLog.createdAt` — para que toda la sesión de entrenamiento comparta una única ventana de edición en vez de que cada serie tenga la suya:
+
+- `PATCH /workout-logs/:id/finish`, al volver a llamarse sobre un `WorkoutLog` ya finalizado.
+- `PATCH /set-logs/:id`, al editar una serie ya registrada.
+
+Pasada la ventana, ambos responden `422 Unprocessable Entity`. RF-24 en `requirements.md` sigue marcado como "propuesto, pendiente de validación con el equipo" — se implementó exactamente ese valor propuesto (24h) sin cambiar su estado de pendiente-de-validar.
+
+### Autorización del Alumno — cadena vía `ProgramAssignment`
+
+A diferencia del Coach (que tiene `coachId` directo en `Program`), el Alumno no tiene una columna de propiedad directa en `Block`/`Week`/`Session`. La cadena de autorización, implementada en `StudentTrainingService.findAssignedSessionOrThrow()` y reutilizada por `WorkoutLogsService.start()`, hace dos verificaciones independientes:
+
+1. Resuelve `Session → Week → Block → Program` con un único `include` anidado (igual patrón que el resto del proyecto) → `404` si la cadena no existe.
+2. Verifica, aparte, que exista una fila `ProgramAssignment` para `{ programId, studentId }` (con `status: ACTIVE` cuando la operación lo exige, como iniciar un entrenamiento) → `404` si no hay asignación, sin distinguir "no está asignado" de "no existe" (mismo criterio de no-enumeración de todo el proyecto).
+
+Para `WorkoutLog`/`SetLog` en sí (que sí tienen `studentId`/`workoutLogId` directos), la verificación es directa por igualdad de `studentId`, sin necesidad de recorrer la cadena de nuevo — igual patrón que `Program.coachId` en el Coach.
+
+### Separación prescripción/ejecución — cómo se mantiene en la práctica
+
+Ningún endpoint de este prompt escribe en `Session`, `SessionExercise`, `Week`, `Block` ni `Program`: `StudentTrainingService` es 100% de lectura, y `WorkoutLogsService`/`SetLogsService` solo escriben en `WorkoutLog`/`SetLog`. Los valores prescritos que el frontend muestra junto a los reales (`targetReps`, `targetLoad`, `targetRpe`, `targetRir`) llegan siempre embebidos desde el `include` de `SessionExercise` en la respuesta de `GET /workout-logs/:id`, nunca copiados a una columna de `SetLog` — si el coach edita la prescripción después, el registro ya guardado del alumno sigue mostrando el prescrito vigente al momento de la consulta, no uno "congelado", que es la interpretación más simple compatible con el schema actual (no existe versionado de prescripción).
+
+### Alcance explícitamente fuera de PROMPT 10
+
+No se implementó historial de sesiones ni evolución básica (RF-25: "consultar su historial de sesiones y evolución básica"), dashboard o métricas del coach, comparación coach-vs-alumno, gráficos, service worker/PWA avanzada, edición del alumno sobre la prescripción, ni borrado de `WorkoutLog`/`SetLog` — todos quedan para prompts futuros según `docs/roadmap.md`.
