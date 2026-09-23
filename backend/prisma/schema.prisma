@@ -144,6 +144,14 @@ model Program {
   name          String
   description   String?
   durationWeeks Int?     @map("duration_weeks")
+
+  // PROMPT 08: mismo criterio ya aplicado a Exercise.isActive (PROMPT 07) y
+  // a User.isActive (PROMPT 02) — "cambiar su estado" de un programa se
+  // resuelve como baja logica reversible, nunca como DELETE fisico, para no
+  // poder romper jamas una asignacion (ProgramAssignment) o una prescripcion
+  // (Block/Week/Session/SessionExercise) que ya dependa de este programa.
+  isActive      Boolean  @default(true) @map("is_active")
+
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 

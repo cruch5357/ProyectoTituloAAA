@@ -189,3 +189,40 @@ dialog {
     width: 100%;
   }
 }
+
+/* PROMPT 08: reglas mínimas para "Mis programas" (listas anidadas de
+   bloques/semanas/sesiones y los formularios de creación/prescripción
+   embebidos en las páginas de detalle). Se prioriza el flujo funcional
+   sobre el diseño final, tal como pide el enunciado del prompt. */
+.nested-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0 1rem;
+}
+
+.nested-list li {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.inline-create-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.prescription-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+  padding: 0.75rem;
+  background: #f7f7f7;
+  border-radius: 6px;
+  margin-top: 0.5rem;
+}
+
+.prescription-form .field {
+  min-width: 7rem;
+}

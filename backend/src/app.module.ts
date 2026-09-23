@@ -11,6 +11,11 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { StudentsModule } from './students/students.module';
 import { ExercisesModule } from './exercises/exercises.module';
+import { ProgramsModule } from './programs/programs.module';
+import { BlocksModule } from './blocks/blocks.module';
+import { WeeksModule } from './weeks/weeks.module';
+import { SessionsModule } from './sessions/sessions.module';
+import { SessionExercisesModule } from './session-exercises/session-exercises.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -46,6 +51,11 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     UsersModule,
     StudentsModule,
     ExercisesModule,
+    ProgramsModule,
+    BlocksModule,
+    WeeksModule,
+    SessionsModule,
+    SessionExercisesModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

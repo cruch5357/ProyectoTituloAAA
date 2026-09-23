@@ -8,6 +8,11 @@ import { StudentsListPage } from '../pages/students/StudentsListPage';
 import { StudentDetailPage } from '../pages/students/StudentDetailPage';
 import { ExercisesListPage } from '../pages/exercises/ExercisesListPage';
 import { ExerciseDetailPage } from '../pages/exercises/ExerciseDetailPage';
+import { ProgramsListPage } from '../pages/programs/ProgramsListPage';
+import { ProgramDetailPage } from '../pages/programs/ProgramDetailPage';
+import { BlockDetailPage } from '../pages/blocks/BlockDetailPage';
+import { WeekDetailPage } from '../pages/weeks/WeekDetailPage';
+import { SessionDetailPage } from '../pages/sessions/SessionDetailPage';
 import { RequireAuth } from '../auth/RequireAuth';
 
 // Rutas de "Mis alumnos" protegidas por sesión + rol COACH (PROMPT 04,
@@ -30,6 +35,11 @@ const router = createBrowserRouter([
           { path: 'students/:id', element: <StudentDetailPage /> },
           { path: 'exercises', element: <ExercisesListPage /> },
           { path: 'exercises/:id', element: <ExerciseDetailPage /> },
+          { path: 'programs', element: <ProgramsListPage /> },
+          { path: 'programs/:id', element: <ProgramDetailPage /> },
+          { path: 'blocks/:id', element: <BlockDetailPage /> },
+          { path: 'weeks/:id', element: <WeekDetailPage /> },
+          { path: 'sessions/:id', element: <SessionDetailPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

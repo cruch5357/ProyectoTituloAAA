@@ -173,3 +173,53 @@ Requiere `Authorization: Bearer` + rol `COACH`. Body: `{ isActive: boolean }` �
 ### Alcance explícitamente fuera de PROMPT 07
 
 No se agregó ningún endpoint de programación (`programs`, `blocks`, `weeks`, `sessions`, `session-exercises` como parte de una prescripción real — sección 4 de este documento sigue siendo conceptual para ese dominio). Tampoco se agregó el endpoint de solo lectura para que un alumno vea el detalle de un ejercicio prescrito (RF-09): depende de `SessionExercise` como parte de una programación real, que es alcance de PROMPT 08 en adelante.
+
+---
+
+## 10. Estado de implementación (PROMPT 08)
+
+Documenta lo agregado en PROMPT 08: la jerarquía completa de prescripción (`Program -> Block -> Week -> Session -> SessionExercise`, `backend/src/programs/`, `blocks/`, `weeks/`, `sessions/`, `session-exercises/`), la integración con el catálogo de ejercicios (PROMPT 07) y la primera autorización real por **cadena de propiedad multi-nivel** del proyecto. Formato de respuesta y códigos de error: idénticos a los ya documentados (envoltorio `{ data, error, meta }`).
+
+### Rutas anidadas vs. rutas de recurso propio
+
+Siguiendo el contrato conceptual de la sección 4 (`GET/POST /programs/:id/blocks`, etc.), cada nivel expone dos controllers: uno anidado bajo su padre (solo `GET` lista y `POST` crea, porque ambas operaciones necesitan el id del padre en la ruta) y uno bajo su propio prefijo (`GET`/`PATCH` de detalle y edición, porque esas operaciones ya identifican el recurso por su propio id):
+
+- `GET/POST /api/v1/programs` — CRUD raíz, sin padre.
+- `GET/POST /api/v1/programs/:programId/blocks`, `GET/PATCH /api/v1/blocks/:id`
+- `GET/POST /api/v1/blocks/:blockId/weeks`, `GET/PATCH /api/v1/weeks/:id`
+- `GET/POST /api/v1/weeks/:weekId/sessions`, `GET/PATCH /api/v1/sessions/:id`
+- `GET/POST /api/v1/sessions/:sessionId/exercises`, `GET/PATCH /api/v1/session-exercises/:id`
+
+Todos requieren `Authorization: Bearer` + rol `COACH` (mismas dos capas de guard que `/students` y `/exercises`).
+
+### `PATCH /api/v1/programs/:id/status` en vez de `DELETE /api/v1/programs/:id`
+
+La sección 4 de este documento (planificación conceptual, PROMPT 00) mencionaba `DELETE /programs/:id`. Se aplica la misma desviación ya documentada en las secciones 8 y 9 para `/students` y `/exercises`: la única forma de "eliminar" un programa es `PATCH /programs/:id/status` con `{ isActive: boolean }` (baja lógica reversible). No existe `DELETE` para ningún recurso de esta jerarquía (`programs`, `blocks`, `weeks`, `sessions`, `session-exercises`) — ver "Alcance explícitamente fuera de este prompt" más abajo.
+
+### Creación con posición (`order`) explícita o automática
+
+`POST /programs/:programId/blocks`, `POST /blocks/:blockId/weeks`, `POST /weeks/:weekId/sessions` y `POST /sessions/:sessionId/exercises` aceptan un `order` opcional. Si se omite, el nuevo ítem se agrega al final (siguiente `order` disponible). Si se especifica una posición ya ocupada por un hermano, el servicio la abre corriendo hacia adelante el resto de los hermanos (`Prisma.$transaction`, ver `docs/database.md` sección 12.3) — nunca responde `409` por colisión de `order`, a diferencia de un email duplicado.
+
+### `POST /api/v1/sessions/:sessionId/exercises` — integración con el catálogo (PROMPT 07)
+
+Body: `{ exerciseId, order?, targetSets?, targetRepsMin?, targetRepsMax?, targetRpe?, targetRir?, restSeconds?, notes? }`. `exerciseId` debe referenciar un ejercicio **ya existente** del catálogo del mismo coach autenticado (`GET /exercises`) — nunca se copian sus datos, solo se guarda la relación (`SessionExercise.exerciseId`). `404` genérico ("Ejercicio no encontrado") si el ejercicio no existe o pertenece a otro coach, con el mismo mensaje que usaría `GET /exercises/:id` directamente. `422` si `targetRepsMax` es menor que `targetRepsMin`. Todos los campos de prescripción son exactamente los que ya existían en el modelo `SessionExercise` desde PROMPT 02 — no se expone ningún campo de carga/peso (eso es exclusivo del lado de ejecución, fuera de alcance).
+
+`PATCH /api/v1/session-exercises/:id` acepta además reemplazar `exerciseId` (revalidando la propiedad del nuevo ejercicio); `GET /sessions/:sessionId/exercises` devuelve cada ítem con un resumen embebido del ejercicio (`{ id, name, muscleGroup, isActive }`) para que el frontend no necesite una consulta adicional por fila.
+
+### Autorización por cadena de propiedad multi-nivel
+
+- `Program`: propiedad directa (`Program.coachId`), igual que `Exercise`/`Student`.
+- `Block`: propiedad indirecta vía `Block.program.coachId`.
+- `Week`: propiedad indirecta vía `Week.block.program.coachId`.
+- `Session`: propiedad indirecta vía `Session.week.block.program.coachId`.
+- `SessionExercise`: propiedad indirecta vía `SessionExercise.session.week.block.program.coachId`, **más** una verificación independiente de que `exerciseId` pertenece al mismo coach.
+
+Cada nivel resuelve su cadena completa en una única consulta anidada (`include` de Prisma), nunca con múltiples consultas encadenadas. Todos los niveles responden `404` (nunca `403`) tanto si el recurso no existe como si pertenece a otro coach, sin distinguir los dos casos — mismo criterio ya establecido para `/students` y `/exercises` (ver `docs/security.md`).
+
+### Sin paginación en `blocks`, `weeks`, `sessions`, `session-exercises`
+
+A diferencia de `/programs` y `/exercises` (que sí paginan), los listados anidados (`GET /programs/:id/blocks`, etc.) devuelven **todos** los ítems del padre, ordenados por `order`, sin `page`/`limit`. Justificación: un programa acumula un número acotado de bloques/semanas/sesiones (decenas, no miles), a diferencia de alumnos o del catálogo de ejercicios, que sí pueden crecer sin límite práctico.
+
+### Alcance explícitamente fuera de PROMPT 08
+
+No se implementó `DELETE` para ningún recurso de esta jerarquía (`programs`, `blocks`, `weeks`, `sessions`, `session-exercises`): el enunciado del prompt solo pide "crear, listar, consultar, editar" (y, únicamente para `Program`, "cambiar su estado") en cada nivel — nunca menciona eliminar bloques/semanas/sesiones/ítems de prescripción, así que no se agregó esa funcionalidad no solicitada. Tampoco se implementó `POST /programs/:id/assign` (asignación de un programa a un alumno, `ProgramAssignment`) ni ningún endpoint de registro de entrenamiento real (`WorkoutLog`/`SetLog`) — ambos permanecen conceptuales (sección 4), fuera de alcance según `docs/roadmap.md`.

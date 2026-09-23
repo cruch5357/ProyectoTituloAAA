@@ -53,9 +53,15 @@ export const AUDIT_ACTIONS = {
   // sin el mismo peso de seguridad que dar de baja algo que puede estar en
   // uso en una prescripcion).
   EXERCISE_STATUS_CHANGED: 'exercises.status_changed',
+  // PROMPT 08: mismo criterio que EXERCISE_STATUS_CHANGED — se audita el
+  // cambio de estado de un Program (unica operacion "destructiva",
+  // reversible), no cada creacion/edicion de Program/Block/Week/Session/
+  // SessionExercise (bajo riesgo, recursos propios del coach).
+  PROGRAM_STATUS_CHANGED: 'programs.status_changed',
 } as const;
 
 export const AUDIT_ENTITY_USER = 'User';
 export const AUDIT_ENTITY_REFRESH_SESSION = 'RefreshSession';
 export const AUDIT_ENTITY_STUDENT_INVITATION = 'StudentInvitation';
 export const AUDIT_ENTITY_EXERCISE = 'Exercise';
+export const AUDIT_ENTITY_PROGRAM = 'Program';

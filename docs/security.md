@@ -277,3 +277,55 @@ Primera versión funcional del "Catálogo de ejercicios" (React Router + TanStac
 ### Testing de frontend (primera infraestructura del proyecto)
 
 PROMPT 07 fue el primero en pedir explícitamente pruebas de frontend (renderizado del catálogo, carga, creación, edición, manejo de errores). Como el proyecto no tenía ningún framework de testing de frontend configurado hasta ahora (ver `docs/testing.md`, que ya lo planteaba desde PROMPT 00 sin haberse implementado en PROMPT 03/04/06), se agregó **Vitest** + **@testing-library/react** — la integración estándar para un proyecto Vite, reutilizando `vite.config.ts` en vez de introducir un segundo bundler/config (ej. Jest) para el frontend. Se agregaron 3 archivos de prueba (`ExercisesListPage.test.tsx`, `ExerciseFormDialog.test.tsx`, `ExerciseDetailPage.test.tsx`, 7 casos en total) que mockean `apiClient` directamente (mismo espíritu que mockear `PrismaService` en el backend) en vez de hacer llamadas de red reales. Esta infraestructura queda disponible para que prompts futuros agreguen pruebas de sus propios componentes sin volver a configurarla.
+
+---
+
+## Estado de implementación (PROMPT 08)
+
+Documenta la autorización de la jerarquía de prescripción (`Program -> Block -> Week -> Session -> SessionExercise`, `backend/src/programs/`, `blocks/`, `weeks/`, `sessions/`, `session-exercises/`), el primer caso del proyecto donde la propiedad de un recurso se resuelve a través de **múltiples relaciones indirectas** en vez de un `coachId`/`studentId` directo en la propia fila.
+
+### Autorización por cadena de propiedad multi-nivel (puntos 3, 5)
+
+`Program` mantiene el mismo patrón directo ya usado por `Student`/`Exercise` (`ensureOwnedProgram()`, 404 genérico). Los cuatro niveles siguientes NO tienen `coachId` propio — pertenecen a un coach únicamente a través de su cadena de relaciones (`Block.program.coachId`, `Week.block.program.coachId`, `Session.week.block.program.coachId`, `SessionExercise.session.week.block.program.coachId`). Cada servicio (`BlocksService`, `WeeksService`, `SessionsService`, `SessionExercisesService`) resuelve su cadena completa con una única consulta Prisma anidada (`include` en cascada hasta `Program`) y compara el `coachId` resultante contra `CurrentUser().id` — nunca se confía en que el id del padre recibido en la URL (`:programId`, `:blockId`, `:weekId`, `:sessionId`) coincida con el hijo que realmente se está creando/consultando sin verificarlo contra la base de datos en cada request.
+
+Los cuatro niveles indirectos, igual que `Program`/`Student`/`Exercise`, responden **404** (nunca 403) tanto si el recurso no existe como si pertenece (por cualquier eslabón de su cadena) a otro coach, con el mismo mensaje genérico por nivel ("Bloque no encontrado", "Semana no encontrada", "Sesión no encontrada", "Ejercicio de la sesión no encontrado") — mismo motivo ya documentado: informar cuál de los dos casos ocurrió ya sería una fuga de información.
+
+### Segunda verificación de propiedad independiente: `SessionExercise.exerciseId`
+
+`SessionExercisesService` es el único servicio del proyecto que autoriza sobre **dos cadenas de propiedad distintas en la misma operación**: la de la `Session` (arriba) y la del `Exercise` referenciado (`Exercise.coachId`, catálogo de PROMPT 07). Un coach no puede prescribir en su propia sesión un ejercicio del catálogo de otro coach, ni al revés — ambas direcciones quedan bloqueadas por (1) la cadena de la `Session` y (2) esta segunda verificación explícita, independiente, sobre `exerciseId`. Se decidió no depender solo de (1): aunque hoy el modelo no permite catálogos compartidos entre coaches (igual que en PROMPT 07), verificar (2) de forma explícita documenta la intención y protege ante un futuro cambio de modelo hacia ejercicios compartidos.
+
+### Prevención de IDOR/BOLA (punto 21)
+
+Todo `:id` de ruta (`ProgramIdParamDto`, `BlockIdParamDto`, `WeekIdParamDto`, `SessionIdParamDto`, `SessionExerciseIdParamDto`) y todo id de padre en una ruta anidada (`ProgramIdRouteParamDto`, `BlockIdRouteParamDto`, `WeekIdRouteParamDto`, `SessionIdRouteParamDto`) se valida contra el formato de cuid **antes** de tocar la base de datos, mismo criterio que `/students`/`/exercises`. Ningún DTO de query (`ListProgramsQueryDto`) declara `coachId`: un `?coachId=...` es rechazado con `400` por `whitelist`/`forbidNonWhitelisted`, igual que en `/students` y `/exercises`.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+Todos los DTO de edición (`UpdateProgramDto`, `UpdateBlockDto`, `UpdateWeekDto`, `UpdateSessionDto`, `UpdateSessionExerciseDto`) declaran cada campo explícitamente — nunca un `Partial<>` genérico ni el body crudo. Cada servicio construye su objeto `data` de Prisma campo por campo a partir de lo presente en el DTO, nunca con spread directo, verificado con pruebas unitarias que inspeccionan las claves del objeto `data` enviado (mismo patrón que `students.service.spec.ts`/`exercises.service.spec.ts`). `isActive` de `Program` solo es escribible desde `PATCH /programs/:id/status` (`UpdateProgramStatusDto`), nunca desde `PATCH /programs/:id`.
+
+### Sin borrado físico en ningún nivel (preservación de historial)
+
+Ninguno de los cinco recursos de esta jerarquía expone `DELETE`. `Program` sigue el patrón ya establecido (`isActive`, reversible). `Block`/`Week`/`Session`/`SessionExercise` no tienen ningún mecanismo de baja — ni lógica ni física — porque el prompt no lo pidió (ver `docs/api.md`, "Alcance explícitamente fuera de PROMPT 08"); esto además evita tener que decidir ahora cómo tratar una eliminación una vez que `WorkoutLog`/`SetLog` (fuera de alcance) empiecen a depender de `Session`/`SessionExercise` vía `RESTRICT` (ver `docs/database.md`, sección 8).
+
+### Integridad transaccional (`Prisma.$transaction`)
+
+Primer uso de transacciones explícitas del proyecto. Toda operación que reordena hermanos (inserción en una posición ocupada, o mover el `order` de un ítem existente) se ejecuta dentro de `prisma.$transaction()`, para que la base de datos nunca quede en un estado intermedio con dos hermanos compartiendo el mismo `order` (violaría el índice único compuesto) ni con un `order` a medio correr si una escritura intermedia fallara. Ver `docs/database.md`, sección 12.3, para el algoritmo exacto.
+
+### Auditoría (punto 18)
+
+Se agregó una única acción nueva, `programs.status_changed` (`AUDIT_ACTIONS.PROGRAM_STATUS_CHANGED`), registrada por `ProgramsService.updateStatus()` con metadata `{ isActive }` únicamente — mismo criterio ya aplicado a `exercises.status_changed` (PROMPT 07). **Decisión documentada:** no se audita la creación ni edición de `Program`, ni ninguna operación sobre `Block`/`Week`/`Session`/`SessionExercise` (crear, editar, reordenar, agregar/quitar un ejercicio de una sesión) — mismo criterio ya establecido: operaciones de bajo riesgo sobre recursos propios del coach, sin el peso de seguridad de archivar algo que puede estar en uso.
+
+### Rate limiting (punto 11)
+
+Todos los endpoints de esta jerarquía usan el throttler `"default"` general, mismo criterio que `/students` y `/exercises` (no son endpoints de autenticación ni de alto riesgo de fuerza bruta).
+
+### Base de datos
+
+Único cambio de esquema: `Program.isActive` (ver `docs/database.md`, sección 12.1). No se tocó ningún guard, decorador o mecanismo de autenticación existente.
+
+### Frontend
+
+Primera versión funcional de "Mis programas" (React Router + TanStack Query, mismo patrón que "Mis alumnos"/"Catálogo de ejercicios"): listar/crear/archivar programas; entrar a un programa y crear/editar sus bloques; entrar a un bloque y crear/editar sus semanas; entrar a una semana y crear/editar sus sesiones; entrar a una sesión, agregar ejercicios existentes del catálogo y configurar/editar su prescripción. La creación de bloques/semanas/sesiones/ítems de prescripción se resolvió con formularios embebidos en la propia página de detalle del padre (en vez de un diálogo `<dialog>` separado, como en "Mis alumnos"/"Catálogo de ejercicios") porque son creaciones "dentro de un contexto" (construir un programa) y no un alta de nivel superior — decisión de UX, sin implicancia de seguridad: la protección de rutas del frontend (`RequireAuth`) sigue siendo únicamente una ayuda de UX, nunca la barrera real.
+
+### Limitación de entorno: nueva, específica de este prompt
+
+Se confirmó que el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) **también** aplica al puente de ejecución de comandos hacia la máquina real del equipo (no solo al entorno de preparación en la nube): `npx prisma migrate status` fue intentado directamente desde ese puente y devolvió el mismo error `403 Forbidden`. En consecuencia, ninguna migración de este proyecto puede aplicarse ni verificarse contra una base de datos real desde ningún entorno accesible por el asistente — siempre debe ejecutarla el equipo, en su propia terminal, fuera de este puente. Adicionalmente, se descubrió que ese mismo puente **no puede ejecutar las pruebas e2e** (`test/*.e2e-spec.ts`) de ningún módulo, incluyendo los ya existentes de PROMPT 04/07: el cliente Prisma real allí instalado fue generado para el motor nativo de Windows (`query_engine-windows.dll.node`), pero el puente corre sobre una VM Linux, que requiere el motor `debian-openssl-3.0.x` (no incluido en `binaryTargets`, y no descargable por el bloqueo de red anterior). Se verificó que esto no es una regresión de este prompt reproduciendo el mismo error contra `test/exercises.e2e-spec.ts` (ya existente, sin cambios) antes de asumir que era un problema del código nuevo. El resto de la verificación (pruebas unitarias con Prisma mockeado, `tsc`, `eslint`, `nest build`, `vitest`, `vite build`) no depende de un motor real y se ejecutó sin problema — ver el informe de cierre de este prompt para el detalle completo.

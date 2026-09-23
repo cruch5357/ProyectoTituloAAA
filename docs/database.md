@@ -233,3 +233,29 @@ No se tocó ningún otro modelo, relación, índice o constraint. `docs/database
 ### 11.3 Limitación de entorno (sin cambios)
 
 Misma limitación persistente ya documentada en PROMPT 01/02/03/05 (bloqueo de red hacia `binaries.prisma.sh`, imposibilidad de conectar al Postgres real del usuario desde este entorno). La migración de esta sección es un `ALTER TABLE` de una sola columna con default, sin riesgo de pérdida de datos; de todos modos el equipo debe ejecutar `npx prisma generate` y `npx prisma migrate deploy`/`dev` en su entorno real antes de dar por aplicado este cambio, igual que con las migraciones anteriores.
+
+---
+
+## 12. Estado de implementación (PROMPT 08)
+
+Documenta el único cambio de esquema de este prompt: una columna nueva en `Program`, exactamente análoga a la de la sección 11 para `Exercise`. El resto de la jerarquía de prescripción (`Block`, `Week`, `Session`, `SessionExercise`) ya estaba completa desde PROMPT 02 y no requirió ningún cambio de modelo — PROMPT 08 la implementa a nivel de API/servicio, no de esquema.
+
+### 12.1 `programs.is_active`
+
+El modelo `Program` no tenía ninguna forma de representar "archivado". PROMPT 08 pide explícitamente poder "cambiar su estado cuando corresponda" para un programa. Se evaluó si esto correspondía al modelo actual antes de agregar nada: `Program.coachId` ya es `RESTRICT` hacia `users` y `Program` es la raíz de toda la jerarquía de prescripción (`blocks`, `program_assignments`), así que un programa con historial real jamás podría borrarse físicamente sin antes desmontar toda esa jerarquía — el mismo razonamiento que ya justificó `Exercise.isActive` en la sección 11. Se agregó `isActive Boolean @default(true) @map("is_active")` a `Program`, replicando el mismo patrón (nunca un enum de estado nuevo, ver sección 11.1 sobre por qué se descarta esa alternativa).
+
+Migración: `backend/prisma/migrations/20260923160000_programs_soft_delete/migration.sql` — `ALTER TABLE "programs" ADD COLUMN "is_active" BOOLEAN NOT NULL DEFAULT true`. Todos los programas existentes quedan activos por defecto.
+
+### 12.2 `Block`, `Week`, `Session`, `SessionExercise`: sin cambios de esquema
+
+Se releyeron los cuatro modelos completos (sección 8) antes de escribir cualquier DTO/servicio, confirmando exactamente los campos y constraints ya existentes: `@@unique([programId, order])` en `Block`, `@@unique([blockId, order])` en `Week`, `@@unique([weekId, order])` en `Session`, `@@unique([sessionId, order])` en `SessionExercise`, y las CHECK constraints de `SessionExercise` (`target_rpe` 0-10, `target_rir >= 0`, `target_sets > 0`, `target_reps_min >= 0`, `target_reps_max >= target_reps_min`, `rest_seconds >= 0`). Los servicios nuevos (`backend/src/blocks/`, `weeks/`, `sessions/`, `session-exercises/`) validan estos mismos rangos en sus DTOs **antes** de llegar a la base de datos, pero las CHECK constraints siguen siendo la barrera autoritativa final. No se agregó ningún campo de prescripción nuevo (en particular, **no existe** un campo de carga/peso en `SessionExercise`: eso pertenece exclusivamente al lado de EJECUCIÓN, `SetLog.actualLoad`, fuera de alcance de este prompt).
+
+Ninguno de estos cuatro modelos tiene, ni necesitaba, un campo `isActive`: el prompt solo pidió explícitamente "cambiar su estado" para `Program`; para `Block`/`Week`/`Session`/`SessionExercise` no se agregó ningún mecanismo de baja lógica ni de borrado físico (ver `docs/api.md`, sección "Estado de implementación (PROMPT 08)", "Alcance explícitamente fuera de este prompt").
+
+### 12.3 Orden (`order`): estrategia de "insertar y correr" implementada en la capa de servicio
+
+El modelo ya definía `order` como columna simple con un índice único compuesto por nivel (sección 8), pero no existía código que lo usara. PROMPT 08 pide explícitamente usar `Prisma.$transaction` para operaciones que requieran múltiples modificaciones relacionadas. Se implementó, de forma idéntica en `BlocksService`, `WeeksService`, `SessionsService` y `SessionExercisesService`: al crear un ítem en una posición ya ocupada, se corren (`updateMany` con `order: { increment: 1 }`) todos los hermanos con `order >= la posición solicitada`, dentro de la misma transacción que el `create`; al mover el `order` de un ítem existente, se corren los hermanos intermedios un paso en la dirección correspondiente antes de fijar el nuevo valor. Ambas operaciones son atómicas: si cualquier paso falla, no queda ningún hermano con un `order` a medio correr ni se viola nunca el índice único compuesto.
+
+### 12.4 Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada desde PROMPT 01 (bloqueo de red hacia `binaries.prisma.sh`, ahora confirmado que también aplica al puente de ejecución hacia la máquina real del equipo, no solo a este entorno de preparación — ver `docs/security.md`, sección "Estado de implementación (PROMPT 08)"). La migración de esta sección es, igual que la de PROMPT 07, un `ALTER TABLE` de una sola columna con default, sin riesgo de pérdida de datos; el equipo debe ejecutar `npx prisma migrate dev` en su entorno real antes de dar por aplicado este cambio.
