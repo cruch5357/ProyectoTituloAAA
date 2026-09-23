@@ -6,6 +6,10 @@ import { AuditService } from '../audit/audit.service';
 import { PasswordService } from './password/password.service';
 import { TokenService } from './tokens/token.service';
 
+// NOTA (PROMPT 04): las pruebas de `inviteStudent` que vivían acá se
+// movieron a `src/students/students.service.spec.ts`, junto con la
+// reubicación de esa funcionalidad de AuthService a StudentsService
+// (ver docs/api.md, "Estado de implementación (PROMPT 04)").
 type MockPrisma = {
   user: Record<string, jest.Mock>;
   refreshSession: Record<string, jest.Mock>;
@@ -385,30 +389,6 @@ describe('AuthService.logout', () => {
     prisma.refreshSession.findUnique.mockResolvedValue(null);
     await expect(service.logout(undefined)).resolves.toBeUndefined();
     await expect(service.logout('token-inexistente')).resolves.toBeUndefined();
-  });
-});
-
-describe('AuthService.inviteStudent', () => {
-  it('el coachId siempre viene del parámetro explícito, nunca del DTO', async () => {
-    prisma.user.findUnique.mockResolvedValue(null);
-    prisma.studentInvitation.create.mockResolvedValue({ id: 'inv-1' });
-
-    const result = await service.inviteStudent('coach-123', {
-      email: 'alumno@example.com',
-    });
-
-    expect(prisma.studentInvitation.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ coachId: 'coach-123' }),
-    });
-    expect(result.activationToken).toBe('raw-invite');
-  });
-
-  it('rechaza invitar un email que ya tiene cuenta', async () => {
-    prisma.user.findUnique.mockResolvedValue({ ...baseUser });
-
-    await expect(
-      service.inviteStudent('coach-123', { email: 'coach@example.com' }),
-    ).rejects.toBeInstanceOf(ConflictException);
   });
 });
 

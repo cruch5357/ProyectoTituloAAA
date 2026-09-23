@@ -20,9 +20,159 @@ body {
 }
 
 .app-shell__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem;
   font-weight: 600;
   border-bottom: 1px solid #dddddd;
+}
+
+.app-shell__nav {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-weight: 400;
+}
+
+/* ------------------------------------------------------------------- */
+/* Gestión de alumnos (PROMPT 04) — estilos mínimos, sin diseño visual  */
+/* definitivo (instrucción explícita del prompt): priorizan estructura, */
+/* legibilidad y responsividad por sobre estética.                      */
+/* ------------------------------------------------------------------- */
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.field input {
+  padding: 0.5rem;
+  font-size: 1rem;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+}
+
+.field-error {
+  color: #b00020;
+}
+
+.search-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.search-form .field {
+  margin-bottom: 0;
+  min-width: 220px;
+}
+
+.students-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.students-table th,
+.students-table td {
+  text-align: left;
+  padding: 0.6rem 0.5rem;
+  border-bottom: 1px solid #e5e5e5;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.status-badge--active {
+  background: #e3f6e8;
+  color: #1e7a34;
+}
+
+.status-badge--inactive {
+  background: #f6e3e3;
+  color: #a32424;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.detail-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.5rem 0;
+}
+
+.detail-list dt {
+  font-weight: 600;
+}
+
+.detail-list dd {
+  margin: 0;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.dev-only-notice {
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px dashed #b8860b;
+  background: #fff8e1;
+  border-radius: 4px;
+}
+
+.activation-token {
+  display: block;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  word-break: break-all;
+  background: #fffefa;
+  border: 1px solid #e0d8b8;
+  border-radius: 4px;
+}
+
+.login-page {
+  max-width: 360px;
+  margin: 2rem auto;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.35);
+}
+
+dialog {
+  border: none;
+  border-radius: 8px;
+  padding: 1.5rem;
+  max-width: 420px;
+  width: calc(100% - 2rem);
 }
 
 .app-shell__content {

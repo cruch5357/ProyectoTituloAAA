@@ -20,18 +20,12 @@ import {
 } from '@nestjs/swagger';
 import { Request, Response } from 'express';
 import { randomBytes } from 'crypto';
-import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { InviteStudentDto } from './dto/invite-student.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
 import { CsrfGuard } from './guards/csrf.guard';
-import { Roles } from './decorators/roles.decorator';
-import { CurrentUser } from './decorators/current-user.decorator';
-import { AuthenticatedUser } from './guards/jwt-auth.guard';
 import {
   AUTH_THROTTLER_NAME,
   CSRF_COOKIE,
@@ -97,20 +91,6 @@ export class AuthController {
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
     return { data: user, error: null, meta: {} };
-  }
-
-  @Post('students/invite')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(Role.COACH)
-  @ApiBearerAuth()
-  @Throttle({ [AUTH_THROTTLER_NAME]: {} })
-  @ApiOperation({ summary: 'Coach invita a un alumno por email' })
-  async inviteStudent(
-    @CurrentUser() currentUser: AuthenticatedUser,
-    @Body() dto: InviteStudentDto,
-  ) {
-    const result = await this.authService.inviteStudent(currentUser.id, dto);
-    return { data: result, error: null, meta: {} };
   }
 
   @Post('activate')

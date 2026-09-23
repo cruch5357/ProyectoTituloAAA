@@ -109,3 +109,35 @@ Requiere `Authorization: Bearer`. El id del usuario sale únicamente del token v
 ### Errores
 
 Todos los endpoints anteriores respetan los códigos de la sección 5: `400` (DTO inválido o campo no declarado — `whitelist`/`forbidNonWhitelisted` global), `401` (no autenticado / credenciales inválidas / token inválido), `403` (rol incorrecto o CSRF fallido), `409` (email duplicado), `429` (rate limit).
+
+---
+
+## 8. Estado de implementación (PROMPT 04)
+
+Esta sección documenta lo agregado en PROMPT 04: gestión de alumnos por parte del Coach y la primera autorización real por propiedad de recurso (`backend/src/students/`). Reemplaza/actualiza puntualmente lo dicho en la sección 7 sobre `POST /auth/students/invite`.
+
+### Reorganización: `POST /auth/students/invite` → `POST /api/v1/students/invite`
+
+**Decisión:** el endpoint de invitación se movió de `AuthModule` a un nuevo `StudentsModule`, sin cambiar su lógica ni su contrato (mismo body `{ email }`, misma respuesta `{ email, expiresAt, activationToken }`, mismo throttler `"auth"`). La ruta vieja (`/api/v1/auth/students/invite`) **ya no existe** (404) — no se dejaron dos endpoints haciendo lo mismo. Motivo: invitar a un alumno es, conceptualmente, gestión de alumnos (mismo dominio que listar/ver detalle/activar-desactivar), no un mecanismo de autenticación en sí mismo; agruparlo junto al resto de `/students` evita que la lógica de negocio de "alumnos" quede repartida entre dos módulos. `AuthService.inviteStudent()` se eliminó; su lógica pasó, sin modificaciones funcionales, a `StudentsService.invite()`.
+
+### `GET /api/v1/students`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Devuelve **únicamente** los alumnos del coach autenticado — el `coachId` usado para filtrar sale siempre de `CurrentUser()` (token ya verificado), nunca de la query. Un `?coachId=...` enviado por el cliente es **rechazado con 400** (no simplemente ignorado): la configuración global de ValidationPipe (`whitelist`/`forbidNonWhitelisted`) rechaza cualquier query param no declarado en `ListStudentsQueryDto`, y ese DTO deliberadamente no declara `coachId`.
+
+Query params opcionales: `page` (default `1`), `limit` (default `20`, máximo `100`), `search` (búsqueda simple por nombre o email, sin operadores). Respuesta: `{ data: PublicUser[], error: null, meta: { page, limit, total, totalPages } }`.
+
+### `GET /api/v1/students/:id`
+
+Requiere `Authorization: Bearer` + rol `COACH`. `:id` se valida contra el formato de cuid que genera Prisma (`c` + 24 caracteres alfanuméricos); un id con formato inválido responde `400` sin consultar la base de datos. Si el id tiene formato válido pero el alumno no existe, o existe pero pertenece a **otro** coach, responde **`404`** en ambos casos con el mismo mensaje genérico ("Alumno no encontrado") — nunca `403`. Ver `docs/security.md`, sección "Estado de implementación (PROMPT 04)" para la justificación completa de por qué 404 y no 403 acá.
+
+### `PATCH /api/v1/students/:id/status`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Body: `{ isActive: boolean }` — **único** campo que este endpoint puede modificar (nunca `role`, `coachId`, `email` ni `passwordHash`, ni aunque el cliente los envíe: se rechazan con `400` por no estar declarados en `UpdateStudentStatusDto`). Mismo chequeo de propiedad que el detalle: `404` si el alumno no existe o pertenece a otro coach. Registra `students.status_changed` en `AuditLog`.
+
+### `POST /api/v1/students/invite`
+
+Idéntico en comportamiento a lo documentado en la sección 7 para `POST /auth/students/invite` (ver esa sección para el detalle completo), solo que ahora vive bajo `/students`.
+
+### Alcance explícitamente fuera de PROMPT 04
+
+No se implementó edición de perfil del alumno (`PATCH /students/:id` con nombre/email — la sección 4 lo menciona como parte del contrato conceptual, pero `requirements.md` RF-06 solo exige "listar, ver detalle, editar y desactivar"; se interpretó "desactivar" como el único caso de "editar" necesario para el MVP de este prompt, dejando la edición completa de perfil para un prompt futuro si se decide implementarla) ni `DELETE /students/:id` (baja lógica ya se cubre con `isActive: false`, que es reversible — no se agregó una baja adicional). Tampoco se agregó ningún endpoint de ejercicios, programas, sesiones, registros de entrenamiento, Excel, métricas ni mensajería (fuera de alcance explícito de PROMPT 04).

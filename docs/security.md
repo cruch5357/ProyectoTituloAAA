@@ -140,3 +140,91 @@ No se construyó ninguna UI de login en PROMPT 03 (instrucción explícita: la l
 ### Limitación de entorno persistente (Prisma)
 
 `prisma generate`/`migrate` siguen sin poder ejecutarse en el entorno de preparación por el bloqueo de red hacia `binaries.prisma.sh` ya reportado en PROMPT 01/02. En PROMPT 03 se evaluó explícitamente actualizar a `prisma@8` (rc) como posible salida: se descartó porque esa versión reestructura la CLI en torno a "Prisma Platform" (comandos `deploy`/`project`/`postgres`/etc.) y **ya no tiene un comando `generate` clásico equivalente**, por lo que no es compatible con el flujo de PostgreSQL autoalojado de este proyecto. El detalle de cómo se verificó el código igualmente (shim local de tipos, no versionado) está en el informe de cierre de PROMPT 03.
+
+---
+
+## Estado de implementación (PROMPT 04)
+
+Esta sección documenta la **primera autorización real sobre un recurso de negocio** (`Student`, en `backend/src/students/`), y prevalece sobre la sección 3 del documento en caso de diferencia de detalle.
+
+### Autorización sobre recursos/objetos (puntos 3, 4, 5) — primer caso real
+
+Los cuatro endpoints de `StudentsController` (`GET /students`, `GET /students/:id`, `PATCH /students/:id/status`, `POST /students/invite`) aplican las dos capas de autorización descritas en `docs/api.md`, sección 3:
+
+1. **Guard de rol:** `@UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.COACH)` a nivel de clase — un alumno (`STUDENT`) autenticado recibe `403` en cualquiera de los cuatro endpoints.
+2. **Guard de propiedad de recurso:** resuelto en `StudentsService`, nunca en un guard genérico, porque requiere cargar el alumno desde la base de datos antes de poder comparar su `coachId` — un guard no tiene forma de hacer esto sin acoplarse al servicio de negocio. El `coachId` contra el que se compara sale siempre de `CurrentUser()` (JWT ya verificado), nunca de un parámetro de ruta, query o body.
+
+**Desviación documentada respecto a `assertOwnsResource()`:** `resource-ownership.ts` (preparado en PROMPT 03) lanza `ForbiddenException` (403) cuando el recurso no pertenece al usuario. Para `Student` específicamente, `StudentsService` **no usa esa función**: implementa su propio chequeo (`ensureOwnedStudent()`) que lanza `NotFoundException` (404) tanto si el alumno no existe como si existe pero pertenece a otro coach, sin distinguir los dos casos con el mismo mensaje genérico. Motivo (ya establecido en `docs/api.md`, sección 5): un `403` en este caso confirmaría al coach que consulta que *existe* un alumno con ese id (perteneciente a otro coach), lo cual ya es una fuga de información que un id es válido y está en uso. `assertOwnsResource()` sigue disponible sin cambios para recursos futuros donde esa fuga no aplique.
+
+### Prevención de IDOR/BOLA (punto 21)
+
+- El `:id` de ruta se valida contra el formato de cuid (`StudentIdParamDto`, `/^c[a-z0-9]{24}$/`) **antes** de tocar la base de datos: un id con forma inválida responde `400`, nunca dispara una consulta con un valor arbitrario del cliente.
+- `GET /students` nunca acepta un `coachId` de query como mecanismo de autorización: `ListStudentsQueryDto` no declara ese campo, así que la configuración global de ValidationPipe (`whitelist`/`forbidNonWhitelisted`) lo rechaza con `400` automáticamente si el cliente lo envía.
+- El filtro `coachId` se aplica siempre en la cláusula `where` de la consulta Prisma (`role: STUDENT, coachId`), nunca cargando todos los alumnos y filtrando en memoria.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+`PATCH /students/:id/status` usa `UpdateStudentStatusDto`, que declara **únicamente** `isActive: boolean`. `StudentsService.updateStatus()` además construye su propio objeto `data` explícito para Prisma (`{ isActive: dto.isActive }`), nunca reenvía el DTO completo ni el body crudo — así que aunque `whitelist`/`forbidNonWhitelisted` fallaran por algún motivo, el servicio seguiría sin poder escribir `role`, `coachId`, `email` ni `passwordHash` por este endpoint. Verificado con una prueba unitaria explícita (`students.service.spec.ts`) que inspecciona las claves del objeto `data` enviado a `prisma.user.update()`.
+
+### Exposición de información (punto 21)
+
+Las respuestas de los cuatro endpoints reutilizan `toPublicUser()` (`src/common/mappers/public-user.mapper.ts`, ya usado desde PROMPT 03 en login/register/activate/me): nunca se creó una forma de respuesta nueva ni distinta para "alumno" que pudiera, por descuido, exponer `passwordHash` o `tokenVersion`.
+
+### Auditoría (punto 18)
+
+Nueva acción `students.status_changed` en `AUDIT_ACTIONS` (`auth.constants.ts`), registrada por `StudentsService.updateStatus()` con metadata `{ isActive }` únicamente (nunca el estado anterior completo del usuario ni ningún campo sensible). La invitación (`students.invite`, acción `auth.student_invited` sin cambios) se reubicó junto con el resto de `StudentsService.invite()`, sin alterar qué se audita.
+
+### Rate limiting (punto 11)
+
+`POST /students/invite` mantiene el throttler nombrado `"auth"`, igual que cuando vivía bajo `/auth`. Los endpoints de solo lectura/gestión (`GET /students`, `GET /students/:id`, `PATCH /students/:id/status`) usan el throttler `"default"` general: no son endpoints de autenticación ni de alto riesgo de fuerza bruta (requieren ya estar autenticado como Coach).
+
+### Base de datos (sin cambios de esquema)
+
+No se modificó `prisma/schema.prisma` ni se agregó ninguna migración para PROMPT 04. El estado "activo/inactivo" de un alumno ya existía como `User.isActive` (agregado en PROMPT 02, ver `docs/database.md`): `PATCH /students/:id/status` simplemente expone, de forma controlada y auditada, una operación de escritura sobre una columna que ya estaba modelada. Antes de escribir cualquier código se verificó explícitamente que el modelo actual ya soportaba esta funcionalidad (`requirements.md` RF-06/RF-07 no piden ningún campo adicional para el MVP de este prompt).
+
+### Frontend
+
+Ver `docs/api.md` para el contrato de los endpoints. La UI "Mis alumnos" (React Router + TanStack Query) consume estos cuatro endpoints; la protección de rutas en el frontend (ocultar el link de navegación, redirigir si no hay sesión) es exclusivamente una mejora de UX — la única barrera de seguridad real son los guards del backend documentados arriba, verificable llamando a la API directamente sin pasar por la UI.
+
+---
+
+## Estado de implementación (PROMPT 06)
+
+Este prompt pedía implementar autenticación segura completa (registro, login, refresh, logout, roles, CSRF, rate limiting). La inspección previa a cualquier cambio (obligatoria según las reglas del prompt) confirmó que **todo el alcance de backend ya estaba implementado correctamente desde PROMPT 03**, con cobertura de pruebas que ya satisface el punto 16 del prompt en su totalidad. Por eso esta sección documenta principalmente una **verificación**, no una reimplementación, más el único gap real encontrado (frontend).
+
+### Verificación de lo ya implementado (sin duplicar nada)
+
+Se releyeron íntegramente, antes de tocar cualquier archivo:
+
+- `token.service.spec.ts`: cubre firma/verificación válida con el set exacto de claims, rechazo de firma alterada, **rechazo de token expirado** (con `JWT_ACCESS_EXPIRES_IN: '1ms'`), rechazo de secreto incorrecto, hash SHA-256 de refresh tokens.
+- `jwt-auth.guard.spec.ts`: sin header → 401, header no-Bearer → 401, token inválido/alterado → 401, **token expirado → 401**, usuario borrado → 401, usuario inactivo → 401, éxito con `request.user` verificado explícitamente sin `passwordHash`.
+- `roles.guard.spec.ts`: passthrough sin `@Roles`, rechazo cruzado COACH/STUDENT en ambos sentidos, éxito con rol correcto, rechazo sin usuario en el request.
+- `auth.service.spec.ts`: cobertura exhaustiva de `register` (3 pruebas), `login` (6, incluyendo paridad de mensaje genérico y que `argon2.verify` siempre se ejecuta), `refresh` (5, incluyendo rotación, detección de reuso que revoca todas las sesiones, y que el token viejo falla tras rotar), `logout` (2, incluyendo idempotencia), `activate` (2).
+
+**Conclusión:** el diseño de refresh token opaco con hash-only en DB (no JWT), Argon2id, cookies `httpOnly`/`Secure`/`SameSite`, CSRF de doble envío, rate limiting nombrado `"auth"`, guards de rol y la separación autenticación/autorización ya cumplen exactamente lo que este prompt pedía preservar explícitamente ("si el proyecto ya tiene una implementación basada en token opaco... CONSÉRVALA y no la reemplaces por JWT"). No se modificó ningún archivo de `backend/src/auth/` ni sus pruebas: no había nada que corregir.
+
+### Único gap real encontrado: UI de registro (frontend)
+
+`docs/security.md` (sección PROMPT 03) ya dejaba constancia de que no se había construido ninguna UI de login en ese prompt; PROMPT 04 luego agregó login pero no registro. Al inspeccionar `frontend/src/pages/` y `frontend/src/routes/AppRouter.tsx` se confirmó que efectivamente no existía `RegisterPage` ni ruta `/register` — el único punto del alcance de PROMPT 06 (punto 14: "UI mínima funcional... registro de Coach") que faltaba.
+
+Se agregó:
+
+- `register()` / `RegisterPayload` en `frontend/src/api/auth.ts`, siguiendo el mismo patrón que `login`/`refreshSession`/`logout` (función simple, no hook de TanStack Query, ya que es una acción imperativa). Llama a `POST /auth/register` con `skipAuth: true`. **Importante:** a diferencia de login, el backend no retorna token ni setea cookie en el registro (`AuthController.register` solo crea la cuenta) — por eso el flujo de UI redirige a `/login` en vez de autenticar automáticamente.
+- `frontend/src/pages/RegisterPage.tsx`: formulario (nombre, correo, contraseña, confirmación de contraseña — esta última es únicamente una ayuda de UX que el backend ni siquiera conoce). Redirige a `/login` con un mensaje de éxito tras registrarse. Misma estructura y clases CSS (`.login-page`, `.field`, `.field-error`) que `LoginPage.tsx`, reutilizadas sin cambios.
+- Ruta `/register` en `AppRouter.tsx`.
+- Links cruzados: "¿No tienes cuenta? Regístrate" en `LoginPage`, "¿Ya tienes cuenta? Inicia sesión" en `RegisterPage`, y un link "Registrarme" agregado junto a "Iniciar sesión" en la navegación anónima de `MainLayout.tsx`.
+
+Como en PROMPT 04, la validación real (formato de contraseña, unicidad de email, longitud) la hace siempre el backend (`RegisterDto`); la UI no duplica esas reglas más allá de atributos HTML básicos (`minLength`/`maxLength`/`type="email"`) que son solo una ayuda de UX.
+
+### Documentación (punto 18)
+
+No se encontró ninguna divergencia entre `docs/security.md`/`docs/api.md` y el código de autenticación real — por lo tanto no se modificó el contrato documentado de ningún endpoint (`docs/api.md` no cambió). Esta sección es la única actualización de documentación necesaria para PROMPT 06.
+
+### Pruebas, lint y build
+
+- Backend: 78 pruebas unitarias (13 suites) y 14 pruebas e2e (3 suites) — el mismo número que antes de este prompt, sin cambios porque no se modificó código de backend. `nest build` y `eslint --fix` sin errores.
+- Frontend: `tsc -b`, `oxlint` (0 advertencias/errores) y `npm run build` (`vite build`) sin errores, verificados en el directorio de trabajo temporal habitual (ver limitación de entorno abajo) antes de sincronizar los cambios al repositorio real.
+
+### Limitación de entorno persistente (sin cambios)
+
+Sigue vigente el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) y la imposibilidad de conectar al Postgres real del usuario desde este entorno de preparación (documentado en PROMPT 05, sección 10.2). Ninguna de las dos afecta el alcance de este prompt: no se tocó `schema.prisma` ni se requirió una conexión real a la base de datos para verificar nada de lo anterior.

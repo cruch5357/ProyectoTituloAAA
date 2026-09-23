@@ -1,15 +1,18 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AuthProvider } from './auth/AuthContext';
 import { AppRouter } from './routes/AppRouter';
 
 // Estado de servidor (datos remotos) gestionado con TanStack Query, según
-// docs/architecture.md. Todavía no hay ninguna query real: se agregan junto
-// con cada funcionalidad de negocio en los prompts siguientes.
+// docs/architecture.md. Las primeras queries reales (alumnos) se agregan en
+// PROMPT 04 — ver src/api/students.ts.
 const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppRouter />
+      <AuthProvider>
+        <AppRouter />
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

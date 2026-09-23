@@ -65,13 +65,6 @@ describe('Auth (e2e) - validación HTTP sin base de datos', () => {
     return request(app.getHttpServer()).get('/api/v1/users/me').expect(401);
   });
 
-  it('POST /auth/students/invite sin token responde 401 (endpoint protegido por rol)', () => {
-    return request(app.getHttpServer())
-      .post('/api/v1/auth/students/invite')
-      .send({ email: 'alumno@example.com' })
-      .expect(401);
-  });
-
   it('POST /auth/refresh sin cookies responde 403 (falla la validación CSRF) o 401', () => {
     return request(app.getHttpServer())
       .post('/api/v1/auth/refresh')

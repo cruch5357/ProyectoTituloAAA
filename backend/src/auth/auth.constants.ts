@@ -41,6 +41,7 @@ export const AUDIT_ACTIONS = {
   COACH_REGISTERED: 'auth.coach_registered',
   STUDENT_INVITED: 'auth.student_invited',
   STUDENT_ACTIVATED: 'auth.student_activated',
+  STUDENT_STATUS_CHANGED: 'students.status_changed',
   LOGIN_SUCCESS: 'auth.login_success',
   LOGIN_FAILURE: 'auth.login_failure',
   LOGOUT: 'auth.logout',

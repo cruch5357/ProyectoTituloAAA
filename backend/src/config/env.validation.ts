@@ -30,13 +30,18 @@ class EnvironmentVariables {
   @IsOptional()
   ALLOWED_ORIGIN: string = 'http://localhost:5173';
 
-  // Todavía no es estrictamente obligatorio: en esta etapa PrismaService no
-  // se conecta de forma eager (ver prisma/prisma.service.ts). Cuando se
-  // implemente el modelo de datos definitivo, evaluar si conviene conectar
-  // de forma eager para fallar rápido ante una base de datos no disponible.
+  // Obligatoria desde PROMPT 05: el modelo de datos ya está completamente
+  // implementado (PROMPT 02) y toda la autenticación (PROMPT 03) y gestión
+  // de alumnos (PROMPT 04) dependen de Postgres — arrancar sin esta
+  // variable ya no tiene ningún caso de uso real, así que dejarla opcional
+  // solo escondería un error de configuración hasta la primera consulta.
+  // `PrismaService` sigue conectando de forma perezosa (ver
+  // prisma/prisma.service.ts): esto solo valida que la variable EXISTA al
+  // arrancar, no fuerza una conexión eager. Las pruebas e2e (que no hacen
+  // ninguna consulta real) definen un valor de relleno en
+  // `test/jest.setup.ts`, igual que ya hacían con los secretos JWT.
   @IsString()
-  @IsOptional()
-  DATABASE_URL?: string;
+  DATABASE_URL: string;
 
   // -------------------------------------------------------------------
   // Autenticación (PROMPT 03, ver docs/security.md puntos 1 y 12).

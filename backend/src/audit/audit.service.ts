@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 export interface AuditEventInput {
@@ -30,7 +31,17 @@ export class AuditService {
           action: event.action,
           entityType: event.entityType,
           entityId: event.entityId,
-          metadata: event.metadata ?? null,
+          // Prisma tipa los campos Json anulables como
+          // `NullableJsonNullValueInput | InputJsonValue`: un `null` de
+          // JavaScript no alcanza para expresar "guardar JSON null", hay
+          // que usar el centinela `Prisma.JsonNull`. Detectado recién al
+          // correr `prisma generate` de verdad (ver informe de PROMPT 03
+          // sobre el shim local de tipos usado en el sandbox de
+          // preparación, que no distinguía este caso).
+          metadata:
+            event.metadata !== undefined
+              ? (event.metadata as Prisma.InputJsonValue)
+              : Prisma.JsonNull,
         },
       });
     } catch (error) {

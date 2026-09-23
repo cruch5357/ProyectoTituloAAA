@@ -9,14 +9,12 @@ import { AuditService } from '../audit/audit.service';
 import { PasswordService } from './password/password.service';
 import { TokenService } from './tokens/token.service';
 import { RegisterDto } from './dto/register.dto';
-import { InviteStudentDto } from './dto/invite-student.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { LoginDto } from './dto/login.dto';
 import { PublicUser, toPublicUser } from '../common/mappers/public-user.mapper';
 import {
   AUDIT_ACTIONS,
   AUDIT_ENTITY_REFRESH_SESSION,
-  AUDIT_ENTITY_STUDENT_INVITATION,
   AUDIT_ENTITY_USER,
 } from './auth.constants';
 
@@ -37,14 +35,6 @@ export interface RefreshResult {
   refreshToken: string;
   refreshExpiresAt: Date;
   user: PublicUser;
-}
-
-export interface InviteStudentResult {
-  email: string;
-  expiresAt: Date;
-  // Ver AuthService.inviteStudent: entrega temporal del token en texto
-  // plano, mientras no exista un servicio real de envío de correo.
-  activationToken: string;
 }
 
 // Hash Argon2id fijo y sin sentido, precalculado, usado únicamente para que
@@ -106,60 +96,6 @@ export class AuthService {
     });
 
     return toPublicUser(user);
-  }
-
-  // -------------------------------------------------------------------
-  // Invitación de alumno (Coach autenticado). El coachId SIEMPRE viene del
-  // JWT (parámetro explícito), nunca del cuerpo de la request.
-  // -------------------------------------------------------------------
-  async inviteStudent(
-    coachId: string,
-    dto: InviteStudentDto,
-  ): Promise<InviteStudentResult> {
-    const email = this.normalizeEmail(dto.email);
-
-    const existingUser = await this.prisma.user.findUnique({
-      where: { email },
-    });
-    if (existingUser) {
-      throw new ConflictException(
-        'Ya existe una cuenta asociada a este correo',
-      );
-    }
-
-    // Invalida invitaciones pendientes previas para el mismo par
-    // (coach, email): evita tener múltiples tokens válidos simultáneos
-    // para la misma invitación. No son datos de historial real de
-    // entrenamiento, así que eliminarlas es seguro (a diferencia de la
-    // política Restrict usada en la rama de ejecución del modelo).
-    await this.prisma.studentInvitation.deleteMany({
-      where: { coachId, email, usedAt: null },
-    });
-
-    const { token, tokenHash } = this.tokenService.generateInvitationToken();
-    const expiresAt = this.tokenService.getInvitationExpiresAt();
-
-    const invitation = await this.prisma.studentInvitation.create({
-      data: { email, coachId, tokenHash, expiresAt },
-    });
-
-    await this.auditService.record({
-      actorId: coachId,
-      action: AUDIT_ACTIONS.STUDENT_INVITED,
-      entityType: AUDIT_ENTITY_STUDENT_INVITATION,
-      entityId: invitation.id,
-      metadata: { email },
-    });
-
-    // NOTA IMPORTANTE (ver informe de PROMPT 03): el envío real de correo
-    // queda fuera de alcance de este prompt. Mientras no exista ese
-    // servicio, el token de activación en texto plano se retorna una única
-    // vez en esta respuesta, directamente al coach autenticado que hizo la
-    // invitación (nunca se loguea, nunca se persiste en texto plano: solo
-    // su hash queda en `student_invitations.token_hash`). El coach debe
-    // copiar/enviar manualmente el enlace de activación al alumno. Esto
-    // debe reemplazarse por un envío de correo real antes de producción.
-    return { email, expiresAt, activationToken: token };
   }
 
   // -------------------------------------------------------------------

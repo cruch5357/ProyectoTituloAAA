@@ -174,3 +174,40 @@ Se evaluó agregar estos dos enums (como se hizo con `ProgramAssignmentStatus` e
 ### 9.4 Verificación realizada
 
 Misma limitación de entorno que en PROMPT 02 (`binaries.prisma.sh` bloqueado — ver sección 8.3 y el informe de cierre de PROMPT 03, que además descarta `prisma@8` como alternativa). La migración se verificó con el mismo método (`@electric-sql/pglite`): aplica sin errores sobre la migración de PROMPT 02, el índice único de `token_hash` rechaza duplicados en ambas tablas, la FK hacia `users` rechaza un `user_id`/`coach_id` inexistente, y borrar un `User` elimina en cascada sus `refresh_sessions`/`student_invitations` (verificado explícitamente).
+
+---
+
+## 10. Estado de implementación (PROMPT 05)
+
+PROMPT 05 fue una etapa de **verificación y hardening de configuración**, no de modelado nuevo: el modelo relacional (sección 8) y sus dos migraciones (secciones 8 y 9) ya estaban completos e implementados desde PROMPT 02/03. Se confirmó explícitamente, antes de tocar nada, que no había ninguna funcionalidad de este alcance pendiente de crear desde cero.
+
+### 10.1 Verificación del cliente Prisma real
+
+A diferencia de los informes anteriores (que solo pudieron verificar el SQL con `@electric-sql/pglite` por el bloqueo de red del entorno de preparación), esta vez se pudo inspeccionar el cliente Prisma **real**, ya generado por el propio desarrollador en su máquina (`backend/node_modules/.prisma/client/`, generado el 16 de septiembre con Prisma `5.22.0`, dentro del rango `^5.20.0` declarado en `package.json`). Se verificó:
+
+- El motor nativo (`query_engine-windows.dll.node`) está presente y corresponde al binario de Windows — coherente con que el equipo desarrolla en Windows.
+- El `schema.prisma` embebido en el cliente generado es **idéntico en contenido** al `schema.prisma` fuente actual (la única diferencia es alineación de espacios, un efecto normal de cómo Prisma reformatea internamente el schema al generarlo) — es decir, el cliente generado **no está desactualizado** respecto al modelo de PROMPT 02/03, incluyendo `RefreshSession`/`StudentInvitation`.
+
+Esto confirma que `prisma generate` ya se ejecutó correctamente en el entorno real de desarrollo (fuera de este sandbox) y que el backend puede usar Prisma Client con normalidad ahí.
+
+### 10.2 Limitación de entorno persistente (reconfirmada, no nueva)
+
+Se volvió a intentar `npx prisma generate` en un entorno aislado de verificación (una copia descartable, nunca sobre el cliente real ya funcionando, para no arriesgar corromperlo). Falla exactamente igual que en PROMPT 01/02/03:
+
+```
+Error: Failed to fetch sha256 checksum at https://binaries.prisma.sh/.../debian-openssl-3.0.x/libquery_engine.so.node.gz.sha256 - 403 Forbidden
+```
+
+Adicionalmente, se confirmó un segundo límite, no documentado explícitamente hasta ahora: el puente que permite ejecutar comandos en la máquina del desarrollador **no comparte red con `localhost` del host real** — un intento de conexión TCP directa a `localhost:<puerto de Postgres>` desde ese puente es rechazado (`Connection refused`), aunque Postgres sí esté corriendo en la máquina real. En conjunto, estos dos límites (binarios de Prisma bloqueados + red aislada del puente) significan que **ninguna prueba de conectividad real contra Postgres, ni ninguna prueba e2e con datos reales, puede ejecutarse directamente por el asistente** en este proyecto — deben correrse siempre en la máquina del equipo. Esto ya era cierto desde PROMPT 01, pero antes no estaba probado ni documentado con esta precisión.
+
+### 10.3 Cambio realizado: `DATABASE_URL` ahora obligatoria
+
+Único cambio de código de este prompt. `backend/src/config/env.validation.ts` marcaba `DATABASE_URL` como opcional, con la justificación (válida en PROMPT 01, cuando todavía no existía ningún modelo) de que `PrismaService` no se conecta de forma eager. Esa justificación ya no aplica: el modelo de datos está completo desde PROMPT 02, y toda la autenticación (PROMPT 03) y gestión de alumnos (PROMPT 04) son inútiles sin una base de datos real configurada. Se quitó `@IsOptional()` de ese campo — el backend ahora falla rápido al arrancar si falta `DATABASE_URL`, en vez de fallar más adelante con un error menos claro en la primera consulta real.
+
+Esto **no** cambia la estrategia de conexión de `PrismaService` (sigue conectando de forma perezosa, sin `$connect()` eager) — se evaluó agregar conexión eager para fallar aún más rápido, pero se descartó: rompería las pruebas e2e existentes (`test/*.e2e-spec.ts`), que levantan `AppModule` completo sin una base de datos real disponible (ver `docs/testing.md`), y ese comportamiento ya está establecido y probado desde PROMPT 03. Se prefirió el cambio mínimo y no romper lo que ya funciona.
+
+Como `DATABASE_URL` pasó a ser obligatoria, `test/jest.setup.ts` (que ya definía secretos JWT de prueba para que las pruebas e2e puedan levantar `AppModule` sin un `.env` real) ahora también define un valor de relleno para `DATABASE_URL`, con el mismo criterio: nunca se usa para conectarse de verdad (ninguna prueba e2e ejecuta una consulta real), solo necesita tener forma válida para pasar la validación de arranque.
+
+### 10.4 Migraciones: sin cambios
+
+No se creó ninguna migración nueva. Las dos migraciones existentes (secciones 8.3 y 9) siguen siendo la fuente de verdad, están completas, coinciden exactamente con `schema.prisma`, y no había ninguna razón técnica para tocarlas (el modelo no cambió).

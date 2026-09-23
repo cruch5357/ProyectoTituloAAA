@@ -9,6 +9,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { StudentsModule } from './students/students.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -42,6 +43,7 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     HealthModule,
     AuthModule,
     UsersModule,
+    StudentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
