@@ -6,6 +6,8 @@ import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
 import { StudentsListPage } from '../pages/students/StudentsListPage';
 import { StudentDetailPage } from '../pages/students/StudentDetailPage';
+import { ExercisesListPage } from '../pages/exercises/ExercisesListPage';
+import { ExerciseDetailPage } from '../pages/exercises/ExerciseDetailPage';
 import { RequireAuth } from '../auth/RequireAuth';
 
 // Rutas de "Mis alumnos" protegidas por sesión + rol COACH (PROMPT 04,
@@ -26,6 +28,8 @@ const router = createBrowserRouter([
         children: [
           { path: 'students', element: <StudentsListPage /> },
           { path: 'students/:id', element: <StudentDetailPage /> },
+          { path: 'exercises', element: <ExercisesListPage /> },
+          { path: 'exercises/:id', element: <ExerciseDetailPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

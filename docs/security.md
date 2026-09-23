@@ -228,3 +228,52 @@ No se encontró ninguna divergencia entre `docs/security.md`/`docs/api.md` y el 
 ### Limitación de entorno persistente (sin cambios)
 
 Sigue vigente el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) y la imposibilidad de conectar al Postgres real del usuario desde este entorno de preparación (documentado en PROMPT 05, sección 10.2). Ninguna de las dos afecta el alcance de este prompt: no se tocó `schema.prisma` ni se requirió una conexión real a la base de datos para verificar nada de lo anterior.
+
+---
+
+## Estado de implementación (PROMPT 07)
+
+Documenta la autorización del catálogo de ejercicios (`backend/src/exercises/`), el segundo recurso de negocio real del proyecto después de `Student` (PROMPT 04), y el primero que sigue exactamente el mismo patrón sin ninguna desviación nueva.
+
+### Autorización sobre recursos/objetos
+
+Los cinco endpoints de `ExercisesController` (`GET /exercises`, `GET /exercises/:id`, `POST /exercises`, `PATCH /exercises/:id`, `PATCH /exercises/:id/status`) aplican las mismas dos capas que `StudentsController`:
+
+1. **Guard de rol:** `@UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.COACH)` a nivel de clase. El modelo actual no contempla ejercicios globales/compartidos entre coaches (`Exercise.coachId` es obligatorio y sin default — ver `docs/database.md`), así que no se implementó ningún sistema multi-coach ni ejercicios "de sistema": se respetó exactamente la decisión de modelo ya existente, tal como pedía explícitamente el prompt.
+2. **Guard de propiedad de recurso:** resuelto en `ExercisesService` (`ensureOwnedExercise()`), calcado de `ensureOwnedStudent()`: `404` (nunca `403`) tanto si el ejercicio no existe como si pertenece a otro coach, sin distinguir los dos casos. Mismo motivo ya documentado en PROMPT 04: un `403` confirmaría que el id pertenece a un ejercicio existente de otro coach.
+
+### Prevención de IDOR/BOLA
+
+`:id` validado contra el formato de cuid (`ExerciseIdParamDto`) antes de tocar la base de datos. `GET /exercises` no declara `coachId` en `ListExercisesQueryDto`: un `?coachId=...` es rechazado con `400` por la configuración global de `ValidationPipe`, igual que en `/students`.
+
+### Prevención de mass assignment
+
+`PATCH /exercises/:id/status` usa `UpdateExerciseStatusDto`, que declara únicamente `isActive`. `PATCH /exercises/:id` usa `UpdateExerciseDto` (todos los campos opcionales, pero declarados uno por uno — nunca un `Partial<>` genérico ni el body crudo); además, `ExercisesService.update()` construye su objeto `data` explícitamente campo por campo en vez de hacer spread del DTO, la misma defensa en profundidad que `StudentsService.updateStatus()`. Ninguno de los dos endpoints puede escribir `coachId` ni `isActive` desde el otro (edición de datos y cambio de estado están deliberadamente separados en dos endpoints, igual que en `/students`).
+
+### Sin borrado físico (preservación de historial)
+
+`ExercisesController` no expone `DELETE /exercises/:id`. La única forma de "eliminar" un ejercicio es `PATCH /exercises/:id/status` con `{ isActive: false }` (reversible), mismo criterio ya establecido para `Student` en PROMPT 04. Esto satisface por diseño el requisito explícito de PROMPT 07 de nunca poder romper una prescripción que ya use el ejercicio: la restricción `RESTRICT` de `session_exercises.exercise_id → exercises.id` (ya existente desde PROMPT 02) protege además a nivel de base de datos, pero como ningún endpoint intenta un borrado físico, esa protección nunca necesita evaluarse desde este flujo.
+
+### Exposición de información
+
+Igual que `toPublicUser()`, se agregó `toPublicExercise()` (`src/exercises/exercise.mapper.ts`) para que ninguna respuesta HTTP dependa de serializar el objeto de Prisma "tal cual" — hoy `Exercise` no tiene ningún campo sensible, pero se mantiene el mismo patrón por consistencia y para no tener que introducirlo más tarde si el modelo crece.
+
+### Auditoría
+
+Se agregó una única acción nueva, `exercises.status_changed` (`AUDIT_ACTIONS.EXERCISE_STATUS_CHANGED`), registrada por `ExercisesService.updateStatus()` con metadata `{ isActive }` únicamente. **Decisión documentada:** no se audita la creación ni la edición de datos de un ejercicio (a diferencia de `students.status_changed`, que sí se audita) — mismo criterio de "auditar acciones críticas" del prompt: crear/editar un ejercicio propio es una operación de bajo riesgo sobre un recurso del propio coach, sin el peso de seguridad de desactivar algo que puede estar en uso en una prescripción real.
+
+### Rate limiting
+
+Todos los endpoints de `/exercises` usan el throttler `"default"` general (no `"auth"`): no son endpoints de autenticación ni de alto riesgo de fuerza bruta, mismo criterio que los endpoints de solo lectura/gestión de `/students`.
+
+### Base de datos
+
+Único cambio de esquema: `Exercise.isActive` (ver `docs/database.md`, sección 11). No se tocó ningún otro modelo, guard o mecanismo de autenticación existente.
+
+### Frontend
+
+Primera versión funcional del "Catálogo de ejercicios" (React Router + TanStack Query, mismo patrón que "Mis alumnos"): listar con búsqueda y paginación, crear (diálogo nativo `<dialog>`, igual que `InviteStudentDialog`), editar (formulario en la página de detalle — a diferencia de `Student`, donde la edición de perfil quedó fuera de alcance, acá sí se implementa porque RF-08 exige CRUD completo) y activar/desactivar. La protección de rutas en el frontend (`RequireAuth`) es únicamente una ayuda de UX; la única barrera de seguridad real son los guards de backend documentados arriba.
+
+### Testing de frontend (primera infraestructura del proyecto)
+
+PROMPT 07 fue el primero en pedir explícitamente pruebas de frontend (renderizado del catálogo, carga, creación, edición, manejo de errores). Como el proyecto no tenía ningún framework de testing de frontend configurado hasta ahora (ver `docs/testing.md`, que ya lo planteaba desde PROMPT 00 sin haberse implementado en PROMPT 03/04/06), se agregó **Vitest** + **@testing-library/react** — la integración estándar para un proyecto Vite, reutilizando `vite.config.ts` en vez de introducir un segundo bundler/config (ej. Jest) para el frontend. Se agregaron 3 archivos de prueba (`ExercisesListPage.test.tsx`, `ExerciseFormDialog.test.tsx`, `ExerciseDetailPage.test.tsx`, 7 casos en total) que mockean `apiClient` directamente (mismo espíritu que mockear `PrismaService` en el backend) en vez de hacer llamadas de red reales. Esta infraestructura queda disponible para que prompts futuros agreguen pruebas de sus propios componentes sin volver a configurarla.

@@ -116,6 +116,14 @@ model Exercise {
   muscleGroup  String?  @map("muscle_group")
   instructions String?
   videoUrl     String?  @map("video_url")
+  // Agregado en PROMPT 07: permite dar de baja logica un ejercicio del
+  // catalogo del coach sin poder eliminarlo fisicamente (la FK hacia
+  // SessionExercise ya es RESTRICT arriba). Mismo patron exacto que
+  // `User.isActive` (PROMPT 02) y su uso en PATCH /students/:id/status
+  // (PROMPT 04, ver docs/security.md): nunca se agrego un endpoint DELETE
+  // fisico para User/Student, y se sigue el mismo criterio aqui para
+  // Exercise, en vez de reinventar un mecanismo distinto.
+  isActive     Boolean  @default(true) @map("is_active")
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 

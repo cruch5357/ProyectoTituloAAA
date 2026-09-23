@@ -141,3 +141,35 @@ Idéntico en comportamiento a lo documentado en la sección 7 para `POST /auth/s
 ### Alcance explícitamente fuera de PROMPT 04
 
 No se implementó edición de perfil del alumno (`PATCH /students/:id` con nombre/email — la sección 4 lo menciona como parte del contrato conceptual, pero `requirements.md` RF-06 solo exige "listar, ver detalle, editar y desactivar"; se interpretó "desactivar" como el único caso de "editar" necesario para el MVP de este prompt, dejando la edición completa de perfil para un prompt futuro si se decide implementarla) ni `DELETE /students/:id` (baja lógica ya se cubre con `isActive: false`, que es reversible — no se agregó una baja adicional). Tampoco se agregó ningún endpoint de ejercicios, programas, sesiones, registros de entrenamiento, Excel, métricas ni mensajería (fuera de alcance explícito de PROMPT 04).
+
+---
+
+## 9. Estado de implementación (PROMPT 07)
+
+Documenta lo agregado en PROMPT 07: el catálogo de ejercicios del Coach (`backend/src/exercises/`), siguiendo exactamente el mismo patrón de autorización y forma de respuesta ya establecido para `/students` en PROMPT 04.
+
+Formato de respuesta y códigos de error: idénticos a los ya documentados en las secciones 5 y 7-8 (envoltorio `{ data, error, meta }`, `401`/`403`/`404` según corresponda).
+
+### `GET /api/v1/exercises`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Devuelve únicamente los ejercicios del coach autenticado (el `coachId` sale siempre de `CurrentUser()`, nunca de la query — un `?coachId=...` es rechazado con `400` por el mismo mecanismo `whitelist`/`forbidNonWhitelisted` que en `/students`). Query params opcionales: `page` (default `1`), `limit` (default `20`, máximo `100`), `search` (por nombre o grupo muscular). **No filtra por estado**: devuelve ejercicios activos e inactivos por igual (el cliente distingue con el campo `isActive` de cada item), igual que `GET /students` no excluye alumnos inactivos. Respuesta: `{ data: Exercise[], error: null, meta: { page, limit, total, totalPages } }`.
+
+### `GET /api/v1/exercises/:id`
+
+Requiere `Authorization: Bearer` + rol `COACH`. `:id` se valida contra el formato de cuid antes de consultar la base de datos (`400` si el formato es inválido). Si el ejercicio no existe o pertenece a otro coach, responde `404` en ambos casos con el mismo mensaje genérico ("Ejercicio no encontrado") — nunca `403`, mismo criterio documentado en `docs/security.md` para `/students/:id`.
+
+### `POST /api/v1/exercises`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Body: `{ name, muscleGroup?, instructions?, videoUrl? }` — exactamente los campos que el modelo `Exercise` ya tenía (PROMPT 02); no se agregó ningún campo conceptual nuevo. El `coachId` del ejercicio creado sale siempre del token, nunca del body. `isActive` nace siempre en `true` (default del schema); este endpoint no lo recibe del cliente.
+
+### `PATCH /api/v1/exercises/:id`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Body: cualquier subconjunto de `{ name, muscleGroup, instructions, videoUrl }` (edición parcial). Mismo chequeo de propiedad que el detalle (`404` si no existe o es de otro coach). **Nunca** modifica `isActive` — ese campo tiene su propio endpoint (ver abajo), igual que `/students` separa edición de estado en `PATCH /students/:id/status`.
+
+### `PATCH /api/v1/exercises/:id/status`
+
+Requiere `Authorization: Bearer` + rol `COACH`. Body: `{ isActive: boolean }` — único campo que este endpoint puede modificar. **Es la única forma de "eliminar" un ejercicio** (baja lógica, reversible): no existe `DELETE /exercises/:id`, mismo criterio ya documentado en la sección 8 para `/students` ("baja lógica ya se cubre con `isActive: false`, que es reversible — no se agregó una baja adicional"). Esto además satisface por diseño el requisito de PROMPT 07 de nunca poder romper una prescripción que ya use el ejercicio: como nunca se intenta un borrado físico desde la API, la restricción `RESTRICT` de la base de datos (`docs/database.md`, sección 8.2) ni siquiera llega a evaluarse desde este flujo.
+
+### Alcance explícitamente fuera de PROMPT 07
+
+No se agregó ningún endpoint de programación (`programs`, `blocks`, `weeks`, `sessions`, `session-exercises` como parte de una prescripción real — sección 4 de este documento sigue siendo conceptual para ese dominio). Tampoco se agregó el endpoint de solo lectura para que un alumno vea el detalle de un ejercicio prescrito (RF-09): depende de `SessionExercise` como parte de una programación real, que es alcance de PROMPT 08 en adelante.

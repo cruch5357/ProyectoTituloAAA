@@ -47,8 +47,15 @@ export const AUDIT_ACTIONS = {
   LOGOUT: 'auth.logout',
   REFRESH_ROTATED: 'auth.refresh_rotated',
   REFRESH_REUSE_DETECTED: 'auth.refresh_reuse_detected',
+  // PROMPT 07: mismo criterio que STUDENT_STATUS_CHANGED — se audita el
+  // cambio de estado (activar/desactivar), no cada creacion/edicion de un
+  // ejercicio (acciones de bajo riesgo sobre un recurso propio del coach,
+  // sin el mismo peso de seguridad que dar de baja algo que puede estar en
+  // uso en una prescripcion).
+  EXERCISE_STATUS_CHANGED: 'exercises.status_changed',
 } as const;
 
 export const AUDIT_ENTITY_USER = 'User';
 export const AUDIT_ENTITY_REFRESH_SESSION = 'RefreshSession';
 export const AUDIT_ENTITY_STUDENT_INVITATION = 'StudentInvitation';
+export const AUDIT_ENTITY_EXERCISE = 'Exercise';

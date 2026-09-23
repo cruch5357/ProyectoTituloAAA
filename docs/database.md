@@ -211,3 +211,25 @@ Como `DATABASE_URL` pasó a ser obligatoria, `test/jest.setup.ts` (que ya defin�
 ### 10.4 Migraciones: sin cambios
 
 No se creó ninguna migración nueva. Las dos migraciones existentes (secciones 8.3 y 9) siguen siendo la fuente de verdad, están completas, coinciden exactamente con `schema.prisma`, y no había ninguna razón técnica para tocarlas (el modelo no cambió).
+
+---
+
+## 11. Estado de implementación (PROMPT 07)
+
+Documenta el único cambio de esquema de este prompt: una columna nueva en `Exercise`, sin tocar ningún otro modelo ni migración existente.
+
+### 11.1 `exercises.is_active`
+
+El modelo `Exercise` (sección 8, implementado desde PROMPT 02) no tenía ninguna forma de representar "desactivado": solo `id`, `coach_id`, `name`, `muscle_group`, `instructions`, `video_url`. PROMPT 07 pide explícitamente poder "desactivar/eliminar lógicamente" un ejercicio sin romper el historial de una prescripción que ya lo use — y la FK `session_exercises.exercise_id → exercises.id` ya es `RESTRICT` desde la migración inicial (sección 8.2), así que un ejercicio en uso ya no podía borrarse físicamente, pero tampoco existía una columna para marcarlo como retirado del catálogo activo.
+
+Se agregó `isActive Boolean @default(true) @map("is_active")` a `Exercise`, replicando exactamente el mismo patrón ya usado en `User.isActive` (PROMPT 02) y su consumo en `PATCH /students/:id/status` (PROMPT 04): ningún campo nuevo se inventó fuera de lo que el prompt pedía, y se reutilizó una decisión de diseño ya validada en vez de crear un mecanismo distinto (por ejemplo, un enum de estado, que se descartó por la misma razón documentada en la sección 9.3 para `refresh_sessions`/`student_invitations`: sería una segunda fuente de verdad innecesaria).
+
+Migración: `backend/prisma/migrations/20260923150000_exercises_soft_delete/migration.sql` — `ALTER TABLE "exercises" ADD COLUMN "is_active" BOOLEAN NOT NULL DEFAULT true`. Todas las filas existentes (y el seed de PROMPT 02) quedan activas por defecto, que es el comportamiento implícito que ya tenían antes de que existiera esta columna.
+
+### 11.2 Sin otros cambios de esquema
+
+No se tocó ningún otro modelo, relación, índice o constraint. `docs/database.md` sección 4 ya anticipaba este patrón ("se pueden archivar/desactivar en su lugar") para entidades bloqueadas por `RESTRICT`; este prompt simplemente lo materializa para `Exercise`, el primer caso real de esa nota general.
+
+### 11.3 Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada en PROMPT 01/02/03/05 (bloqueo de red hacia `binaries.prisma.sh`, imposibilidad de conectar al Postgres real del usuario desde este entorno). La migración de esta sección es un `ALTER TABLE` de una sola columna con default, sin riesgo de pérdida de datos; de todos modos el equipo debe ejecutar `npx prisma generate` y `npx prisma migrate deploy`/`dev` en su entorno real antes de dar por aplicado este cambio, igual que con las migraciones anteriores.
