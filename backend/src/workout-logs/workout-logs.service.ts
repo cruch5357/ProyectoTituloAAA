@@ -19,7 +19,18 @@ import {
 } from './workout-log.mapper';
 import { CreateSetLogsDto } from './dto/create-set-logs.dto';
 import { FinishWorkoutLogDto } from './dto/finish-workout-log.dto';
+import { ListWorkoutLogsQueryDto } from './dto/list-workout-logs-query.dto';
+import { GetWorkoutEvolutionQueryDto } from './dto/get-workout-evolution-query.dto';
 import { ensureWithinEditWindow } from '../common/training/edit-window';
+import {
+  ExerciseEvolutionPoint,
+  WorkoutSummaryMetrics,
+  buildWorkoutLogFilterWhere,
+  computeExerciseEvolution,
+  computeWorkoutSummaryMetrics,
+  parseDateFrom,
+  parseDateTo,
+} from '../common/training/workout-metrics';
 
 const GENERIC_WORKOUT_LOG_NOT_FOUND = 'Entrenamiento no encontrado';
 const GENERIC_SESSION_EXERCISE_NOT_FOUND =
@@ -32,6 +43,30 @@ const DUPLICATE_SET_LOG =
 const SET_LOG_EXERCISE_INCLUDE = {
   sessionExercise: { include: { exercise: true } },
 } satisfies Prisma.SetLogInclude;
+
+// Contexto de prescripción (Session -> Week -> Block -> Program) embebido
+// tanto en el detalle (GET /workout-logs/:id) como en cada fila del
+// historial (GET /workout-logs) -- PROMPT 11 pide poder ver "sesión" y
+// "programa relacionado" en ambos. Se reutiliza el MISMO include en los dos
+// lugares para no duplicar esta forma de consulta.
+const WORKOUT_LOG_SESSION_CONTEXT_INCLUDE = {
+  session: {
+    include: { week: { include: { block: { include: { program: true } } } } },
+  },
+} satisfies Prisma.WorkoutLogInclude;
+
+export interface PaginatedWorkoutLogs {
+  items: PublicWorkoutLog[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface WorkoutEvolutionResult {
+  summary: WorkoutSummaryMetrics;
+  exerciseEvolution: ExerciseEvolutionPoint[] | null;
+}
 
 // ---------------------------------------------------------------------------
 // Registro de ejecución del Alumno (PROMPT 10) — usa EXCLUSIVAMENTE los
@@ -63,6 +98,15 @@ const SET_LOG_EXERCISE_INCLUDE = {
 //   (para corregir una serie ya cargada) respetan la ventana de 24 horas de
 //   RF-24, anclada siempre en `WorkoutLog.createdAt`
 //   (common/training/edit-window.ts).
+//
+// PROMPT 11 (RF-25) agrega, sobre esta misma base: `listHistory()` (el
+// historial paginado y filtrable de WorkoutLog propios) y `getEvolution()`
+// (métricas descriptivas simples calculadas por common/training/
+// workout-metrics.ts). Ninguno de los dos escribe nada -- son consultas de
+// solo lectura sobre datos que YA existían por el flujo de PROMPT 10, nunca
+// datos reconstruidos ni ficticios. No se cambió NADA de start()/
+// addSetLogs()/finish(): PROMPT 11 pidió explícitamente no rehacer esa
+// lógica ni la señal completionStatus/durationMinutes ya establecida.
 // ---------------------------------------------------------------------------
 @Injectable()
 export class WorkoutLogsService {
@@ -120,8 +164,8 @@ export class WorkoutLogsService {
   }
 
   // GET /sessions/:sessionId/workout-logs — WorkoutLog propios de ESTA
-  // sesión (no un historial global: eso es RF-25, explícitamente fuera de
-  // alcance de PROMPT 10), por ejemplo para reanudar un entrenamiento ya
+  // sesión (no un historial global: eso es GET /workout-logs, ver
+  // listHistory() más abajo), por ejemplo para reanudar un entrenamiento ya
   // iniciado.
   async listForSession(
     studentId: string,
@@ -139,6 +183,88 @@ export class WorkoutLogsService {
     return logs.map(toPublicWorkoutLog);
   }
 
+  // GET /workout-logs — historial paginado del alumno autenticado (RF-25,
+  // PROMPT 11). El `studentId` SIEMPRE viene de CurrentUser() (nunca de
+  // `query`, que ni siquiera declara ese campo — ver ListWorkoutLogsQueryDto)
+  // y se combina con los filtros opcionales en un único `where`: por
+  // construcción, ningún filtro (programId/sessionId/fecha/estado) puede
+  // ampliar el resultado más allá de los propios WorkoutLog del alumno.
+  //
+  // No incluye `setLogs` completo (eso es solo para el detalle): cada fila
+  // trae `setLogsCount` (un simple `_count`, no una segunda consulta por
+  // fila) para que el listado sea liviano incluso con muchos entrenamientos
+  // registrados -- exactamente el índice `WorkoutLog(student_id,
+  // performed_at)` que docs/database.md (sección 7) ya documentaba desde
+  // PROMPT 02 como pensado para "consultas de historial y dashboard".
+  async listHistory(
+    studentId: string,
+    query: ListWorkoutLogsQueryDto,
+  ): Promise<PaginatedWorkoutLogs> {
+    const where: Prisma.WorkoutLogWhereInput = {
+      studentId,
+      ...buildWorkoutLogFilterWhere({
+        dateFrom: parseDateFrom(query.dateFrom),
+        dateTo: parseDateTo(query.dateTo),
+        completionStatus: query.completionStatus,
+        programId: query.programId,
+        sessionId: query.sessionId,
+      }),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.workoutLog.findMany({
+        where,
+        include: {
+          ...WORKOUT_LOG_SESSION_CONTEXT_INCLUDE,
+          _count: { select: { setLogs: true } },
+        },
+        orderBy: { performedAt: 'desc' },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+      }),
+      this.prisma.workoutLog.count({ where }),
+    ]);
+
+    return {
+      items: items.map(toPublicWorkoutLog),
+      page: query.page,
+      limit: query.limit,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / query.limit)),
+    };
+  }
+
+  // GET /workout-logs/evolution — evolución básica descriptiva (RF-25,
+  // PROMPT 11). Delega el cálculo entero a common/training/workout-metrics
+  // .ts (funciones puras y reutilizables, ver el comentario de ese archivo)
+  // pasándole un `where` que SIEMPRE fija `studentId` desde CurrentUser().
+  async getEvolution(
+    studentId: string,
+    query: GetWorkoutEvolutionQueryDto,
+  ): Promise<WorkoutEvolutionResult> {
+    const where: Prisma.WorkoutLogWhereInput = {
+      studentId,
+      ...buildWorkoutLogFilterWhere({
+        dateFrom: parseDateFrom(query.dateFrom),
+        dateTo: parseDateTo(query.dateTo),
+        programId: query.programId,
+      }),
+    };
+
+    const summary = await computeWorkoutSummaryMetrics(this.prisma, where);
+
+    const exerciseEvolution = query.exerciseId
+      ? await computeExerciseEvolution(this.prisma, where, query.exerciseId)
+      : null;
+
+    return { summary, exerciseEvolution };
+  }
+
+  // GET /workout-logs/:id — detalle propio. Desde PROMPT 11 embebe además
+  // el contexto de prescripción (sesión/semana/bloque/programa vigentes)
+  // para que el detalle pueda mostrar "qué sesión y programa fue" (RF-25):
+  // ninguna escritura nueva, es el mismo `findUnique` de PROMPT 10 con un
+  // `include` ampliado.
   async getOwnedByStudent(
     studentId: string,
     workoutLogId: string,
@@ -150,6 +276,7 @@ export class WorkoutLogsService {
           include: SET_LOG_EXERCISE_INCLUDE,
           orderBy: { createdAt: 'asc' },
         },
+        ...WORKOUT_LOG_SESSION_CONTEXT_INCLUDE,
       },
     });
     if (!workoutLog || workoutLog.studentId !== studentId) {

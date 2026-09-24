@@ -226,3 +226,37 @@ dialog {
 .prescription-form .field {
   min-width: 7rem;
 }
+
+/* ------------------------------------------------------------------- */
+/* Historial y evolución básica del Alumno (PROMPT 11) — mismo criterio */
+/* que el resto del archivo: estilos mínimos, sin diseño visual         */
+/* definitivo, mobile-first (tarjetas que se apilan en pantallas        */
+/* angostas en vez de una grilla fija).                                 */
+/* ------------------------------------------------------------------- */
+
+.stat-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 1rem 0 1.5rem;
+}
+
+.stat-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 9rem;
+  padding: 0.75rem 1rem;
+  background: #f7f7f7;
+  border-radius: 6px;
+}
+
+.stat-card__label {
+  font-size: 0.8rem;
+  color: #555555;
+}
+
+.stat-card__value {
+  font-size: 1.4rem;
+  font-weight: 600;
+}

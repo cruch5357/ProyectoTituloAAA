@@ -90,6 +90,8 @@ describe('WorkoutLogsController - delegación con el id del alumno del token', (
       getOwnedByStudent: jest.fn(),
       addSetLogs: jest.fn(),
       finish: jest.fn(),
+      listHistory: jest.fn(),
+      getEvolution: jest.fn(),
     } as unknown as jest.Mocked<WorkoutLogsService>;
     controller = new WorkoutLogsController(workoutLogsService);
   });
@@ -136,5 +138,79 @@ describe('WorkoutLogsController - delegación con el id del alumno del token', (
       'workout-log-1',
       dto,
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// PROMPT 11 (RF-25) — historial y evolución. El rol STUDENT ya está probado
+// a nivel de clase en el describe de metadata de arriba (se aplica a
+// TODOS los métodos del controller, incluidos estos dos nuevos).
+// ---------------------------------------------------------------------------
+describe('WorkoutLogsController - historial y evolución (PROMPT 11)', () => {
+  let workoutLogsService: jest.Mocked<WorkoutLogsService>;
+  let controller: WorkoutLogsController;
+
+  beforeEach(() => {
+    workoutLogsService = {
+      listHistory: jest.fn(),
+      getEvolution: jest.fn(),
+    } as unknown as jest.Mocked<WorkoutLogsService>;
+    controller = new WorkoutLogsController(workoutLogsService);
+  });
+
+  it('history() pasa el id del alumno del token y la query, y expone la paginación en meta', async () => {
+    workoutLogsService.listHistory.mockResolvedValue({
+      items: [buildWorkoutLog()],
+      page: 2,
+      limit: 10,
+      total: 25,
+      totalPages: 3,
+    });
+    const query = { page: 2, limit: 10 };
+
+    const response = await controller.history(
+      buildStudentUser(),
+      query as never,
+    );
+
+    expect(workoutLogsService.listHistory).toHaveBeenCalledWith(
+      'student-123',
+      query,
+    );
+    expect(response.meta).toEqual({
+      page: 2,
+      limit: 10,
+      total: 25,
+      totalPages: 3,
+    });
+    expect(response.data).toHaveLength(1);
+  });
+
+  it('evolution() pasa el id del alumno del token y la query', async () => {
+    workoutLogsService.getEvolution.mockResolvedValue({
+      summary: {
+        totalWorkouts: 0,
+        totalSetLogs: 0,
+        averageDurationMinutes: null,
+        averageOverallRpe: null,
+        averageFatigue: null,
+        trainingFrequencyPerWeek: null,
+        firstWorkoutAt: null,
+        lastWorkoutAt: null,
+      },
+      exerciseEvolution: null,
+    });
+    const query = { exerciseId: 'exercise-1' };
+
+    const response = await controller.evolution(
+      buildStudentUser(),
+      query as never,
+    );
+
+    expect(workoutLogsService.getEvolution).toHaveBeenCalledWith(
+      'student-123',
+      query,
+    );
+    expect(response.data.exerciseEvolution).toBeNull();
   });
 });

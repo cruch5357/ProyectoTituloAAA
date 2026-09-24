@@ -37,6 +37,28 @@ export interface SetLog {
   sessionExercise?: EmbeddedSessionExercise;
 }
 
+// Contexto de prescripción vigente embebido en un WorkoutLog (PROMPT 11,
+// RF-25): nombre de la sesión + semana/bloque/programa que la originaron.
+// Es SOLO LECTURA de la prescripción vigente AL MOMENTO DE LA CONSULTA (no
+// una copia congelada -- misma decisión ya documentada desde PROMPT 10, que
+// PROMPT 11 mantiene sin introducir versionado).
+export interface EmbeddedSessionContext {
+  id: string;
+  name: string;
+  week: {
+    id: string;
+    number: number;
+    block: {
+      id: string;
+      name: string;
+      program: {
+        id: string;
+        name: string;
+      };
+    };
+  };
+}
+
 export interface WorkoutLog {
   id: string;
   sessionId: string;
@@ -50,4 +72,9 @@ export interface WorkoutLog {
   createdAt: string;
   updatedAt: string;
   setLogs?: SetLog[];
+  session?: EmbeddedSessionContext;
+  // Conteo de series sin traer cada una -- solo viene presente en las filas
+  // del historial (GET /workout-logs), nunca en el detalle (que ya trae
+  // `setLogs` completo).
+  setLogsCount?: number;
 }

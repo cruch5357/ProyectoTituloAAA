@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -15,6 +16,8 @@ import { WorkoutLogsService } from './workout-logs.service';
 import { WorkoutLogIdParamDto } from './dto/workout-log-id-param.dto';
 import { CreateSetLogsDto } from './dto/create-set-logs.dto';
 import { FinishWorkoutLogDto } from './dto/finish-workout-log.dto';
+import { ListWorkoutLogsQueryDto } from './dto/list-workout-logs-query.dto';
+import { GetWorkoutEvolutionQueryDto } from './dto/get-workout-evolution-query.dto';
 import { SessionIdRouteParamDto } from '../session-exercises/dto/session-id-route-param.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -67,7 +70,17 @@ export class WorkoutLogsNestedController {
   }
 }
 
-// Recurso propio /workout-logs/:id (detalle, registrar series, finalizar).
+// Recurso propio /workout-logs (historial, evolución, detalle, registrar
+// series, finalizar).
+//
+// IMPORTANTE — orden de declaración de rutas: `history()` (bare `@Get()`) y
+// `evolution()` (`@Get('evolution')`) están declaradas ANTES de `detail()`
+// (`@Get(':id')`) a propósito. Nest/Express resuelve las rutas en el orden
+// en que se registran: si `:id` se declarara primero, una petición a
+// GET /workout-logs/evolution matchearía ese patrón con `id = "evolution"`
+// en vez de llegar al handler correcto. `history()` (sin segmento extra) no
+// tiene este problema con ningún orden, pero se mantiene junto a
+// `evolution()` por claridad de lectura.
 @ApiTags('workout-logs')
 @Controller('workout-logs')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -75,6 +88,45 @@ export class WorkoutLogsNestedController {
 @ApiBearerAuth()
 export class WorkoutLogsController {
   constructor(private readonly workoutLogsService: WorkoutLogsService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Historial paginado de entrenamientos propios (RF-25)',
+  })
+  async history(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Query() query: ListWorkoutLogsQueryDto,
+  ) {
+    const history = await this.workoutLogsService.listHistory(
+      currentUser.id,
+      query,
+    );
+    return {
+      data: history.items,
+      error: null,
+      meta: {
+        page: history.page,
+        limit: history.limit,
+        total: history.total,
+        totalPages: history.totalPages,
+      },
+    };
+  }
+
+  @Get('evolution')
+  @ApiOperation({
+    summary: 'Evolución básica descriptiva del alumno autenticado (RF-25)',
+  })
+  async evolution(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Query() query: GetWorkoutEvolutionQueryDto,
+  ) {
+    const evolution = await this.workoutLogsService.getEvolution(
+      currentUser.id,
+      query,
+    );
+    return { data: evolution, error: null, meta: {} };
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de un registro de ejecución propio' })

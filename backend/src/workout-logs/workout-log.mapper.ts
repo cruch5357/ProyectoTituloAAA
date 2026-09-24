@@ -1,7 +1,11 @@
 import {
+  Block,
   Exercise,
+  Program,
+  Session,
   SessionExercise,
   SetLog,
+  Week,
   WorkoutCompletionStatus,
   WorkoutLog,
 } from '@prisma/client';
@@ -81,6 +85,32 @@ export function toPublicSetLog(setLog: SetLogWithExercise): PublicSetLog {
   };
 }
 
+// Contexto de prescripción embebido en un WorkoutLog (PROMPT 11, RF-25):
+// nombre de la sesión + semana/bloque/programa que la originaron. Es
+// SOLO LECTURA de la cadena de prescripción vigente al momento de la
+// consulta -- exactamente la misma decisión ya documentada en PROMPT 10
+// ("la prescripción mostrada corresponde a la vigente al momento de la
+// consulta, no una copia congelada"), que PROMPT 11 pide mantener sin
+// introducir versionado. Se agrega para que el historial y el detalle de
+// un entrenamiento puedan mostrar "qué programa/sesión fue" sin que el
+// frontend tenga que resolverlo con una consulta aparte.
+export interface EmbeddedSessionContext {
+  id: string;
+  name: string;
+  week: {
+    id: string;
+    number: number;
+    block: {
+      id: string;
+      name: string;
+      program: {
+        id: string;
+        name: string;
+      };
+    };
+  };
+}
+
 export interface PublicWorkoutLog {
   id: string;
   sessionId: string;
@@ -94,12 +124,27 @@ export interface PublicWorkoutLog {
   createdAt: Date;
   updatedAt: Date;
   setLogs?: PublicSetLog[];
+  session?: EmbeddedSessionContext;
+  // Conteo de SetLog sin traer cada fila -- usado en el LISTADO de
+  // historial (GET /workout-logs), donde traer todas las series de cada
+  // entrenamiento sería el volumen innecesario que PROMPT 11 pide evitar
+  // ("evita traer grandes volúmenes innecesarios"). El detalle
+  // (GET /workout-logs/:id) sigue embebiendo `setLogs` completo.
+  setLogsCount?: number;
 }
 
-type WorkoutLogWithSetLogs = WorkoutLog & { setLogs?: SetLogWithExercise[] };
+type SessionWithChain = Session & {
+  week: Week & { block: Block & { program: Program } };
+};
+
+type WorkoutLogWithExtras = WorkoutLog & {
+  setLogs?: SetLogWithExercise[];
+  session?: SessionWithChain;
+  _count?: { setLogs: number };
+};
 
 export function toPublicWorkoutLog(
-  workoutLog: WorkoutLogWithSetLogs,
+  workoutLog: WorkoutLogWithExtras,
 ): PublicWorkoutLog {
   return {
     id: workoutLog.id,
@@ -117,5 +162,26 @@ export function toPublicWorkoutLog(
     ...(workoutLog.setLogs
       ? { setLogs: workoutLog.setLogs.map(toPublicSetLog) }
       : {}),
+    ...(workoutLog.session
+      ? {
+          session: {
+            id: workoutLog.session.id,
+            name: workoutLog.session.name,
+            week: {
+              id: workoutLog.session.week.id,
+              number: workoutLog.session.week.number,
+              block: {
+                id: workoutLog.session.week.block.id,
+                name: workoutLog.session.week.block.name,
+                program: {
+                  id: workoutLog.session.week.block.program.id,
+                  name: workoutLog.session.week.block.program.name,
+                },
+              },
+            },
+          },
+        }
+      : {}),
+    ...(workoutLog._count ? { setLogsCount: workoutLog._count.setLogs } : {}),
   };
 }

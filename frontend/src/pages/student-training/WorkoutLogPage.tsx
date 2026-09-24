@@ -51,9 +51,19 @@ export function WorkoutLogPage() {
       </p>
 
       <h1>Entrenamiento del {new Date(workoutLog.performedAt).toLocaleString()}</h1>
+      {workoutLog.session && (
+        <p>
+          {workoutLog.session.name} — {workoutLog.session.week.block.program.name}{' '}
+          (Bloque {workoutLog.session.week.block.name}, semana{' '}
+          {workoutLog.session.week.number})
+        </p>
+      )}
       <p>
         <WorkoutCompletionStatusBadge status={workoutLog.completionStatus} />{' '}
         {isFinished ? '(finalizado)' : '(en curso)'}
+      </p>
+      <p>
+        <Link to="/history">Ver mi historial completo →</Link>
       </p>
 
       <h2>Series registradas</h2>
@@ -82,6 +92,10 @@ export function WorkoutLogPage() {
             ))}
           </tbody>
         </table>
+      )}
+
+      {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
+        <ExerciseEvolutionLinks setLogs={workoutLog.setLogs} />
       )}
 
       {!isFinished && (
@@ -573,5 +587,40 @@ function FinishWorkoutLogForm({
         </button>
       </form>
     </section>
+  );
+}
+
+// "Ver evolución de este ejercicio" (RF-25, PROMPT 11): un link por cada
+// ejercicio DISTINTO ya registrado en este entrenamiento, hacia "Mi
+// historial" con ese ejercicio pre-seleccionado. Se arma a partir de los
+// `setLogs` que YA están en pantalla -- no se inventa ningún selector de
+// ejercicios nuevo ni se pide un endpoint adicional.
+function ExerciseEvolutionLinks({ setLogs }: { setLogs: SetLog[] }) {
+  const distinctExercises = new Map<string, string>();
+  for (const setLog of setLogs) {
+    const exercise = setLog.sessionExercise?.exercise;
+    if (exercise) {
+      distinctExercises.set(exercise.id, exercise.name);
+    }
+  }
+
+  if (distinctExercises.size === 0) {
+    return null;
+  }
+
+  return (
+    <p>
+      Ver evolución:{' '}
+      {Array.from(distinctExercises.entries()).map(([id, name], index) => (
+        <span key={id}>
+          {index > 0 && ' · '}
+          <Link
+            to={`/history?exerciseId=${id}&exerciseName=${encodeURIComponent(name)}`}
+          >
+            {name}
+          </Link>
+        </span>
+      ))}
+    </p>
   );
 }

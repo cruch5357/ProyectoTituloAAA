@@ -19,6 +19,7 @@ import { StudentBlockPage } from '../pages/student-training/StudentBlockPage';
 import { StudentWeekPage } from '../pages/student-training/StudentWeekPage';
 import { StudentSessionPage } from '../pages/student-training/StudentSessionPage';
 import { WorkoutLogPage } from '../pages/student-training/WorkoutLogPage';
+import { HistoryPage } from '../pages/student-training/HistoryPage';
 import { RequireAuth } from '../auth/RequireAuth';
 
 // Rutas de "Mis alumnos" protegidas por sesión + rol COACH (PROMPT 04,
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
           { path: 'student/weeks/:id', element: <StudentWeekPage /> },
           { path: 'student/sessions/:id', element: <StudentSessionPage /> },
           { path: 'workout-logs/:id', element: <WorkoutLogPage /> },
+          { path: 'history', element: <HistoryPage /> },
         ],
       },
       { path: '*', element: <NotFoundPage /> },

@@ -24,7 +24,10 @@ export function MainLayout() {
             </>
           )}
           {status === 'authenticated' && user?.role === 'STUDENT' && (
-            <Link to="/my-programs">Mis programas asignados</Link>
+            <>
+              <Link to="/my-programs">Mis programas asignados</Link>
+              <Link to="/history">Mi historial</Link>
+            </>
           )}
           {status === 'authenticated' && user && (
             <>

@@ -324,3 +324,47 @@ Ningún endpoint de este prompt escribe en `Session`, `SessionExercise`, `Week`,
 ### Alcance explícitamente fuera de PROMPT 10
 
 No se implementó historial de sesiones ni evolución básica (RF-25: "consultar su historial de sesiones y evolución básica"), dashboard o métricas del coach, comparación coach-vs-alumno, gráficos, service worker/PWA avanzada, edición del alumno sobre la prescripción, ni borrado de `WorkoutLog`/`SetLog` — todos quedan para prompts futuros según `docs/roadmap.md`.
+
+## 13. Estado de implementación (PROMPT 11)
+
+Documenta lo agregado en PROMPT 11: el historial de entrenamientos y una primera capa de evolución básica descriptiva del alumno (RF-25), cerrando así el bloque RF-21 a RF-25 completo. Formato de respuesta y códigos de error: idénticos a los ya documentados (envoltorio `{ data, error, meta }`).
+
+### Endpoints nuevos
+
+- `GET /api/v1/workout-logs` — historial paginado y filtrable de los `WorkoutLog` propios. Query params opcionales: `page`, `limit` (mismo criterio de paginación que `/exercises`), `dateFrom`, `dateTo` (ISO 8601, ambos inclusive), `completionStatus` (`COMPLETED` | `PARTIAL` | `SKIPPED`), `programId`, `sessionId`. Cada fila trae embebido el contexto de sesión/semana/bloque/programa vigente y un `setLogsCount` (conteo, no el detalle de cada serie).
+- `GET /api/v1/workout-logs/evolution` — métricas descriptivas simples (`WorkoutSummaryMetrics`) más, opcionalmente, la evolución de carga/repeticiones de un ejercicio puntual del catálogo. Query params opcionales: `dateFrom`, `dateTo`, `programId` (se aplican también al cálculo del resumen) y `exerciseId` (agrega el arreglo `exerciseEvolution`; sin él, ese campo es `null`).
+
+Ambos endpoints viven en el mismo controller que ya existía (`/workout-logs`, PROMPT 10) y comparten su guard de clase (`JwtAuthGuard` + `Roles(STUDENT)`) — no se creó un módulo nuevo.
+
+`GET /workout-logs/:id` (detalle, ya existente desde PROMPT 10) se **amplió** — no se duplicó — para embeber el mismo contexto de sesión/programa que el historial, ya que PROMPT 11 pide poder ver "sesión" y "programa relacionado" en el detalle.
+
+### Por qué `GET /workout-logs` y `GET /workout-logs/evolution` conviven con `GET /workout-logs/:id` sin ambigüedad
+
+NestJS/Express resuelve las rutas de un controller en el orden en que se declaran. `history()` (`@Get()`) y `evolution()` (`@Get('evolution')`) están declaradas **antes** que `detail()` (`@Get(':id')`) en `WorkoutLogsController`: si `:id` se declarara primero, una petición a `GET /workout-logs/evolution` matchearía ese patrón con `id = "evolution"` en vez de llegar al handler correcto. Queda documentado también como comentario en el propio controller para que nadie reordene los métodos sin darse cuenta de esta dependencia.
+
+### Autorización — por qué los filtros no necesitan una verificación de propiedad aparte
+
+El enunciado de PROMPT 11 exige explícitamente no aceptar `studentId`/`userId` desde el cliente y no permitir que un alumno obtenga información de otro alumno. Ninguno de los dos DTOs de query (`ListWorkoutLogsQueryDto`, `GetWorkoutEvolutionQueryDto`) declara esos campos — con `whitelist`/`forbidNonWhitelisted` globales, enviarlos se rechaza con `400` antes de llegar al servicio. El `studentId` real sale siempre de `CurrentUser()` y `WorkoutLogsService` lo agrega **siempre** al `where` de Prisma junto con los filtros opcionales (`dateFrom`/`dateTo`/`completionStatus`/`programId`/`sessionId`).
+
+Esto hace que los demás filtros sean seguros **por construcción**, sin necesidad de una verificación de propiedad adicional: como el `where` combina `studentId` (fijo) con `AND` los demás filtros, pedir un `programId` o `sessionId` que no es propio simplemente no coincide con ninguna fila del alumno autenticado y devuelve una lista vacía — nunca puede "ampliar" el resultado hacia los datos de otro alumno. La única cadena de propiedad real que existía para este dominio (`ProgramAssignment`, PROMPT 09/10) se sigue resolviendo en `start()`/`findAssignedSessionOrThrow()`, sin cambios.
+
+No existe todavía ningún endpoint de historial/evolución para el Coach (eso es el dashboard, explícitamente fuera de alcance de este prompt): el requisito de PROMPT 11 de que "un Coach no obtenga automáticamente historial de cualquier alumno" se cumple hoy porque ese acceso simplemente no existe. Cuando se construya, debe reutilizar las mismas funciones de `common/training/workout-metrics.ts` pasando un `where` con `student: { coachId }` en vez de `studentId`, nunca un cálculo aparte (ver siguiente sección).
+
+### Cómo se calculan las métricas de evolución
+
+`backend/src/common/training/workout-metrics.ts` concentra el cálculo, deliberadamente **fuera** de `WorkoutLogsService`, con dos funciones puras:
+
+- `computeWorkoutSummaryMetrics(prisma, where)`: total de entrenamientos **finalizados** (`durationMinutes !== null`, la misma señal de PROMPT 10 — un entrenamiento en curso no cuenta para no inflar el promedio), total de series registradas (esta sí cuenta también las de un entrenamiento aún en curso, ya que una serie registrada es un dato real independiente de si la sesión se cerró), duración/RPE/fatiga promedio (`Prisma.aggregate`, `_avg`), y frecuencia de entrenamiento por semana calculada sobre el rango real que cubren los datos (`_min`/`_max` de `performedAt`) — **nunca** sobre una ventana fija inventada. Con menos de 2 entrenamientos finalizados no hay un rango real que promediar, así que la frecuencia queda en `null` en vez de mostrar un número sin sentido (ej. "1/semana" con un solo dato).
+- `computeExerciseEvolution(prisma, where, exerciseId)`: trae los `SetLog` de ese ejercicio del catálogo (a través de `SessionExercise.exerciseId`) dentro del `where` dado, y los agrupa **por entrenamiento** (no por serie suelta): cada punto de la evolución es "carga máxima alcanzada y repeticiones totales ese día", ordenado cronológicamente. Devuelve un arreglo vacío — nunca un dato inventado — si el alumno nunca registró ese ejercicio.
+
+Ambas funciones reciben el `where` ya armado por el llamador (nunca deciden ellas de quién son los datos), precisamente para poder reutilizarse sin cambios desde el futuro dashboard del Coach. `buildWorkoutLogFilterWhere()` (mismo archivo) arma la porción de filtros común a `dateFrom`/`dateTo`/`completionStatus`/`programId`/`sessionId`, reutilizada tanto por `listHistory()` como por `getEvolution()`.
+
+Ninguna de estas funciones usa Machine Learning, predicción ni un algoritmo propio: son agregaciones descriptivas simples (conteos, promedios, máximos) calculadas por PostgreSQL vía Prisma, exactamente lo que pide PROMPT 11.
+
+### `dateTo` sin hora se interpreta como el fin de ese día
+
+Un filtro `dateTo=2026-03-15` (sin componente de hora) se normaliza internamente a `2026-03-15T23:59:59.999Z` antes de usarse en el `where` (`parseDateTo()`, `common/training/workout-metrics.ts) — de lo contrario, `lte` contra la medianoche excluiría todo lo registrado ese mismo día, el resultado menos intuitivo posible para alguien filtrando "hasta hoy". `dateFrom` no necesita el ajuste simétrico: la medianoche de ese día ya es su inicio natural.
+
+### Alcance explícitamente fuera de PROMPT 11
+
+No se modificó ningún endpoint/lógica de `start()`/`addSetLogs()`/`finish()` (PROMPT 10) ni de `ProgramAssignment` (PROMPT 09). No se introdujo versionado de prescripciones: el detalle sigue mostrando la prescripción vigente al momento de la consulta, igual que desde PROMPT 10. No se implementó dashboard ni métricas del Coach, comparación coach-vs-alumno, gráficos con librerías de visualización, Excel, mensajería, PWA avanzada/service worker, Machine Learning/predicciones, pagos ni wearables — todos quedan para prompts futuros según `docs/roadmap.md`.

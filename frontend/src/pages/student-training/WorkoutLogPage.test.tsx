@@ -246,4 +246,70 @@ describe('WorkoutLogPage', () => {
 
     expect(await screen.findByText('Entrenamiento no encontrado')).toBeInTheDocument();
   });
+
+  // PROMPT 11 (RF-25) — el detalle ahora muestra el contexto de
+  // sesión/programa y un link a "Mi historial" con el ejercicio
+  // preseleccionado para ver su evolución.
+  it('muestra el contexto de sesión/programa y un link para ver la evolución del ejercicio', async () => {
+    mockGetByPath({
+      '/workout-logs/workout-log-1': buildWorkoutLog({
+        session: {
+          id: 'session-1',
+          name: 'Día 1 - Tren superior',
+          week: {
+            id: 'week-1',
+            number: 2,
+            block: {
+              id: 'block-1',
+              name: 'Bloque 1',
+              program: { id: 'program-1', name: 'Fuerza General' },
+            },
+          },
+        },
+        setLogs: [
+          {
+            id: 'set-log-1',
+            workoutLogId: 'workout-log-1',
+            sessionExerciseId: 'session-exercise-1',
+            setNumber: 1,
+            actualReps: 10,
+            actualLoad: 60,
+            actualRpe: 8,
+            actualRir: 2,
+            comments: null,
+            createdAt: '2026-01-05T10:00:00.000Z',
+            updatedAt: '2026-01-05T10:00:00.000Z',
+            sessionExercise: {
+              id: 'session-exercise-1',
+              order: 1,
+              targetSets: 4,
+              targetRepsMin: 8,
+              targetRepsMax: 12,
+              targetRpe: 8,
+              targetRir: 2,
+              exercise: {
+                id: 'exercise-1',
+                name: 'Press de banca',
+                muscleGroup: 'Pecho',
+                isActive: true,
+              },
+            },
+          },
+        ],
+      }),
+    });
+
+    renderWithRoute(<WorkoutLogPage />, {
+      path: '/workout-logs/:id',
+      route: '/workout-logs/workout-log-1',
+    });
+
+    expect(
+      await screen.findByText(/Fuerza General/),
+    ).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: 'Press de banca' });
+    expect(link.getAttribute('href')).toBe(
+      '/history?exerciseId=exercise-1&exerciseName=Press%20de%20banca',
+    );
+  });
 });
