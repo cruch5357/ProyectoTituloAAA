@@ -59,6 +59,17 @@ export interface EmbeddedSessionContext {
   };
 }
 
+// Resumen del alumno embebido en un WorkoutLog (PROMPT 12, RF-26): solo
+// presente en la actividad reciente del Dashboard del Coach (GET
+// /dashboard/recent-activity), donde una misma lista mezcla entrenamientos
+// de VARIOS alumnos -- el propio historial del alumno (PROMPT 11) nunca lo
+// incluye, porque ahí siempre es el mismo alumno autenticado.
+export interface EmbeddedStudentSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface WorkoutLog {
   id: string;
   sessionId: string;
@@ -77,4 +88,6 @@ export interface WorkoutLog {
   // del historial (GET /workout-logs), nunca en el detalle (que ya trae
   // `setLogs` completo).
   setLogsCount?: number;
+  // Solo presente en GET /dashboard/recent-activity (PROMPT 12).
+  student?: EmbeddedStudentSummary;
 }

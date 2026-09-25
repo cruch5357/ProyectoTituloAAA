@@ -1,7 +1,9 @@
 import {
   buildWorkoutLogFilterWhere,
+  computeCompletionStatusBreakdown,
   computeExerciseEvolution,
   computeWorkoutSummaryMetrics,
+  countRegisteredWorkouts,
   parseDateFrom,
   parseDateTo,
 } from './workout-metrics';
@@ -13,13 +15,13 @@ import { WorkoutCompletionStatus } from '@prisma/client';
 // también sirven como la base que reutilizará el futuro dashboard del
 // Coach (ver el comentario de cabecera de workout-metrics.ts).
 type MockPrisma = {
-  workoutLog: { aggregate: jest.Mock };
+  workoutLog: { aggregate: jest.Mock; count: jest.Mock; groupBy: jest.Mock };
   setLog: { count: jest.Mock; findMany: jest.Mock };
 };
 
 function buildMockPrisma(): MockPrisma {
   return {
-    workoutLog: { aggregate: jest.fn() },
+    workoutLog: { aggregate: jest.fn(), count: jest.fn(), groupBy: jest.fn() },
     setLog: { count: jest.fn(), findMany: jest.fn() },
   };
 }
@@ -247,5 +249,87 @@ describe('computeExerciseEvolution', () => {
         setCount: 1,
       },
     ]);
+  });
+});
+
+describe('countRegisteredWorkouts', () => {
+  it('delega en workoutLog.count con el where recibido, sin filtrar por durationMinutes', async () => {
+    const prisma = buildMockPrisma();
+    prisma.workoutLog.count.mockResolvedValue(7);
+
+    const where = { studentId: 'student-1' };
+    const result = await countRegisteredWorkouts(
+      prisma as unknown as PrismaService,
+      where,
+    );
+
+    expect(result).toBe(7);
+    expect(prisma.workoutLog.count).toHaveBeenCalledWith({ where });
+  });
+
+  it('devuelve 0 cuando no hay ningún WorkoutLog para el where (sin inventar datos)', async () => {
+    const prisma = buildMockPrisma();
+    prisma.workoutLog.count.mockResolvedValue(0);
+
+    const result = await countRegisteredWorkouts(
+      prisma as unknown as PrismaService,
+      { studentId: 'student-sin-datos' },
+    );
+
+    expect(result).toBe(0);
+  });
+});
+
+describe('computeCompletionStatusBreakdown', () => {
+  it('devuelve ceros cuando no hay ningún WorkoutLog finalizado (sin inventar datos)', async () => {
+    const prisma = buildMockPrisma();
+    prisma.workoutLog.groupBy.mockResolvedValue([]);
+
+    const result = await computeCompletionStatusBreakdown(
+      prisma as unknown as PrismaService,
+      { studentId: 'student-1' },
+    );
+
+    expect(result).toEqual({ completed: 0, partial: 0, skipped: 0 });
+  });
+
+  it('mapea cada fila agrupada a su contador correspondiente', async () => {
+    const prisma = buildMockPrisma();
+    prisma.workoutLog.groupBy.mockResolvedValue([
+      {
+        completionStatus: WorkoutCompletionStatus.COMPLETED,
+        _count: { _all: 5 },
+      },
+      {
+        completionStatus: WorkoutCompletionStatus.PARTIAL,
+        _count: { _all: 2 },
+      },
+      {
+        completionStatus: WorkoutCompletionStatus.SKIPPED,
+        _count: { _all: 1 },
+      },
+    ]);
+
+    const result = await computeCompletionStatusBreakdown(
+      prisma as unknown as PrismaService,
+      { student: { coachId: 'coach-1' } },
+    );
+
+    expect(result).toEqual({ completed: 5, partial: 2, skipped: 1 });
+  });
+
+  it('agrega el filtro de finalizado (durationMinutes not null) al where recibido', async () => {
+    const prisma = buildMockPrisma();
+    prisma.workoutLog.groupBy.mockResolvedValue([]);
+
+    await computeCompletionStatusBreakdown(prisma as unknown as PrismaService, {
+      studentId: 'student-1',
+    });
+
+    expect(prisma.workoutLog.groupBy).toHaveBeenCalledWith({
+      by: ['completionStatus'],
+      where: { studentId: 'student-1', durationMinutes: { not: null } },
+      _count: { _all: true },
+    });
   });
 });

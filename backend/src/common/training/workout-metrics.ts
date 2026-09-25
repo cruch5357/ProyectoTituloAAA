@@ -220,3 +220,77 @@ export async function computeExerciseEvolution(
   // sin necesidad de un segundo `sort`.
   return Array.from(byWorkout.values());
 }
+
+// ---------------------------------------------------------------------------
+// PROMPT 12 (RF-26) — agregado puntual para el Dashboard del Coach.
+// ---------------------------------------------------------------------------
+
+// "Entrenamientos registrados": TODO WorkoutLog que exista para el `where`
+// dado, sin filtrar por `durationMinutes` (a diferencia de
+// `computeWorkoutSummaryMetrics`, cuyo `totalWorkouts` describe SOLO los ya
+// FINALIZADOS — ver el comentario de esa función más arriba). El Dashboard
+// del Coach (PROMPT 12) necesita mostrar ambos números por separado y con
+// una definición explícita y no ambigua (docs/api.md, "Estado de
+// implementación (PROMPT 12)", sección de definiciones):
+//   - "Entrenamientos registrados" = countRegisteredWorkouts(where)
+//   - "Entrenamientos finalizados" = computeWorkoutSummaryMetrics(where).totalWorkouts
+// Se agrega acá, junto al resto de las métricas puras y reutilizables sobre
+// WorkoutLog/SetLog, en vez de duplicar un `prisma.workoutLog.count()`
+// suelto dentro de un service del Dashboard.
+export async function countRegisteredWorkouts(
+  prisma: PrismaService,
+  where: Prisma.WorkoutLogWhereInput,
+): Promise<number> {
+  return prisma.workoutLog.count({ where });
+}
+
+export interface CompletionStatusBreakdown {
+  completed: number;
+  partial: number;
+  skipped: number;
+}
+
+// Distribución de `completionStatus` entre los WorkoutLog YA FINALIZADOS
+// (mismo criterio "finalizado" = `durationMinutes !== null` que el resto de
+// este archivo). Esta es la ÚNICA lectura de "cumplimiento" que PROMPT 12
+// permite sin inventar una fórmula: cuenta un valor que el propio alumno ya
+// registró al finalizar (completionStatus), nunca lo compara contra una
+// frecuencia prescrita — el esquema actual no modela "cuántos
+// entrenamientos se esperaban" de forma confiable (una Session puede
+// pertenecer a varias semanas de un Program, y un ProgramAssignment no
+// tiene fecha de fin planificada por semana), así que construir un
+// porcentaje de "adherencia" a partir de eso sería una suposición, exactamente
+// lo que PROMPT 12 prohíbe explícitamente ("NO inventar una definición de
+// 'adherencia'"). Ver docs/api.md, "Estado de implementación (PROMPT 12)",
+// sección de definiciones, para el razonamiento completo.
+export async function computeCompletionStatusBreakdown(
+  prisma: PrismaService,
+  where: Prisma.WorkoutLogWhereInput,
+): Promise<CompletionStatusBreakdown> {
+  const finishedWhere: Prisma.WorkoutLogWhereInput = {
+    ...where,
+    durationMinutes: { not: null },
+  };
+
+  const grouped = await prisma.workoutLog.groupBy({
+    by: ['completionStatus'],
+    where: finishedWhere,
+    _count: { _all: true },
+  });
+
+  const breakdown: CompletionStatusBreakdown = {
+    completed: 0,
+    partial: 0,
+    skipped: 0,
+  };
+  for (const row of grouped) {
+    if (row.completionStatus === WorkoutCompletionStatus.COMPLETED) {
+      breakdown.completed = row._count._all;
+    } else if (row.completionStatus === WorkoutCompletionStatus.PARTIAL) {
+      breakdown.partial = row._count._all;
+    } else if (row.completionStatus === WorkoutCompletionStatus.SKIPPED) {
+      breakdown.skipped = row._count._all;
+    }
+  }
+  return breakdown;
+}

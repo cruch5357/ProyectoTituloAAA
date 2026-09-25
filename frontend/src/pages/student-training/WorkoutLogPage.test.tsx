@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithRoute } from '../../test/renderWithProviders';
 import { apiClient, ApiError } from '../../lib/apiClient';
@@ -117,9 +117,15 @@ describe('WorkoutLogPage', () => {
       route: '/workout-logs/workout-log-1',
     });
 
-    expect(await screen.findByText('Press de banca')).toBeInTheDocument();
-    expect(screen.getByText('8-12 reps / RPE 8 / RIR 2')).toBeInTheDocument();
-    expect(screen.getByText('10')).toBeInTheDocument();
+    // PROMPT 11 agregó "Ver evolución: Press de banca" (ExerciseEvolutionLinks)
+    // como un link ADICIONAL fuera de la tabla, así que el nombre del
+    // ejercicio ya no es único en la página -- se acota la consulta a la
+    // fila de la tabla de series registradas (mismo elemento que este test
+    // de PROMPT 10 siempre quiso verificar).
+    const table = await screen.findByRole('table');
+    expect(within(table).getByText('Press de banca')).toBeInTheDocument();
+    expect(within(table).getByText('8-12 reps / RPE 8 / RIR 2')).toBeInTheDocument();
+    expect(within(table).getByText('10')).toBeInTheDocument();
   });
 
   // PROMPT 10 — "registrar series ejecutadas".

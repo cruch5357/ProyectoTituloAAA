@@ -368,3 +368,54 @@ Un filtro `dateTo=2026-03-15` (sin componente de hora) se normaliza internamente
 ### Alcance explícitamente fuera de PROMPT 11
 
 No se modificó ningún endpoint/lógica de `start()`/`addSetLogs()`/`finish()` (PROMPT 10) ni de `ProgramAssignment` (PROMPT 09). No se introdujo versionado de prescripciones: el detalle sigue mostrando la prescripción vigente al momento de la consulta, igual que desde PROMPT 10. No se implementó dashboard ni métricas del Coach, comparación coach-vs-alumno, gráficos con librerías de visualización, Excel, mensajería, PWA avanzada/service worker, Machine Learning/predicciones, pagos ni wearables — todos quedan para prompts futuros según `docs/roadmap.md`.
+
+## 14. Estado de implementación (PROMPT 12)
+
+Documenta lo agregado en PROMPT 12: el Dashboard del Coach (RF-26) — resumen agregado de todos sus alumnos, actividad reciente y métricas por alumno puntual. Formato de respuesta y códigos de error: idénticos a los ya documentados (envoltorio `{ data, error, meta }`).
+
+### Endpoints nuevos
+
+Todos viven en un módulo nuevo (`DashboardModule`, `backend/src/dashboard/`), con guard de clase `JwtAuthGuard` + `Roles(COACH)` — exclusivos del coach autenticado, nunca accesibles a un STUDENT.
+
+- `GET /api/v1/dashboard/summary` — resumen agregado de **todos** los alumnos del coach: alumnos totales/activos, asignaciones activas, entrenamientos registrados/finalizados, promedios (duración/RPE/fatiga), frecuencia semanal y distribución de cumplimiento. Sin query params.
+- `GET /api/v1/dashboard/recent-activity` — actividad reciente (`WorkoutLog`) de todos los alumnos del coach, paginada y ordenada por `performedAt` descendente. Query params opcionales: `page`, `limit`, `dateFrom`, `dateTo`, `completionStatus` (mismo criterio de paginación/fechas que `GET /workout-logs`, PROMPT 11). Cada fila embebe el resumen del alumno (`id`/`name`/`email`) además del contexto de sesión/programa ya existente, para poder distinguir de quién es cada entrenamiento en una sola tabla.
+- `GET /api/v1/dashboard/students/:studentId` — métricas de **un** alumno propio puntual: entrenamientos registrados/finalizados, promedios, frecuencia, distribución de cumplimiento y, opcionalmente, evolución de un ejercicio del catálogo. Query params opcionales: `dateFrom`, `dateTo`, `programId`, `exerciseId` — literalmente el mismo `GetWorkoutEvolutionQueryDto` que ya usa `GET /workout-logs/evolution` (PROMPT 11), reutilizado sin cambios ni duplicación.
+
+### Aislamiento entre coaches (CRÍTICO) — de dónde sale cada `coachId`/`studentId`
+
+El `coachId` que scopea `summary`/`recent-activity` **siempre** sale de `CurrentUser()` en el controller — ningún DTO de este módulo declara un campo `coachId`, así que un intento de enviarlo se rechaza con `400` (whitelist/forbidNonWhitelisted globales), igual que el criterio ya aplicado a `studentId`/`userId` en PROMPT 11. `DashboardSummaryService` fija `student: { coachId }` como base de **todo** `where` de `WorkoutLog`/`ProgramAssignment`/`User` que construye (método privado `coachWorkoutLogWhere()`), y los filtros opcionales (fechas, estado) solo pueden **acotar** ese conjunto, nunca ampliarlo — mismo argumento anti-IDOR "seguro por construcción" ya documentado en PROMPT 11 para los filtros del historial del alumno, aplicado ahora al `coachId` del coach en vez del `studentId` del alumno.
+
+Para `GET /dashboard/students/:studentId`, el `studentId` de la URL es del cliente y **sí** podría apuntar a un alumno de otro coach — por eso `DashboardStudentService.getStudentDashboard()` empieza siempre por `StudentsService.getOwnedByCoach(coachId, studentId)` (el mismo método que ya usa `GET /students/:id` desde PROMPT 04, ahora exportado desde `StudentsModule` para este reuso) **antes** de tocar cualquier tabla de `WorkoutLog`: responde `404` genérico (nunca `403`) si el alumno no existe, no es `STUDENT`, o pertenece a otro coach, exactamente como ya lo hace `StudentsController`. Ninguna métrica se calcula sin pasar primero por esa verificación — ver `dashboard-student.service.spec.ts`, que prueba explícitamente que ninguna consulta de Prisma se dispara si `getOwnedByCoach()` rechaza.
+
+### Reutilización — nada de esto duplica lo de PROMPT 11
+
+Las tres funciones puras de `backend/src/common/training/workout-metrics.ts` (`buildWorkoutLogFilterWhere`, `computeWorkoutSummaryMetrics`, `computeExerciseEvolution`) se reutilizan **sin ningún cambio de comportamiento**, pasando un `where` scopeado por coach (`student: { coachId }`) o por alumno ya verificado (`studentId`) en vez del `studentId` del propio alumno autenticado — exactamente el reuso que ese archivo anticipó explícitamente en su comentario de cabecera desde PROMPT 11. `GetWorkoutEvolutionQueryDto` (PROMPT 11) se importa directamente desde `workout-logs/dto/` para el endpoint por-alumno, en vez de declarar un DTO paralelo con los mismos campos. La verificación de propiedad coach→alumno reutiliza `StudentsService.getOwnedByCoach()` (PROMPT 04) en vez de reimplementar ese chequeo.
+
+Se agregaron dos funciones nuevas al mismo archivo `workout-metrics.ts` (no un servicio nuevo aparte), porque son agregaciones puras y genéricas sobre un `where` arbitrario, igual que las tres anteriores:
+
+- `countRegisteredWorkouts(prisma, where)`: `prisma.workoutLog.count({ where })` — **todo** `WorkoutLog` existente, sin filtrar por `durationMinutes` (a diferencia de `computeWorkoutSummaryMetrics`, cuyo `totalWorkouts` describe solo los ya finalizados).
+- `computeCompletionStatusBreakdown(prisma, where)`: distribución de `completionStatus` (`COMPLETED`/`PARTIAL`/`SKIPPED`) entre los `WorkoutLog` ya finalizados, vía `prisma.workoutLog.groupBy`.
+
+El Dashboard quedó separado en dos servicios (`DashboardSummaryService` para la vista agregada, `DashboardStudentService` para la vista por alumno) en vez de uno solo, siguiendo la instrucción explícita de PROMPT 12 de no construir "un único servicio gigantesco".
+
+### Definiciones (fórmulas exactas, ninguna es una estimación)
+
+- **Entrenamientos registrados** = `countRegisteredWorkouts(where)`: cuenta cualquier `WorkoutLog` existente para el `where` dado, incluyendo uno todavía en curso (`completionStatus: PARTIAL` provisional, `durationMinutes: null` — ver la decisión de diseño de PROMPT 10).
+- **Entrenamientos finalizados** = `computeWorkoutSummaryMetrics(where).totalWorkouts`: subconjunto de los anteriores que pasó por `finish()` al menos una vez (`durationMinutes !== null`, misma señal ya establecida en PROMPT 10/11 sin cambios).
+- **Duración/RPE/fatiga promedio** y **frecuencia de entrenamiento por semana**: idénticas a PROMPT 11 (`Prisma.aggregate` sobre los finalizados; frecuencia = entrenamientos finalizados ÷ semanas reales entre el primero y el último, `null` con menos de 2 para no dividir por un rango casi nulo).
+- **Distribución de cumplimiento** = `computeCompletionStatusBreakdown(where)`: conteo de `completionStatus` entre los entrenamientos finalizados — un valor que el propio alumno ya registró al finalizar, nunca una comparación contra algo prescrito.
+- **Asignaciones activas** = `prisma.programAssignment.count({ where: { status: 'ACTIVE', student: { coachId } } })` — `ProgramAssignment` no tiene columna `coachId` propia (ver `docs/database.md`), así que se llega al coach a través del alumno asignado, mismo camino ya usado por `ProgramAssignmentsService` para verificar propiedad (PROMPT 09), acá usado solo para contar.
+
+**Por qué NO existe un porcentaje de "adherencia"**: PROMPT 12 prohíbe explícitamente inventar esa definición. Calcularla exigiría comparar "entrenamientos realizados" contra "entrenamientos que se esperaban", y el esquema actual no modela eso de forma confiable — una `Session` pertenece a una `Week` de un `Program`, pero un `ProgramAssignment` no tiene fecha de fin planificada por semana ni una cantidad de sesiones esperadas por período, así que cualquier fórmula de adherencia construida hoy sería una suposición del equipo, no un dato real. La distribución de cumplimiento (arriba) es la única lectura de "cumplimiento" que este prompt implementa, porque cuenta exclusivamente datos que el alumno ya registró.
+
+### Datos insuficientes — qué muestra el frontend cuando no hay suficiente base
+
+Ningún endpoint devuelve `403`/error cuando un coach no tiene alumnos, asignaciones o entrenamientos: los conteos son `0` y los promedios/frecuencia son `null` (igual que en PROMPT 11), nunca un valor inventado ni una división por cero disfrazada. El frontend (`DashboardPage`/`StudentDashboardPage`) muestra un mensaje explícito en vez de las tarjetas de métricas cuando `totalStudents === 0` (coach sin alumnos), `workoutsRegistered === 0` (alumno sin entrenamientos) o `workoutsFinished === 0` (sin base para la distribución de cumplimiento) — nunca se renderiza un `0%`/promedio sin la base que lo sostiene.
+
+### Seguridad y performance
+
+Ninguna consulta trae `WorkoutLog`/`SetLog` completos a memoria para calcular algo en Node más allá de lo ya justificado en PROMPT 11 (`computeExerciseEvolution`, agrupación por entrenamiento). El resumen agregado (`getSummary`) resuelve sus 6 conteos/agregaciones con `Promise.all` (sin cascada secuencial) y `recent-activity` siempre pagina (nunca "traer todo"). No se agregó ningún índice nuevo: `WorkoutLog(student_id, performed_at)` (definido desde PROMPT 02, ver `docs/database.md` sección 7) ya cubre las consultas por alumno, y el `where: { student: { coachId } }` a nivel de coach resuelve el join usando el índice ya existente `User(coachId)` — exactamente el escenario que `docs/database.md` anticipó al comentar ese índice como "consultas de historial y dashboard".
+
+### Alcance explícitamente fuera de PROMPT 12
+
+No se modificó ningún endpoint/lógica de `start()`/`addSetLogs()`/`finish()` (PROMPT 10) ni de `listHistory()`/`getEvolution()` (PROMPT 11) — se reutilizaron sin cambios. No se implementó: comparación planificado-vs-real a nivel de sesión (más allá de la distribución de cumplimiento), gráficos con librerías de visualización (los "stat cards"/tablas siguen el mismo criterio visual simple que PROMPT 11), exportación a Excel/PDF, mensajería, notificaciones, PWA avanzada/service worker, Machine Learning/predicciones, ranking o comparación entre alumnos, pagos ni wearables — todos quedan para prompts futuros según `docs/roadmap.md`.

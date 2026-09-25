@@ -20,6 +20,7 @@ import { ProgramAssignmentsModule } from './program-assignments/program-assignme
 import { StudentTrainingModule } from './student-training/student-training.module';
 import { WorkoutLogsModule } from './workout-logs/workout-logs.module';
 import { SetLogsModule } from './set-logs/set-logs.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -64,6 +65,7 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     StudentTrainingModule,
     WorkoutLogsModule,
     SetLogsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

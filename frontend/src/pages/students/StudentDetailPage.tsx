@@ -81,16 +81,17 @@ export function StudentDetailPage() {
         </p>
       )}
 
-      {/* Sección preparada para funcionalidad futura (programas, sesiones,
-          métricas de cumplimiento — ver docs/requirements.md RF-15/RF-26).
-          Deliberadamente sin datos simulados (PROMPT 04, punto 15). */}
-      <section aria-labelledby="future-work-heading">
-        <h2 id="future-work-heading">Próximamente</h2>
-        <p>
-          Programas asignados, historial de sesiones y métricas de
-          cumplimiento se agregan en prompts futuros.
-        </p>
-      </section>
+      {/* RF-26 (Dashboard del Coach por alumno) implementado en PROMPT 12:
+          ver DashboardStudentService.getStudentDashboard(), que reutiliza
+          EXACTAMENTE esta misma verificación de propiedad
+          (StudentsService.getOwnedByCoach()) antes de calcular cualquier
+          métrica. Programas asignados/historial de sesiones detallado
+          siguen fuera de alcance de esta página (PROMPT 04, punto 15). */}
+      <p>
+        <Link to={`/dashboard/students/${student.id}`}>
+          Ver métricas de entrenamiento de este alumno
+        </Link>
+      </p>
     </section>
   );
 }

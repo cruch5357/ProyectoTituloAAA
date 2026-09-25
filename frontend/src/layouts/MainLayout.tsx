@@ -18,6 +18,7 @@ export function MainLayout() {
         <nav className="app-shell__nav">
           {status === 'authenticated' && user?.role === 'COACH' && (
             <>
+              <Link to="/dashboard">Dashboard</Link>
               <Link to="/students">Mis alumnos</Link>
               <Link to="/exercises">Catálogo de ejercicios</Link>
               <Link to="/programs">Mis programas</Link>

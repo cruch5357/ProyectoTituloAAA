@@ -111,6 +111,19 @@ export interface EmbeddedSessionContext {
   };
 }
 
+// Resumen del alumno embebido en un WorkoutLog (PROMPT 12, RF-26): el
+// Dashboard del Coach lista actividad reciente de TODOS sus alumnos en una
+// sola tabla, así que cada fila necesita identificar de quién es -- algo
+// que el propio historial del alumno (PROMPT 11) nunca necesitó, porque ahí
+// el `studentId` es siempre el mismo (el autenticado). Mismo criterio de
+// selección angosta que STUDENT_SUMMARY_SELECT en
+// program-assignments.service.ts: nunca se embebe passwordHash/tokenVersion.
+export interface EmbeddedStudentSummary {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface PublicWorkoutLog {
   id: string;
   sessionId: string;
@@ -131,6 +144,11 @@ export interface PublicWorkoutLog {
   // ("evita traer grandes volúmenes innecesarios"). El detalle
   // (GET /workout-logs/:id) sigue embebiendo `setLogs` completo.
   setLogsCount?: number;
+  // Igual que `session`/`setLogsCount`: opcional y solo presente cuando el
+  // llamador lo pide explícitamente (PROMPT 12, actividad reciente del
+  // Dashboard del Coach) -- el historial propio del alumno (PROMPT 11) no
+  // lo incluye nunca, porque ahí sería redundante.
+  student?: EmbeddedStudentSummary;
 }
 
 type SessionWithChain = Session & {
@@ -141,6 +159,7 @@ type WorkoutLogWithExtras = WorkoutLog & {
   setLogs?: SetLogWithExercise[];
   session?: SessionWithChain;
   _count?: { setLogs: number };
+  student?: { id: string; name: string; email: string };
 };
 
 export function toPublicWorkoutLog(
@@ -183,5 +202,14 @@ export function toPublicWorkoutLog(
         }
       : {}),
     ...(workoutLog._count ? { setLogsCount: workoutLog._count.setLogs } : {}),
+    ...(workoutLog.student
+      ? {
+          student: {
+            id: workoutLog.student.id,
+            name: workoutLog.student.name,
+            email: workoutLog.student.email,
+          },
+        }
+      : {}),
   };
 }
