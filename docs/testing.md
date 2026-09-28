@@ -35,6 +35,7 @@ El testing se integra desde la primera funcionalidad implementada (autenticació
 
 ### Pruebas de importación de Excel
 - Casos: archivo válido completo, archivo con filas mixtas válidas/inválidas, archivo vacío, archivo que excede el tamaño máximo, archivo con extensión falsificada, archivo `.xlsm` (rechazado), archivo con datos fuera de rango (RPE/RIR/series/repeticiones inválidas).
+- Implementado en PROMPT 13 (primera mitad de RF-17/18/19: archivo -> validación -> vista previa, sin confirmación todavía): `backend/src/common/imports/excel-file-validation.spec.ts`, `backend/src/common/imports/excel-row-validation.spec.ts` y `backend/src/imports/excel-imports.service.spec.ts` cubren todos los casos listados arriba, generando archivos `.xlsx` reales en memoria con `exceljs` (no mocks del parser) para las pruebas de extremo a extremo del archivo. La autorización cruzada de un batch (coach viendo el de otro) se prueba junto con el resto de la matriz de la sección "Pruebas de seguridad". Pendiente para PROMPT 14: pruebas de confirmación/rechazo del batch y de la persistencia normalizada resultante.
 
 ### Pruebas de permisos
 - Matriz rol × endpoint que verifica, para cada endpoint definido en `api.md`, qué combinaciones de rol y propiedad de recurso deben permitirse o rechazarse.

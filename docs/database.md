@@ -34,7 +34,7 @@ Ambas ramas se conectan por referencia (una `WorkoutLog` apunta a la `Session` q
 
 ### Importación de Excel (trazabilidad, no una copia plana)
 - **ExcelImportBatch**: `id`, `coach_id`, `original_filename`, `status` (`pending_review` | `confirmed` | `rejected`), `uploaded_at`, `confirmed_at`.
-- **ExcelImportRow**: `id`, `batch_id`, `row_number`, `raw_data` (JSON de la fila original, solo para trazabilidad/depuración), `status` (`valid` | `invalid`), `errors` (lista de errores de validación), `program_id`/`session_exercise_id` resultante cuando se confirma.
+- **ExcelImportRow**: `id`, `batch_id`, `row_number`, `raw_data` (JSON de la fila original, solo para trazabilidad/depuración), `status` (`valid` | `invalid`), `errors` (lista de errores de validación), `result_session_exercise_id` (nullable, `SET NULL` al borrar) apuntando al `SessionExercise` real que la fila generó al confirmarse la importación (PROMPT 14) — no existe una columna `program_id` separada: el `Program`/`Block`/`Week`/`Session` de una fila confirmada se deriva siempre de esa misma relación (`SessionExercise -> Session -> Week -> Block -> Program`), nunca de un campo propio a mantener sincronizado a mano.
 
 Este diseño permite mostrar la vista previa y los errores por fila sin haber tocado aún las tablas normalizadas, y solo al confirmar se generan las filas reales en `Program/Block/Week/Session/SessionExercise`.
 

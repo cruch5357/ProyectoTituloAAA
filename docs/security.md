@@ -384,3 +384,27 @@ Se integró la asignación dentro del flujo existente de "Mis programas" (vista 
 ### Limitación de entorno (sin cambios)
 
 Misma limitación persistente ya documentada desde PROMPT 01/08 (bloqueo de red hacia `binaries.prisma.sh`; el puente de ejecución hacia la máquina real del equipo tampoco puede correr pruebas e2e con base de datos real ni `prisma generate`/`migrate`). Como este prompt no agrega ninguna migración, no hay ningún paso adicional de `prisma migrate` pendiente más allá de los ya reportados en prompts anteriores.
+
+## Estado de implementación (PROMPT 13)
+
+Documenta la implementación real de las secciones 23-25 (ya esbozadas conceptualmente desde PROMPT 00) al construir la importación de Excel (`backend/src/imports/`, `backend/src/common/imports/`).
+
+### Validación de archivo, en capas
+
+`common/imports/excel-file-validation.ts` nunca confía en un único dato declarado por el cliente: valida tamaño (backend autoritativo, 5 MB — sección 24), extensión (`.xlsm` rechazado explícitamente, cualquier otra distinta de `.xlsx` también), Content-Type declarado (señal adicional, nunca suficiente por sí sola) y, sobre todo, el contenido real del buffer: firma binaria ZIP (`50 4B 03 04`) y una heurística de defensa en profundidad (búsqueda del marcador interno `vbaProject.bin`) para detectar un `.xlsm` renombrado a `.xlsx` — un caso que la extensión sola nunca puede distinguir, porque ambos formatos son, por dentro, el mismo contenedor ZIP/OOXML. Todos los errores detectables se acumulan en una sola pasada en vez de cortar en el primero.
+
+### El archivo nunca se persiste a disco
+
+`ExcelImportBatch` (schema.prisma) no tiene ninguna columna de ruta/blob de almacenamiento a propósito: el archivo se procesa enteramente en memoria (`multer.memoryStorage()`, sin escritura a disco) y se descarta al terminar el request. Por lo tanto la regla "nunca usar el nombre de archivo del usuario para construir una ruta" se cumple por diseño (no existe ninguna ruta que construir); igual se sanitiza el nombre antes de guardarlo como metadata (`sanitizeOriginalFilename()`: descarta componentes de ruta, reemplaza caracteres fuera de un conjunto seguro, acota longitud).
+
+### Ninguna fórmula ni macro se ejecuta jamás
+
+`exceljs` (librería elegida, ver `docs/api.md` sección 15 para la comparación con `xlsx`/SheetJS) solo lee el árbol OOXML y los valores/resultados ya calculados por Excel — nunca evalúa una fórmula. Un `.xlsm` (con macros) se rechaza en dos capas independientes: por extensión declarada, y por el contenido real (heurística `vbaProject.bin`) para el caso de un archivo renombrado.
+
+### Desviación consciente de la sección 25 (aislamiento en worker/proceso hijo)
+
+El enunciado de PROMPT 13 permite explícitamente no introducir esa arquitectura para el MVP. Se implementaron en su lugar cuatro mitigaciones equivalentes y proporcionales al alcance actual: límite de tamaño (5 MB), límite de filas de datos por importación (2000 — el archivo se rechaza completo si se excede, nunca se trunca en silencio), un presupuesto de tiempo de procesamiento chequeado entre filas (10s, aborta con un error controlado si se excede) y manejo seguro de excepciones (`loadWorkbook()` traduce cualquier fallo de `exceljs` — archivo corrupto o con estructura interna inválida — a un `400` genérico, nunca a un `500` con detalle interno). Se documenta como una decisión consciente, no como un descuido: si el volumen de importaciones creciera al punto de que esto deje de ser suficiente, aislar el parseo en un *worker thread* sigue siendo la vía prevista originalmente en esta misma sección.
+
+### Sin cambios en el resto del modelo de amenazas
+
+No se modificó ningún guard, ningún mecanismo de autenticación/sesión, ni ninguna otra superficie de seguridad ya documentada (PROMPT 03/04). La autorización de `ExcelImportBatch` sigue el mismo patrón 404-nunca-403 ya establecido en todo el proyecto (`ExcelImportsService.ensureOwnedBatch()`), y `coachId` nunca se acepta desde el cliente en ningún punto de este módulo (ni para crear el batch, ni para resolver ejercicios por nombre, ni para consultar la vista previa).

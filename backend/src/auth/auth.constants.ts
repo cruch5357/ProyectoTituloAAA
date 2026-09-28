@@ -78,6 +78,24 @@ export const AUDIT_ACTIONS = {
   // futuro dashboard/comparacion planificado vs. real.
   WORKOUT_LOG_STARTED: 'workout_logs.started',
   WORKOUT_LOG_FINISHED: 'workout_logs.finished',
+  // PROMPT 13: se audita la creacion de un batch de importacion de Excel
+  // (RF-17/18/19, primera mitad) por el mismo criterio que
+  // PROGRAM_ASSIGNMENT_CREATED/WORKOUT_LOG_STARTED — es el punto donde nace
+  // un artefacto nuevo con datos potencialmente sensibles (nombre de
+  // archivo, filas crudas para trazabilidad) y conviene poder auditar
+  // cuantas importaciones intento un coach y cuando. NO se audita la
+  // consulta de una importacion (GET), solo su creacion, mismo criterio que
+  // el resto del proyecto (las lecturas nunca se auditan). La confirmacion/
+  // rechazo de un batch (PROMPT 14) tendra sus propias acciones nuevas
+  // cuando exista ese endpoint.
+  EXCEL_IMPORT_BATCH_CREATED: 'excel_imports.batch_created',
+  // PROMPT 14: confirmacion y rechazo de un batch. La confirmacion es el
+  // punto mas sensible de todo el flujo de importacion (crea Program/Block/
+  // Week/Session/SessionExercise reales a nombre del coach), asi que se
+  // audita con el mismo criterio que PROGRAM_ASSIGNMENT_CREATED: conteos y
+  // metadata ya sanitizada, nunca el contenido crudo del Excel.
+  EXCEL_IMPORT_BATCH_CONFIRMED: 'excel_imports.batch_confirmed',
+  EXCEL_IMPORT_BATCH_REJECTED: 'excel_imports.batch_rejected',
 } as const;
 
 export const AUDIT_ENTITY_USER = 'User';
@@ -87,3 +105,4 @@ export const AUDIT_ENTITY_EXERCISE = 'Exercise';
 export const AUDIT_ENTITY_PROGRAM = 'Program';
 export const AUDIT_ENTITY_PROGRAM_ASSIGNMENT = 'ProgramAssignment';
 export const AUDIT_ENTITY_WORKOUT_LOG = 'WorkoutLog';
+export const AUDIT_ENTITY_EXCEL_IMPORT_BATCH = 'ExcelImportBatch';

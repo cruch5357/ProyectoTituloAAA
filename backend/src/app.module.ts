@@ -21,6 +21,7 @@ import { StudentTrainingModule } from './student-training/student-training.modul
 import { WorkoutLogsModule } from './workout-logs/workout-logs.module';
 import { SetLogsModule } from './set-logs/set-logs.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ImportsModule } from './imports/imports.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
 
@@ -66,6 +67,7 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
     WorkoutLogsModule,
     SetLogsModule,
     DashboardModule,
+    ImportsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

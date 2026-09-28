@@ -22,6 +22,7 @@ export function MainLayout() {
               <Link to="/students">Mis alumnos</Link>
               <Link to="/exercises">Catálogo de ejercicios</Link>
               <Link to="/programs">Mis programas</Link>
+              <Link to="/imports/excel">Importar Excel</Link>
             </>
           )}
           {status === 'authenticated' && user?.role === 'STUDENT' && (

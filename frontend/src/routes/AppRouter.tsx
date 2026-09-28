@@ -21,6 +21,7 @@ import { StudentSessionPage } from '../pages/student-training/StudentSessionPage
 import { WorkoutLogPage } from '../pages/student-training/WorkoutLogPage';
 import { HistoryPage } from '../pages/student-training/HistoryPage';
 import { DashboardPage } from '../pages/coach-dashboard/DashboardPage';
+import { ImportExcelPage } from '../pages/imports/ImportExcelPage';
 import { StudentDashboardPage } from '../pages/coach-dashboard/StudentDashboardPage';
 import { RequireAuth } from '../auth/RequireAuth';
 
@@ -51,6 +52,7 @@ const router = createBrowserRouter([
           { path: 'blocks/:id', element: <BlockDetailPage /> },
           { path: 'weeks/:id', element: <WeekDetailPage /> },
           { path: 'sessions/:id', element: <SessionDetailPage /> },
+          { path: 'imports/excel', element: <ImportExcelPage /> },
         ],
       },
       {

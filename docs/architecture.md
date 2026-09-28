@@ -118,7 +118,7 @@ Ver la sección de cierre en la respuesta de este PROMPT 00 y `roadmap.md` para 
 | PROMPT 01 | Backend con NestJS (sobre Express plano) | Confirmado al inicializar el scaffold del backend |
 | PROMPT 01 | ORM Prisma para PostgreSQL | Confirmado al inicializar el scaffold del backend |
 | PROMPT 01 | Frontend con Vite + React + TypeScript | Confirmado al inicializar el scaffold del frontend |
-| Pendiente | Plantilla exacta de columnas del Excel de importación | Abierto — se define junto con el prompt de importación |
+| PROMPT 13 | Plantilla exacta de columnas del Excel de importación (19 columnas, ver `docs/api.md` sección 15) | Confirmado |
 | Pendiente | Ventana de edición de un registro ya enviado (propuesto 24h) | Abierto — se valida con el equipo |
 | Pendiente | Variable a predecir por ciencia de datos | Abierto por diseño — depende de datos reales suficientes |
 | Pendiente | Infraestructura de hosting para demo/producción final | Abierto |
@@ -132,3 +132,4 @@ Ver la sección de cierre en la respuesta de este PROMPT 00 y `roadmap.md` para 
 | PROMPT 03 | CSRF de doble envío de cookie aplicado a `/auth/refresh` **y** `/auth/logout` (no solo refresh como decía el punto 9 original) | Confirmado |
 | PROMPT 03 | Autorización por propiedad de recurso: abstracción (`assertOwnsResource`) preparada y probada, sin endpoints de negocio a los que aplicarla todavía | Confirmado — se conecta a partir de PROMPT 04 |
 | PROMPT 03 | `prisma@8` (rc) evaluado como alternativa al bloqueo de `binaries.prisma.sh` | Descartado — la CLI de v8 reestructura todo en torno a "Prisma Platform" y ya no tiene un comando `generate` clásico; se mantiene `prisma@^5.20.0` |
+| PROMPT 13 | Librería de parseo de Excel: `exceljs` (no `xlsx`/SheetJS) | Confirmado — mantenida activamente, nunca ejecuta fórmulas, historial de advisories más limpio (ver `docs/api.md` sección 15) |

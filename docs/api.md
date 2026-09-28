@@ -50,8 +50,8 @@ El scoping por `coach_id`/`student_id` se aplica siempre en la capa de servicio 
 ### Importación de Excel
 - `POST /imports/excel` — sube el archivo, ejecuta validación/normalización y retorna una vista previa (`ExcelImportBatch` en estado `pending_review`) sin persistir en el modelo normalizado.
 - `GET /imports/excel/:id` — consulta el detalle/errores de una importación en curso.
-- `POST /imports/excel/:id/confirm` — confirma la importación de las filas válidas hacia `Program/Block/Week/Session/SessionExercise`.
-- `POST /imports/excel/:id/reject` — descarta el batch.
+- `POST /imports/excel/:id/confirm` — confirma la importación de las filas válidas hacia `Program/Block/Week/Session/SessionExercise` (implementado en PROMPT 14, sección 16).
+- `POST /imports/excel/:id/reject` — descarta el batch (implementado en PROMPT 14, sección 16).
 
 ### Registro de entrenamiento (Alumno)
 - `GET /students/me/sessions/today` (o `?weekId=`)
@@ -419,3 +419,134 @@ Ninguna consulta trae `WorkoutLog`/`SetLog` completos a memoria para calcular al
 ### Alcance explícitamente fuera de PROMPT 12
 
 No se modificó ningún endpoint/lógica de `start()`/`addSetLogs()`/`finish()` (PROMPT 10) ni de `listHistory()`/`getEvolution()` (PROMPT 11) — se reutilizaron sin cambios. No se implementó: comparación planificado-vs-real a nivel de sesión (más allá de la distribución de cumplimiento), gráficos con librerías de visualización (los "stat cards"/tablas siguen el mismo criterio visual simple que PROMPT 11), exportación a Excel/PDF, mensajería, notificaciones, PWA avanzada/service worker, Machine Learning/predicciones, ranking o comparación entre alumnos, pagos ni wearables — todos quedan para prompts futuros según `docs/roadmap.md`.
+
+## 15. Estado de implementación (PROMPT 13)
+
+Documenta la PRIMERA MITAD de RF-17/RF-18/RF-19: archivo -> validación -> normalización inicial -> vista previa. La confirmación y persistencia definitiva hacia Program/Block/Week/Session/SessionExercise (RF-20, la "segunda mitad") queda explícitamente para PROMPT 14 — este prompt nunca escribe en esas tablas ni crea/modifica ningún `Exercise` del catálogo.
+
+### Endpoints nuevos
+
+Viven en un módulo nuevo (`ImportsModule`, `backend/src/imports/`), con guard de clase `JwtAuthGuard` + `Roles(COACH)` — exclusivos del coach autenticado, igual que `ExercisesController`/`ProgramsController`. Coherentes con el contrato conceptual que `docs/api.md` (sección 4) ya esbozaba desde PROMPT 00.
+
+- `POST /api/v1/imports/excel` (`multipart/form-data`, campo `file`) — sube un `.xlsx`, lo valida, lo parsea y devuelve la vista previa del batch (conteos, filas y errores). El batch queda en `PENDING_REVIEW`. Nunca persiste nada en el modelo normalizado.
+- `GET /api/v1/imports/excel/:id` — vista previa de una importación propia (mismo formato de respuesta que la subida).
+
+`POST /imports/excel/:id/confirm` y `POST /imports/excel/:id/reject` (ya esbozados conceptualmente en la sección 4) se implementan en PROMPT 14 (ver sección 16) junto con la persistencia real.
+
+### La plantilla única de importación (MVP)
+
+Definida en `backend/src/common/imports/excel-template.ts` (fuente de verdad ejecutable) antes de escribir el parser, como exige el enunciado de PROMPT 13. Una fila = la prescripción de **un** ejercicio dentro de **una** sesión, repitiendo en cada fila los datos de programa/bloque/semana/sesión a los que pertenece (jerarquía "plana", igual que una planilla real de un coach). Columnas, en el orden de referencia:
+
+`program_name, program_description, duration_weeks, block_name, block_order, week_number, week_order, session_name, day_of_week, session_order, exercise_name, exercise_order, target_sets, target_reps_min, target_reps_max, target_rpe, target_rir, rest_seconds, notes`.
+
+Mandatorias como **encabezado** (deben existir como columna, aunque una celda puntual pueda estar vacía y eso se reporte como error de esa fila): `program_name`, `block_name`, `block_order`, `week_number`, `week_order`, `session_name`, `session_order`, `exercise_name`, `exercise_order` — son las que ubican la fila en la jerarquía sin ambigüedad. El resto (`program_description`, `duration_weeks`, `day_of_week`, los `target_*`, `notes`) puede omitirse del archivo por completo si el coach no los usa. La plantilla es **cerrada**: un encabezado que no pertenezca a esta lista rechaza el archivo completo (`400`, antes de crear ningún batch), mismo espíritu que `forbidNonWhitelisted` sobre los DTOs. Deliberadamente **no** existe ninguna columna de ejecución real (RPE/RIR/reps/carga *realmente* levantada, duración, fatiga) — el Excel de este módulo representa únicamente lo que el Coach **prescribe**, nunca lo que el Alumno ejecuta (esa separación estricta viene desde PROMPT 00, ver `docs/architecture.md`).
+
+Con esto queda resuelto el pendiente abierto en `docs/architecture.md` ("Plantilla exacta de columnas del Excel de importación").
+
+### Reuso de validación — nunca se duplican los límites de los DTOs
+
+`backend/src/common/imports/excel-row-validation.ts` NO reinventa rangos: construye instancias reales de `CreateProgramDto`, `CreateBlockDto`, `CreateWeekDto`, `CreateSessionDto` y `CreateSessionExerciseDto` (las mismas que ya usa el `ValidationPipe` global en `POST /programs`, `/blocks`, `/weeks`, `/sessions`, `/session-exercises`) con los valores de cada fila, y corre `class-validator` sobre ellas. Si el día de mañana cambia un rango en algún DTO existente, la validación de Excel lo hereda automáticamente, sin tocar este módulo. La única validación cruzada propia (`targetRepsMax >= targetRepsMin`) reutiliza el mismo mensaje que `SessionExercisesService.ensureValidRepsRange()` (PROMPT 08), por consistencia.
+
+Antes de validar con los DTOs, cada celda se coacciona a su tipo esperado (`common/imports/excel-row-validation.ts`, `coerceExcelNumber`/`coerceExcelString`): un valor no numérico en una columna numérica genera un error propio y explícito ("Debe ser un valor numérico"), y una celda de fórmula de Excel se lee siempre por su `result` ya calculado — **nunca se evalúa ninguna fórmula**, consistente con que `exceljs` tampoco lo hace.
+
+### Resolución de ejercicios por nombre — nunca se crea ni se modifica el catálogo
+
+El Excel referencia ejercicios por `exercise_name`, nunca por `id`. `ExcelImportsService.buildExerciseNameIndex()` trae **todo** el catálogo `isActive: true` del coach autenticado (`coachId` siempre de `CurrentUser()`, jamás del archivo/body/query — un coach no puede referenciar ejercicios de otro coach) en una sola consulta y arma un índice en memoria nombre-en-minúsculas -> id, evitando N consultas (una por fila). Un ejercicio inactivo (dado de baja) no se puede referenciar desde un Excel nuevo — mismo criterio que no tendría sentido prescribir con algo que el coach ya retiró de su catálogo activo.
+
+Si el nombre no resuelve contra el catálogo del coach, la fila se marca `INVALID` con el error "No se encontró un ejercicio activo con ese nombre en tu catálogo" — **nunca** se crea el ejercicio automáticamente ni se modifica uno existente. Esta es una decisión explícita de PROMPT 13: la creación/resolución definitiva de ejercicios faltantes (si el equipo decide permitirla) es un problema de PROMPT 14, no de la validación inicial.
+
+### Seguridad del archivo (docs/security.md, secciones 23-25)
+
+`backend/src/common/imports/excel-file-validation.ts` valida, en este orden y acumulando todos los errores detectables (no corta en el primero): tamaño (0 y > 5 MB), extensión (`.xlsm` rechazado explícitamente con un mensaje propio, cualquier otra extensión distinta de `.xlsx` rechazada), Content-Type declarado (señal no autoritativa), firma binaria ZIP real (`50 4B 03 04` — un archivo que no empieza así no es un Excel real sin importar su nombre/extensión), y una heurística de defensa en profundidad para detectar un `.xlsm` renombrado a `.xlsx` (búsqueda del marcador interno `vbaProject.bin` en el buffer crudo, sin agregar una dependencia de parseo de ZIP completa). El nombre original se sanitiza (`sanitizeOriginalFilename`: se descarta cualquier componente de ruta, se reemplaza cualquier carácter fuera de un conjunto seguro, se acota la longitud) antes de guardarse como metadata (`ExcelImportBatch.originalFilename`) — nunca se usa para construir una ruta de archivo, porque **el archivo nunca se escribe a disco**: se procesa enteramente en memoria (`multer.memoryStorage()`) y se descarta al terminar el request, consistente con que `ExcelImportBatch` no tiene ninguna columna de ruta/blob de almacenamiento.
+
+**Por qué `exceljs` y no `xlsx`/SheetJS**: se evaluaron ambas antes de implementar el parser (paso explícitamente pedido por PROMPT 13). `exceljs@^4.4.0` se eligió porque está mantenido activamente, nunca ejecuta fórmulas (expone siempre el resultado ya calculado por Excel, jamás las evalúa), y su historial de advisories de seguridad en npm es más limpio que el de `xlsx`/SheetJS en el momento de esta decisión. Se agregó como dependencia directa nueva (antes no existía ninguna librería de Excel en el proyecto); `@types/multer` se agregó como devDependency porque `multer` ya viene transitivamente vía `@nestjs/platform-express` pero sin tipos declarados como dependencia directa.
+
+**Desviación consciente de docs/security.md sección 25** (aislamiento del parseo en un worker/proceso hijo): PROMPT 13 permite explícitamente no introducir esa arquitectura para el MVP. En su lugar se implementaron las cuatro mitigaciones mínimas equivalentes: límite de tamaño (5 MB, `EXCEL_MAX_FILE_SIZE_BYTES`), límite de filas de datos por importación (2000, `EXCEL_MAX_DATA_ROWS` — el archivo completo se rechaza si se excede, nunca se trunca en silencio), un presupuesto de tiempo de procesamiento chequeado entre filas (`EXCEL_PROCESSING_TIMEOUT_MS`, 10s) que aborta con un error controlado si se excede, y manejo seguro de excepciones (un archivo corrupto o con una estructura interna inválida nunca produce un `500` con detalle interno: `ExcelImportsService.loadWorkbook()` traduce cualquier fallo de `exceljs` a un `400` genérico). El multiplicador de `limits.fileSize` en el propio `multer` (`EXCEL_MAX_FILE_SIZE_BYTES * 2`) es deliberadamente mayor al límite real: es solo un circuito de protección de memoria ante un archivo groseramente sobredimensionado, para que sea siempre el propio servicio (con un mensaje `400` limpio) quien rechace el límite real de 5 MB, en vez de un `MulterError` crudo que el filtro global de excepciones (`AllExceptionsFilter`) traduciría a un `500` genérico sin detalle útil.
+
+### Autorización (anti-IDOR)
+
+`ExcelImportsService.ensureOwnedBatch()` sigue exactamente el mismo patrón que `ensureOwnedStudent()`/`ensureOwnedExercise()`: `404` genérico (nunca `403`) tanto si el batch no existe como si pertenece a otro coach. `coachId` nunca se acepta desde body/query/route/Excel — siempre sale de `CurrentUser()`, tanto para crear el batch como para resolver ejercicios y para la vista previa.
+
+### Auditoría
+
+Se agregó `AUDIT_ENTITY_EXCEL_IMPORT_BATCH` y la acción `EXCEL_IMPORT_BATCH_CREATED` (`excel_imports.batch_created`) a `auth.constants.ts`. Se audita únicamente la **creación** del batch (mismo criterio que `PROGRAM_ASSIGNMENT_CREATED`/`WORKOUT_LOG_STARTED`: nace un artefacto nuevo con consecuencia real), nunca su consulta (`GET`, como el resto del proyecto). La metadata auditada es exclusivamente `{ originalFilename (ya sanitizado), totalRows, validRows, invalidRows }` — nunca el contenido del archivo, filas crudas, ni ningún dato de otro usuario.
+
+### Frontend
+
+Pantalla nueva "Importar Excel" (`frontend/src/pages/imports/ImportExcelPage.tsx`, ruta `/imports/excel`, protegida por `RequireAuth allowedRoles={['COACH']}`, enlazada desde `MainLayout`): selección de archivo con las restricciones visibles (`.xlsx` únicamente, 5 MB máximo), una validación de UX antes de subir (nunca autoritativa — el backend vuelve a validar todo), estado de "procesando", y la vista previa completa (conteos, tabla de filas con su estado VALID/INVALID y sus errores por campo). Se agregó `apiClient.postFile()` (`frontend/src/lib/apiClient.ts`) porque el helper `request()` existente siempre serializa el body como JSON y fuerza `Content-Type: application/json`, incompatible con `FormData` (el navegador necesita fijar su propio `Content-Type` con el boundary del multipart). El botón "Confirmar importación" existe solo como un estado visual deshabilitado ("disponible próximamente") — PROMPT 13 exige explícitamente que no sea funcional todavía.
+
+### Alcance explícitamente fuera de PROMPT 13
+
+No se persiste nada en `Program`/`Block`/`Week`/`Session`/`SessionExercise` a partir de un Excel. No se crean ni modifican `Exercise` del catálogo. No existían (en PROMPT 13) `POST /imports/excel/:id/confirm` ni `/reject` — ver sección 16 para su implementación en PROMPT 14. No hay asignación automática a alumnos, `WorkoutLog`/`SetLog`, mensajería, PWA ni Ciencia de Datos — todo queda para PROMPT 14 y prompts futuros según `docs/roadmap.md`.
+
+### Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada desde PROMPT 01/08/09 (bloqueo de red hacia `binaries.prisma.sh`, reproducido también al instalar `exceljs`/`@types/multer` vía `npm install` en este prompt — el `postinstall: prisma generate` falló con el mismo `403 Forbidden`, sin afectar la instalación real de los paquetes ni ningún otro paso de verificación). La verificación de este prompt (pruebas unitarias con Prisma mockeado — incluyendo pruebas que generan archivos `.xlsx` reales en memoria con `exceljs` para probar el parseo end-to-end sin tocar una base de datos real —, `tsc`, `eslint`, build con `tsc`/`vite` a un `outDir` temporal, `vitest`) no depende de un motor de Prisma real y se ejecutó sin problema.
+## 16. Estado de implementación (PROMPT 14)
+
+Documenta la SEGUNDA MITAD de RF-17/RF-18/RF-19, y completa RF-20: confirmación -> normalización -> persistencia relacional. Continúa directamente sobre lo construido en PROMPT 13 (sección 15) sin rehacer el upload ni el parser.
+
+### Endpoints nuevos
+
+Agregados a `ExcelImportsController` (`backend/src/imports/excel-imports.controller.ts`), mismo guard de clase (`JwtAuthGuard` + `Roles(COACH)`):
+
+- `POST /api/v1/imports/excel/:id/confirm` — confirma una importación propia en `PENDING_REVIEW`: re-valida sus filas, normaliza las válidas hacia `Program/Block/Week/Session/SessionExercise` y marca el batch `CONFIRMED`.
+- `POST /api/v1/imports/excel/:id/reject` — descarta una importación propia en `PENDING_REVIEW` sin generar ninguna entidad, marcándola `REJECTED`.
+
+Ambos usan `@HttpCode(HttpStatus.OK)` sobre `POST` (no `PATCH`) para respetar el contrato que esta misma sección 4 viene esbozando desde PROMPT 00, en vez de forzar la convención `PATCH + @HttpCode(OK)` usada en otras transiciones de estado del proyecto (`workout-logs.controller.ts`, `program-assignments.controller.ts`).
+
+### Re-validación en el momento de confirmar (nunca se confía en el resultado del upload)
+
+`ExcelImportsService.confirmBatch()` no reutiliza ciegamente el `status`/`errors` calculados al subir el archivo: reconstruye las celdas crudas de cada fila desde `ExcelImportRow.rawData.cells` (`extractStoredCells()`) y vuelve a correr `validateExcelRow()` completo — la misma función de PROMPT 13, sin duplicarla — incluyendo una resolución **fresca** del `exercise_name` contra el catálogo **actual** del coach (`buildExerciseNameIndex()`, ya existente). Consecuencia deliberada: una fila que era `INVALID` en la vista previa por "ejercicio no encontrado" puede confirmarse igual si el coach agregó ese ejercicio a su catálogo entre el upload y la confirmación (sin re-subir el archivo), y, simétricamente, una fila antes válida puede dejar de serlo si el ejercicio fue desactivado mientras tanto.
+
+### Agrupación de filas en la jerarquía relacional
+
+`backend/src/common/imports/excel-import-grouping.ts` (función pura `buildImportPlan()`, con sus propios tests unitarios en `excel-import-grouping.spec.ts`) agrupa las filas válidas de **una misma confirmación** en `Program -> Block -> Week -> Session -> SessionExercise`, con esta regla de identidad exacta:
+
+- **Program**: siempre uno nuevo por confirmación por cada `program_name` distinto (normalizado recortado/minúsculas) — una confirmación **nunca** reutiliza un `Program` preexistente del coach, ni siquiera con el mismo nombre. `program_description`/`duration_weeks` se toman del valor de la **primera** fila que abre cada grupo de Program; diferencias posteriores entre filas del mismo grupo se ignoran en silencio.
+- **Block**: identificado por `(Program, block_order)` — si dos filas comparten `block_order` bajo el mismo Program pero traen `block_name` distinto, es un `BLOCK_IDENTITY_CONFLICT` y bloquea toda la confirmación (nunca se "arregla" en silencio).
+- **Week**: identificado por `(Block, week_order)` — mismo criterio de conflicto sobre `week_number` (`WEEK_IDENTITY_CONFLICT`).
+- **Session**: identificado por `(Week, session_order)` — mismo criterio sobre `session_name`/`day_of_week` (`SESSION_IDENTITY_CONFLICT`).
+- **SessionExercise**: `exercise_order` debe ser único dentro de su Session; un choque es `SESSION_EXERCISE_ORDER_CONFLICT`.
+
+Esto es lo que garantiza los requisitos explícitos de PROMPT 14: nunca un `Program` nuevo por fila, nunca una `Session` nueva por cada ejercicio — varias filas de la misma sesión se agrupan en una sola `Session` con varios `SessionExercise`. Si `buildImportPlan()` detecta cualquier conflicto de identidad, `confirmBatch()` rechaza la confirmación completa con `422` (nunca genera una programación parcial ni improvisa un orden distinto al declarado en el Excel).
+
+### Ejercicios: se resuelven, nunca se crean (misma decisión de PROMPT 13)
+
+`SessionExercise.exerciseId` siempre referencia un `Exercise` ya existente del catálogo del coach autenticado — `confirmBatch()` respeta la decisión ya tomada en PROMPT 13 (sección 15: "nunca se crea el ejercicio automáticamente") y nunca la cambia: una fila cuyo ejercicio no resuelve contra el catálogo actual no puede confirmarse. Varias filas que referencian el mismo `exercise_name` comparten el mismo `exerciseId` (nunca se duplica ni se copia el ejercicio dentro de `SessionExercise`).
+
+### Transacción, idempotencia y rollback
+
+Todo el trabajo de `confirmBatch()` ocurre dentro de un único `Prisma.$transaction`. El **primer** statement de esa transacción es una guarda atómica: `excelImportBatch.updateMany({ where: { id, status: 'PENDING_REVIEW' }, data: { status: 'CONFIRMED', confirmedAt } })`. Si `count === 0` (porque otra request ya confirmó/rechazó el mismo batch — doble clic, reenvío, o una carrera real), se aborta con `409` antes de crear ninguna entidad. Si cualquier paso posterior falla (creación de `Program`/`Block`/`Week`/`Session`/`SessionExercise`, o la actualización de una fila), la transacción completa revierte — nunca queda una importación parcialmente normalizada. `rejectBatch()` usa la misma guarda atómica (sin necesidad de envolverla en `$transaction`, al ser una única escritura) para el mismo motivo de idempotencia.
+
+Cada fila que produce un `SessionExercise` guarda su `resultSessionExerciseId` (trazabilidad fila -> entidad relacional real). Las filas que quedan inválidas tras la re-validación se actualizan con su `status`/`errors` frescos, pero nunca generan ninguna entidad.
+
+### Rendimiento
+
+La confirmación hace una sola consulta para traer el batch con sus filas (`ROW_RESULT_INCLUDE`), una sola consulta para el catálogo de ejercicios del coach (`buildExerciseNameIndex()`, ya existente de PROMPT 13), y crea cada `Program`/`Block`/`Week`/`Session`/`SessionExercise` exactamente una vez por entidad del plan (nunca una consulta de verificación por fila) — el agrupamiento en memoria (`buildImportPlan()`) es lo que evita una consulta redundante por fila para "buscar si ya existe" cada entidad intermedia.
+
+### Seguridad (anti-IDOR)
+
+`confirmBatch()`/`rejectBatch()` reutilizan `ensureOwnedBatch()` (mismo `404` genérico que el resto del módulo, nunca `403`). El `coachId` de cada `Program` creado sale siempre de `CurrentUser()` — nunca del Excel ni del batch — por lo que un coach jamás puede confirmar el batch de otro coach ni terminar creando programación dentro del `Program` de otro coach.
+
+### Auditoría
+
+Se agregaron `EXCEL_IMPORT_BATCH_CONFIRMED` (`excel_imports.batch_confirmed`) y `EXCEL_IMPORT_BATCH_REJECTED` (`excel_imports.batch_rejected`) a `auth.constants.ts`. La confirmación audita conteos de entidades creadas (`countImportPlanEntities()`: programas/bloques/semanas/sesiones/ejercicios de sesión), nunca el contenido del Excel ni ningún dato crudo.
+
+### Frontend
+
+`ImportExcelPage.tsx` ahora tiene un botón "Confirmar importación" funcional (antes un placeholder deshabilitado) y un nuevo botón "Rechazar importación", ambos conectados a `useConfirmExcelImport()`/`useRejectExcelImport()` (`frontend/src/api/imports.ts`, TanStack Query). Tras confirmar, la pantalla muestra qué filas generaron un `SessionExercise` y qué `Program`(s) se crearon (`createdPrograms`), deja explícito que las filas inválidas no se importaron y que la operación no debe repetirse, y ofrece un enlace para ir a "Mis programas".
+
+### Tests
+
+- `excel-imports.confirm-reject.service.spec.ts` (nuevo, 23 tests): confirmación exitosa, batch sin filas válidas, batch inexistente, batch ajeno (IDOR), batch ya confirmado/rechazado, doble confirmación/rechazo (idempotencia), agrupación de múltiples filas en un mismo Program/Block/Week/Session, no-duplicación de Session por ejercicio, respeto de los `*_order` explícitos, reuso del mismo Exercise sin duplicar, filas sin ejercicio válido nunca se confirman, filas inválidas nunca generan entidades, conflictos de identidad bloquean la confirmación completa, rollback total ante un fallo a mitad de camino, `resultSessionExerciseId` correcto, aislamiento entre coaches.
+- `excel-import-grouping.spec.ts` (nuevo, PROMPT 14, 12 tests): la función pura de agrupación/planificación.
+- Frontend: se extendieron los tests de `ImportExcelPage` para cubrir el botón de confirmación, la confirmación exitosa, el estado de carga, errores, el rechazo, el resultado mostrado y la navegación a "Mis programas".
+
+### Alcance explícitamente fuera de PROMPT 14
+
+No se implementa mensajería, PWA avanzada, Ciencia de Datos, predicción, comparación entre alumnos, exportación a Excel/PDF ni notificaciones — todo queda para prompts futuros según `docs/roadmap.md`.
+
+### Limitación de entorno (sin cambios)
+
+Misma limitación persistente de `binaries.prisma.sh` documentada desde PROMPT 01/08/09/13 — no afecta la verificación de este prompt (tests unitarios con Prisma mockeado, incluyendo una mini base de datos en memoria con `$transaction`/rollback real para `excel-imports.confirm-reject.service.spec.ts`; `tsc`; `eslint` acotado a los archivos tocados; build con `tsc`/`vite` a un `outDir` temporal; `vitest`).

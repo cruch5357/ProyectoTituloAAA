@@ -131,9 +131,49 @@ async function request<T, M = Record<string, unknown>>(
   return parsed as ApiEnvelope<T, M>;
 }
 
+// Subida de archivos (multipart/form-data) — usada por la importación de
+// Excel (PROMPT 13). A propósito NO reutiliza `request()`: ese helper
+// siempre serializa el body como JSON y fuerza `Content-Type:
+// application/json`, lo cual rompe un `FormData` (el navegador necesita
+// fijar su propio `Content-Type: multipart/form-data; boundary=...`, nunca
+// declarado a mano). El resto de las convenciones (Authorization,
+// `credentials: 'include'`, manejo de errores/envoltorio) se mantiene
+// idéntico a `request()`.
+async function postFile<T, M = Record<string, unknown>>(
+  path: string,
+  formData: FormData,
+): Promise<ApiEnvelope<T, M>> {
+  const finalHeaders: Record<string, string> = {};
+  const token = getAccessToken();
+  if (token) {
+    finalHeaders.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: finalHeaders,
+    body: formData,
+    credentials: 'include',
+  });
+
+  const parsed = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    const errorBody = parsed as ApiErrorBody | null;
+    throw new ApiError(
+      response.status,
+      errorBody?.error?.message ?? 'Error al comunicarse con el servidor',
+      errorBody?.error?.code,
+    );
+  }
+
+  return parsed as ApiEnvelope<T, M>;
+}
+
 export const apiClient = {
   get: <T, M = Record<string, unknown>>(path: string, options?: RequestOptions) =>
     request<T, M>(path, 'GET', undefined, options),
+  postFile,
   post: <T, M = Record<string, unknown>>(
     path: string,
     data?: unknown,
