@@ -49,7 +49,11 @@ export function ProgramFormDialog() {
         Nuevo programa
       </button>
 
-      <dialog ref={dialogRef} className="invite-dialog">
+      <dialog
+        ref={dialogRef}
+        className="invite-dialog"
+        aria-label="Nuevo programa"
+      >
         <form onSubmit={handleSubmit}>
           <h2>Nuevo programa</h2>
 

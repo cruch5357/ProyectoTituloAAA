@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -9,6 +10,7 @@ import { useMyProgramAssignments } from '../../api/programAssignments';
 import { ApiError } from '../../lib/apiClient';
 import type { WorkoutCompletionStatus } from '../../types/workoutLog';
 import { WorkoutCompletionStatusBadge } from './WorkoutCompletionStatusBadge';
+import { EvolutionChart } from '../../components/ui/EvolutionChart';
 
 const PAGE_SIZE = 20;
 
@@ -148,7 +150,9 @@ export function HistoryPage() {
 
       <h2>Evolución básica</h2>
 
-      {evolutionQuery.isLoading && <p>Calculando tu evolución…</p>}
+      {evolutionQuery.isLoading && (
+        <Skeleton label="Calculando tu evolución…" />
+      )}
 
       {evolutionQuery.isError && (
         <p role="alert" className="field-error">
@@ -168,21 +172,32 @@ export function HistoryPage() {
           ) : (
             <div className="stat-cards">
               <div className="stat-card">
-                <span className="stat-card__label">Entrenamientos realizados</span>
+                <span className="stat-card__label">
+                  Entrenamientos realizados
+                </span>
                 <span className="stat-card__value">
                   {evolutionQuery.data.summary.totalWorkouts}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-card__label">Frecuencia (por semana)</span>
+                <span className="stat-card__label">
+                  Frecuencia (por semana)
+                </span>
                 <span className="stat-card__value">
-                  {formatNumber(evolutionQuery.data.summary.trainingFrequencyPerWeek)}
+                  {formatNumber(
+                    evolutionQuery.data.summary.trainingFrequencyPerWeek,
+                  )}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-card__label">Duración promedio (min)</span>
+                <span className="stat-card__label">
+                  Duración promedio (min)
+                </span>
                 <span className="stat-card__value">
-                  {formatNumber(evolutionQuery.data.summary.averageDurationMinutes, 0)}
+                  {formatNumber(
+                    evolutionQuery.data.summary.averageDurationMinutes,
+                    0,
+                  )}
                 </span>
               </div>
               <div className="stat-card">
@@ -208,6 +223,9 @@ export function HistoryPage() {
 
           {exerciseId && (
             <div>
+              <EvolutionChart
+                points={evolutionQuery.data.exerciseEvolution ?? []}
+              />
               <h3>
                 Evolución de {exerciseName ?? 'este ejercicio'}{' '}
                 <button type="button" onClick={clearExerciseFilter}>
@@ -216,12 +234,19 @@ export function HistoryPage() {
               </h3>
               {(!evolutionQuery.data.exerciseEvolution ||
                 evolutionQuery.data.exerciseEvolution.length === 0) && (
-                <p>Todavía no registraste series de este ejercicio en este rango.</p>
+                <p>
+                  Todavía no registraste series de este ejercicio en este rango.
+                </p>
               )}
               {evolutionQuery.data.exerciseEvolution &&
                 evolutionQuery.data.exerciseEvolution.length > 0 && (
-                  <div className="table-scroll">
-                      <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
                       <thead>
                         <tr>
                           <th>Fecha</th>
@@ -233,7 +258,9 @@ export function HistoryPage() {
                       <tbody>
                         {evolutionQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
-                            <td>{new Date(point.performedAt).toLocaleDateString()}</td>
+<td>
+  {new Date(point.performedAt).toLocaleDateString()}
+</td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
                             <td>{point.setCount}</td>
@@ -250,7 +277,7 @@ export function HistoryPage() {
 
       <h2>Entrenamientos</h2>
 
-      {historyQuery.isLoading && <p>Cargando tu historial…</p>}
+      {historyQuery.isLoading && <Skeleton label="Cargando tu historial…" />}
 
       {historyQuery.isError && (
         <p role="alert" className="field-error">
@@ -266,8 +293,13 @@ export function HistoryPage() {
 
       {historyQuery.isSuccess && historyQuery.data.items.length > 0 && (
         <>
-          <div className="table-scroll">
-              <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -287,7 +319,9 @@ export function HistoryPage() {
                       </Link>
                     </td>
                     <td>{workoutLog.session?.name ?? '—'}</td>
-                    <td>{workoutLog.session?.week.block.program.name ?? '—'}</td>
+<td>
+  {workoutLog.session?.week.block.program.name ?? '—'}
+</td>
                     <td>
                       <WorkoutCompletionStatusBadge
                         status={workoutLog.completionStatus}

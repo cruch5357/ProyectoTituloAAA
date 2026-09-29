@@ -5,6 +5,25 @@ import { HomePage } from '../pages/HomePage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 import { LoginPage } from '../pages/LoginPage';
 import { RegisterPage } from '../pages/RegisterPage';
+import { StudentsListPage } from '../pages/students/StudentsListPage';
+import { AthleteWorkspace } from '../pages/students/AthleteWorkspace';
+import { ExercisesListPage } from '../pages/exercises/ExercisesListPage';
+import { ExerciseDetailPage } from '../pages/exercises/ExerciseDetailPage';
+import { ProgramsListPage } from '../pages/programs/ProgramsListPage';
+import { ProgramDetailPage } from '../pages/programs/ProgramDetailPage';
+import { BlockDetailPage } from '../pages/blocks/BlockDetailPage';
+import { WeekDetailPage } from '../pages/weeks/WeekDetailPage';
+import { SessionDetailPage } from '../pages/sessions/SessionDetailPage';
+import { MyAssignedProgramsPage } from '../pages/programs/MyAssignedProgramsPage';
+import { StudentProgramPage } from '../pages/student-training/StudentProgramPage';
+import { StudentBlockPage } from '../pages/student-training/StudentBlockPage';
+import { StudentWeekPage } from '../pages/student-training/StudentWeekPage';
+import { StudentSessionPage } from '../pages/student-training/StudentSessionPage';
+import { WorkoutLogPage } from '../pages/student-training/WorkoutLogPage';
+import { HistoryPage } from '../pages/student-training/HistoryPage';
+import { DashboardPage } from '../pages/coach-dashboard/DashboardPage';
+import { ImportExcelPage } from '../pages/imports/ImportExcelPage';
+import { StudentHomePage } from '../pages/student-training/StudentHomePage';
 import { RequireAuth } from '../auth/RequireAuth';
 
 // Code-splitting por ruta (PROMPT 20, rendimiento — carga inicial/bundle).
@@ -131,9 +150,12 @@ const router = createBrowserRouter([
         element: <RequireAuth allowedRoles={['COACH']} />,
         children: [
           { path: 'students', element: <StudentsListPage /> },
-          { path: 'students/:id', element: <StudentDetailPage /> },
+          { path: 'students/:id', element: <AthleteWorkspace /> },
           { path: 'dashboard', element: <DashboardPage /> },
-          { path: 'dashboard/students/:studentId', element: <StudentDashboardPage /> },
+          {
+            path: 'dashboard/students/:studentId',
+            element: <AthleteWorkspace statistics />,
+          },
           { path: 'exercises', element: <ExercisesListPage /> },
           { path: 'exercises/:id', element: <ExerciseDetailPage /> },
           { path: 'programs', element: <ProgramsListPage /> },
@@ -147,6 +169,7 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth allowedRoles={['STUDENT']} />,
         children: [
+          { path: 'training', element: <StudentHomePage training /> },
           { path: 'my-programs', element: <MyAssignedProgramsPage /> },
           { path: 'student/programs/:id', element: <StudentProgramPage /> },
           { path: 'student/blocks/:id', element: <StudentBlockPage /> },

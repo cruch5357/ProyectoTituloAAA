@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -13,7 +14,7 @@ export function WeekDetailPage() {
   const weekQuery = useWeek(id);
 
   if (weekQuery.isLoading) {
-    return <p>Cargando semana…</p>;
+    return <Skeleton label="Cargando semana…" />;
   }
 
   if (weekQuery.isError) {
@@ -126,7 +127,7 @@ function WeekSessionsSection({ weekId }: { weekId: string }) {
     <section>
       <h2>Sesiones</h2>
 
-      {sessionsQuery.isLoading && <p>Cargando sesiones…</p>}
+      {sessionsQuery.isLoading && <Skeleton label="Cargando sesiones…" />}
 
       {sessionsQuery.isSuccess && sessionsQuery.data.length === 0 && (
         <p>Esta semana todavía no tiene sesiones.</p>
@@ -159,9 +160,7 @@ function WeekSessionsSection({ weekId }: { weekId: string }) {
         </label>
         <button
           type="submit"
-          disabled={
-            createSessionMutation.isPending || name.trim().length === 0
-          }
+          disabled={createSessionMutation.isPending || name.trim().length === 0}
         >
           {createSessionMutation.isPending ? 'Agregando…' : 'Agregar sesión'}
         </button>

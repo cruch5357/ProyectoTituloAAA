@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -51,7 +52,7 @@ export function ExercisesListPage() {
         <button type="submit">Buscar</button>
       </form>
 
-      {exercisesQuery.isLoading && <p>Cargando ejercicios…</p>}
+      {exercisesQuery.isLoading && <Skeleton label="Cargando ejercicios…" />}
 
       {exercisesQuery.isError && (
         <p role="alert" className="field-error">
@@ -71,8 +72,13 @@ export function ExercisesListPage() {
 
       {exercisesQuery.isSuccess && exercisesQuery.data.items.length > 0 && (
         <>
-          <div className="table-scroll">
-              <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Nombre</th>

@@ -57,7 +57,11 @@ export function ExerciseFormDialog() {
         Nuevo ejercicio
       </button>
 
-      <dialog ref={dialogRef} className="invite-dialog">
+      <dialog
+        ref={dialogRef}
+        className="invite-dialog"
+        aria-label="Nuevo ejercicio"
+      >
         <form onSubmit={handleSubmit}>
           <h2>Nuevo ejercicio</h2>
 

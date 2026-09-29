@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { Link, useParams } from 'react-router-dom';
 import { useStudent, useUpdateStudentStatus } from '../../api/students';
 import { ApiError } from '../../lib/apiClient';
@@ -8,13 +9,17 @@ import { StudentStatusBadge } from './StudentStatusBadge';
 // de alta). NO se inventan estadísticas, progreso ni métricas de
 // entrenamiento: esa funcionalidad no existe todavía (PROMPT 04, punto 24)
 // y agregar datos simulados acá sería engañoso para el coach.
-export function StudentDetailPage() {
+export function StudentDetailPage({
+  embedded = false,
+}: {
+  embedded?: boolean;
+}) {
   const { id } = useParams<{ id: string }>();
   const studentQuery = useStudent(id);
   const updateStatusMutation = useUpdateStudentStatus();
 
   if (studentQuery.isLoading) {
-    return <p>Cargando alumno…</p>;
+    return <Skeleton label="Cargando alumno…" />;
   }
 
   if (studentQuery.isError) {
@@ -42,12 +47,14 @@ export function StudentDetailPage() {
 
   return (
     <section>
-      <p>
-        <Link to="/students">← Volver a Mis alumnos</Link>
-      </p>
+      {!embedded && (
+        <p>
+          <Link to="/students">← Volver a Mis alumnos</Link>
+        </p>
+      )}
 
       <div className="page-header">
-        <h1>{student.name}</h1>
+        {embedded ? <h2>Información del alumno</h2> : <h1>{student.name}</h1>}
         <StudentStatusBadge isActive={student.isActive} />
       </div>
 

@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -13,7 +14,7 @@ export function BlockDetailPage() {
   const blockQuery = useBlock(id);
 
   if (blockQuery.isLoading) {
-    return <p>Cargando bloque…</p>;
+    return <Skeleton label="Cargando bloque…" />;
   }
 
   if (blockQuery.isError) {
@@ -127,7 +128,7 @@ function BlockWeeksSection({ blockId }: { blockId: string }) {
     <section>
       <h2>Semanas</h2>
 
-      {weeksQuery.isLoading && <p>Cargando semanas…</p>}
+      {weeksQuery.isLoading && <Skeleton label="Cargando semanas…" />}
 
       {weeksQuery.isSuccess && weeksQuery.data.length === 0 && (
         <p>Este bloque todavía no tiene semanas.</p>

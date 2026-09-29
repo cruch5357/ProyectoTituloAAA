@@ -1,0 +1,295 @@
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../auth/useAuth';
+import { useMyProgramAssignments } from '../../api/programAssignments';
+import {
+  useStudentBlocks,
+  useStudentWeeks,
+  useStudentSessions,
+  useStudentSessionDetail,
+} from '../../api/studentTraining';
+import {
+  useSessionWorkoutLogs,
+  useStartWorkoutLog,
+  useWorkoutLogsHistory,
+  useWorkoutEvolution,
+} from '../../api/workoutLogs';
+import {
+  Card,
+  EmptyState,
+  ErrorState,
+  PageHeader,
+  Skeleton,
+  StatCard,
+} from '../../components/ui/Primitives';
+
+export function StudentHomePage({ training = false }: { training?: boolean }) {
+  const { user } = useAuth();
+  const assignments = useMyProgramAssignments();
+  const history = useWorkoutLogsHistory({ page: 1, limit: 5 });
+  const evolution = useWorkoutEvolution({});
+  const [selected, setSelected] = useState('');
+  const active =
+    assignments.data?.filter(
+      (a) => a.status === 'ACTIVE' && a.program?.isActive,
+    ) ?? [];
+  const program =
+    active.find((a) => a.programId === selected)?.program ?? active[0]?.program;
+  return (
+    <section>
+      <PageHeader
+        title={
+          training ? 'Tu entrenamiento' : `Hola, ${user?.name ?? 'atleta'}`
+        }
+        description="Cada sesión cuenta. Encuentra tu programa y registra tu entrenamiento."
+      />
+      {assignments.isLoading && <Skeleton label="Cargando tu entrenamiento…" />}
+      {assignments.isError && (
+        <ErrorState retry={() => void assignments.refetch()} />
+      )}
+      {assignments.isSuccess && !program && (
+        <Card>
+          <EmptyState
+            title="Tu próximo paso empieza aquí"
+            description="Aún no tienes un programa activo. Tu coach podrá asignarte uno para comenzar."
+            action={
+              <Link className="button" to="/my-programs">
+                Ver mis programas
+              </Link>
+            }
+          />
+        </Card>
+      )}
+      {program && (
+        <section className="hero-card">
+          <p className="eyebrow">Entrenamiento disponible</p>
+          <h2>{program.name}</h2>
+          <p className="muted">
+            Selecciona el bloque, la semana y la sesión que vas a realizar.
+          </p>
+          {active.length > 1 && (
+            <label className="field">
+              Programa
+              <select
+                value={program.id}
+                onChange={(e) => setSelected(e.target.value)}
+              >
+                {active.map((a) => (
+                  <option key={a.id} value={a.programId}>
+                    {a.program?.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <AvailableBlock key={program.id} programId={program.id} />
+        </section>
+      )}
+      {!training && (
+        <>
+          <h2>Tu progreso</h2>
+          {evolution.isLoading && <Skeleton />}
+          {evolution.isError && (
+            <ErrorState retry={() => void evolution.refetch()} />
+          )}
+          {evolution.data && (
+            <div className="stat-cards">
+              <StatCard
+                label="Entrenamientos finalizados"
+                value={evolution.data.summary.totalWorkouts}
+              />
+              <StatCard
+                label="Series registradas"
+                value={evolution.data.summary.totalSetLogs}
+                icon="exercise"
+              />
+              <StatCard
+                label="RPE promedio"
+                value={
+                  evolution.data.summary.averageOverallRpe?.toFixed(1) ?? '—'
+                }
+                icon="chart"
+              />
+            </div>
+          )}
+          <Card>
+            <div className="page-header">
+              <h2>Sesiones recientes</h2>
+              <Link to="/history">Ver historial →</Link>
+            </div>
+            {history.isLoading && <Skeleton />}
+            {history.isError && (
+              <ErrorState retry={() => void history.refetch()} />
+            )}
+            {history.isSuccess && !history.data.items.length && (
+              <EmptyState
+                title="Sin entrenamientos registrados"
+                description="Tus sesiones aparecerán aquí cuando empieces a entrenar."
+              />
+            )}
+            <ul className="nested-list">
+              {history.data?.items.map((log) => (
+                <li key={log.id}>
+                  <Link to={`/workout-logs/${log.id}`}>
+                    {log.session?.name ?? 'Entrenamiento'}
+                  </Link>
+                  <p className="muted">
+                    {new Date(log.performedAt).toLocaleDateString()} ·{' '}
+                    {log.session?.week.block.program.name} ·{' '}
+                    {log.durationMinutes === null
+                      ? 'En curso'
+                      : `${log.durationMinutes} min`}
+                  </p>
+                  {log.durationMinutes === null && (
+                    <Link to={`/workout-logs/${log.id}`}>
+                      Continuar entrenamiento →
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        </>
+      )}
+    </section>
+  );
+}
+function AvailableBlock({ programId }: { programId: string }) {
+  const query = useStudentBlocks(programId);
+  const [selected, setSelected] = useState('');
+  const block = query.data?.find((b) => b.id === selected) ?? query.data?.[0];
+  if (query.isLoading) return <Skeleton />;
+  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
+  if (!block)
+    return (
+      <EmptyState
+        title="Sin bloques disponibles"
+        description="Tu coach todavía está preparando este programa."
+      />
+    );
+  return (
+    <>
+      <label className="field">
+        Bloque
+        <select value={block.id} onChange={(e) => setSelected(e.target.value)}>
+          {query.data?.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <AvailableWeek key={block.id} blockId={block.id} />
+    </>
+  );
+}
+function AvailableWeek({ blockId }: { blockId: string }) {
+  const query = useStudentWeeks(blockId);
+  const [selected, setSelected] = useState('');
+  const week = query.data?.find((w) => w.id === selected) ?? query.data?.[0];
+  if (query.isLoading) return <Skeleton />;
+  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
+  if (!week) return <EmptyState title="Sin semanas disponibles" />;
+  return (
+    <>
+      <label className="field">
+        Semana
+        <select value={week.id} onChange={(e) => setSelected(e.target.value)}>
+          {query.data?.map((w) => (
+            <option key={w.id} value={w.id}>
+              Semana {w.number}
+            </option>
+          ))}
+        </select>
+      </label>
+      <AvailableSession key={week.id} weekId={week.id} />
+    </>
+  );
+}
+function AvailableSession({ weekId }: { weekId: string }) {
+  const query = useStudentSessions(weekId);
+  const [selected, setSelected] = useState('');
+  const session = query.data?.find((s) => s.id === selected) ?? query.data?.[0];
+  if (query.isLoading) return <Skeleton />;
+  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
+  if (!session) return <EmptyState title="Sin sesiones disponibles" />;
+  return (
+    <>
+      <label className="field">
+        Sesión
+        <select
+          value={session.id}
+          onChange={(e) => setSelected(e.target.value)}
+        >
+          {query.data?.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <SessionPreview key={session.id} sessionId={session.id} />
+    </>
+  );
+}
+function SessionPreview({ sessionId }: { sessionId: string }) {
+  const query = useStudentSessionDetail(sessionId);
+  const logs = useSessionWorkoutLogs(sessionId);
+  const start = useStartWorkoutLog(sessionId);
+  const navigate = useNavigate();
+  const pending = logs.data?.find((log) => log.durationMinutes === null);
+  return (
+    <>
+      {query.isLoading && <Skeleton />}
+      {query.isError && <ErrorState retry={() => void query.refetch()} />}
+      {query.data && (
+        <>
+          <ul className="nested-list">
+            {query.data.exercises.map((item) => (
+              <li key={item.id}>
+                <strong>{item.exercise.name}</strong>
+                <span className="muted">
+                  {' '}
+                  · {item.targetSets ?? '—'} series ·{' '}
+                  {item.targetRepsMin ?? '—'}–{item.targetRepsMax ?? '—'} reps
+                </span>
+              </li>
+            ))}
+          </ul>
+          {!query.data.exercises.length && (
+            <EmptyState title="Sin ejercicios prescritos" />
+          )}
+        </>
+      )}
+      {logs.isError && <ErrorState retry={() => void logs.refetch()} />}
+      <div className="dialog-actions">
+        {pending ? (
+          <Link
+            className="button button--primary"
+            to={`/workout-logs/${pending.id}`}
+          >
+            Continuar entrenamiento
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className="button--primary"
+            disabled={!logs.isSuccess || !query.isSuccess || start.isPending}
+            onClick={() =>
+              void start
+                .mutateAsync()
+                .then((log) => navigate(`/workout-logs/${log.id}`))
+                .catch(() => {})
+            }
+          >
+            {start.isPending ? 'Iniciando…' : 'Iniciar entrenamiento'}
+          </button>
+        )}
+        <Link to={`/student/sessions/${sessionId}`}>Ver sesión completa →</Link>
+      </div>
+      {start.isError && (
+        <ErrorState message="No pudimos iniciar el entrenamiento. Inténtalo nuevamente." />
+      )}
+    </>
+  );
+}

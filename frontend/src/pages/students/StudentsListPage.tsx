@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -50,7 +51,7 @@ export function StudentsListPage() {
         <button type="submit">Buscar</button>
       </form>
 
-      {studentsQuery.isLoading && <p>Cargando alumnos…</p>}
+      {studentsQuery.isLoading && <Skeleton label="Cargando alumnos…" />}
 
       {studentsQuery.isError && (
         <p role="alert" className="field-error">
@@ -62,15 +63,21 @@ export function StudentsListPage() {
 
       {studentsQuery.isSuccess && studentsQuery.data.items.length === 0 && (
         <p>
-          Todavía no tienes alumnos{search ? ' que coincidan con la búsqueda' : ''}.
-          Usa &quot;Invitar alumno&quot; para agregar el primero.
+          Todavía no tienes alumnos
+          {search ? ' que coincidan con la búsqueda' : ''}. Usa &quot;Invitar
+          alumno&quot; para agregar el primero.
         </p>
       )}
 
       {studentsQuery.isSuccess && studentsQuery.data.items.length > 0 && (
         <>
-          <div className="table-scroll">
-              <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -94,7 +101,9 @@ export function StudentsListPage() {
                     <td>
                       <button
                         type="button"
-                        onClick={() => handleToggleStatus(student.id, student.isActive)}
+onClick={() =>
+  handleToggleStatus(student.id, student.isActive)
+}
                         disabled={
                           updateStatusMutation.isPending &&
                           updateStatusMutation.variables?.id === student.id
@@ -119,8 +128,8 @@ export function StudentsListPage() {
             </button>
             <span>
               Página {studentsQuery.data.meta.page} de{' '}
-              {studentsQuery.data.meta.totalPages} ({studentsQuery.data.meta.total}{' '}
-              alumnos)
+              {studentsQuery.data.meta.totalPages} (
+              {studentsQuery.data.meta.total} alumnos)
             </span>
             <button
               type="button"

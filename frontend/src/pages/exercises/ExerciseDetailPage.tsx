@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -21,7 +22,7 @@ export function ExerciseDetailPage() {
   const exerciseQuery = useExercise(id);
 
   if (exerciseQuery.isLoading) {
-    return <p>Cargando ejercicio…</p>;
+    return <Skeleton label="Cargando ejercicio…" />;
   }
 
   if (exerciseQuery.isError) {
@@ -50,7 +51,12 @@ export function ExerciseDetailPage() {
   // (y por lo tanto un useState fresco) cada vez que cambia el ejercicio
   // cargado, sin necesitar un useEffect que sincronice el formulario con la
   // query (evita el anti-patrón "setState dentro de un efecto").
-  return <ExerciseEditForm key={exerciseQuery.data.id} exercise={exerciseQuery.data} />;
+  return (
+    <ExerciseEditForm
+      key={exerciseQuery.data.id}
+      exercise={exerciseQuery.data}
+    />
+  );
 }
 
 function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
@@ -59,9 +65,7 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
 
   const [name, setName] = useState(exercise.name);
   const [muscleGroup, setMuscleGroup] = useState(exercise.muscleGroup ?? '');
-  const [instructions, setInstructions] = useState(
-    exercise.instructions ?? '',
-  );
+  const [instructions, setInstructions] = useState(exercise.instructions ?? '');
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? '');
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
