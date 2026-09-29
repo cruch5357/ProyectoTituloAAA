@@ -55,7 +55,10 @@ beforeEach(() => {
     findOwnedWeekOrThrow: jest.fn(),
   } as unknown as jest.Mocked<WeeksService>;
 
-  service = new SessionsService(prisma as unknown as PrismaService, weeksService);
+  service = new SessionsService(
+    prisma as unknown as PrismaService,
+    weeksService,
+  );
 });
 
 describe('SessionsService.getOwnedByCoach', () => {
@@ -69,7 +72,9 @@ describe('SessionsService.getOwnedByCoach', () => {
 
   it('lanza 404 si la sesión pertenece (vía la cadena) a otro coach', async () => {
     prisma.session.findUnique.mockResolvedValue(
-      buildSession({ week: { block: { program: { coachId: OTHER_COACH_ID } } } }),
+      buildSession({
+        week: { block: { program: { coachId: OTHER_COACH_ID } } },
+      }),
     );
 
     await expect(
@@ -133,7 +138,12 @@ describe('SessionsService.create', () => {
     });
 
     expect(prisma.session.create).toHaveBeenCalledWith({
-      data: { weekId: 'week-1', name: 'Sesión B', dayOfWeek: undefined, order: 2 },
+      data: {
+        weekId: 'week-1',
+        name: 'Sesión B',
+        dayOfWeek: undefined,
+        order: 2,
+      },
     });
     expect(result.order).toBe(2);
   });
@@ -142,7 +152,9 @@ describe('SessionsService.create', () => {
 describe('SessionsService.update', () => {
   it('actualiza solo el nombre sin abrir una transacción cuando `order` no cambia', async () => {
     prisma.session.findUnique.mockResolvedValue(buildSession());
-    prisma.session.update.mockResolvedValue(buildSession({ name: 'Sesión renombrada' }));
+    prisma.session.update.mockResolvedValue(
+      buildSession({ name: 'Sesión renombrada' }),
+    );
 
     await service.update(COACH_ID, 'session-1', { name: 'Sesión renombrada' });
 
@@ -168,7 +180,9 @@ describe('SessionsService.update', () => {
 
   it('rechaza (404) editar una sesión de otro coach', async () => {
     prisma.session.findUnique.mockResolvedValue(
-      buildSession({ week: { block: { program: { coachId: OTHER_COACH_ID } } } }),
+      buildSession({
+        week: { block: { program: { coachId: OTHER_COACH_ID } } },
+      }),
     );
 
     await expect(

@@ -46,7 +46,10 @@ beforeEach(() => {
     record: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<AuditService>;
 
-  service = new ProgramsService(prisma as unknown as PrismaService, auditService);
+  service = new ProgramsService(
+    prisma as unknown as PrismaService,
+    auditService,
+  );
 });
 
 describe('ProgramsService.listForCoach', () => {
@@ -174,7 +177,9 @@ describe('ProgramsService.update', () => {
 
 describe('ProgramsService.updateStatus', () => {
   it('actualiza isActive y registra auditoría cuando el programa es propio', async () => {
-    prisma.program.findUnique.mockResolvedValue(buildProgram({ isActive: true }));
+    prisma.program.findUnique.mockResolvedValue(
+      buildProgram({ isActive: true }),
+    );
     prisma.program.update.mockResolvedValue(buildProgram({ isActive: false }));
 
     const result = await service.updateStatus(COACH_ID, 'program-1', {

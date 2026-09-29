@@ -43,9 +43,7 @@ describe('Programas/Bloques/Semanas/Sesiones (e2e) - validación HTTP sin base d
 
   describe('/programs', () => {
     it('GET /programs sin token responde 401', () => {
-      return request(app.getHttpServer())
-        .get('/api/v1/programs')
-        .expect(401);
+      return request(app.getHttpServer()).get('/api/v1/programs').expect(401);
     });
 
     it('POST /programs sin token responde 401', () => {

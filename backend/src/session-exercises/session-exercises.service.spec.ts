@@ -53,7 +53,9 @@ function buildExercise(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function buildSessionExercise(overrides: Partial<Record<string, unknown>> = {}) {
+function buildSessionExercise(
+  overrides: Partial<Record<string, unknown>> = {},
+) {
   return {
     id: 'session-exercise-1',
     sessionId: 'session-1',
@@ -94,7 +96,10 @@ describe('SessionExercisesService.getOwnedByCoach', () => {
   it('retorna el item cuando la cadena completa pertenece al coach', async () => {
     prisma.sessionExercise.findUnique.mockResolvedValue(buildSessionExercise());
 
-    const result = await service.getOwnedByCoach(COACH_ID, 'session-exercise-1');
+    const result = await service.getOwnedByCoach(
+      COACH_ID,
+      'session-exercise-1',
+    );
 
     expect(result.id).toBe('session-exercise-1');
     expect(result.exercise.id).toBe('exercise-1');
@@ -195,7 +200,9 @@ describe('SessionExercisesService.create', () => {
   it('convierte targetRpe (Decimal) a number en la respuesta pública', async () => {
     sessionsService.findOwnedSessionOrThrow.mockResolvedValue({} as never);
     prisma.exercise.findUnique.mockResolvedValue(buildExercise());
-    prisma.sessionExercise.aggregate.mockResolvedValue({ _max: { order: null } });
+    prisma.sessionExercise.aggregate.mockResolvedValue({
+      _max: { order: null },
+    });
     prisma.sessionExercise.create.mockResolvedValue(
       buildSessionExercise({ targetRpe: { toString: () => '8.5' } as never }),
     );
@@ -217,7 +224,9 @@ describe('SessionExercisesService.update', () => {
     );
 
     await expect(
-      service.update(COACH_ID, 'session-exercise-1', { exerciseId: 'exercise-2' }),
+      service.update(COACH_ID, 'session-exercise-1', {
+        exerciseId: 'exercise-2',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(prisma.sessionExercise.update).not.toHaveBeenCalled();
   });

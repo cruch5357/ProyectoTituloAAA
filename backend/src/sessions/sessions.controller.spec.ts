@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { Role } from '@prisma/client';
-import { WeekSessionsController, SessionsController } from './sessions.controller';
+import {
+  WeekSessionsController,
+  SessionsController,
+} from './sessions.controller';
 import { SessionsService } from './sessions.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import { ROLES_METADATA_KEY } from '../auth/auth.constants';
@@ -34,9 +37,9 @@ describe('WeekSessionsController / SessionsController - autorización declarada'
     expect(
       Reflect.getMetadata(ROLES_METADATA_KEY, WeekSessionsController),
     ).toEqual([Role.COACH]);
-    expect(
-      Reflect.getMetadata(ROLES_METADATA_KEY, SessionsController),
-    ).toEqual([Role.COACH]);
+    expect(Reflect.getMetadata(ROLES_METADATA_KEY, SessionsController)).toEqual(
+      [Role.COACH],
+    );
   });
 });
 
@@ -72,11 +75,9 @@ describe('WeekSessionsController - delegación con coachId del token', () => {
       { name: 'Sesión A' },
     );
 
-    expect(sessionsService.create).toHaveBeenCalledWith(
-      'coach-123',
-      'week-1',
-      { name: 'Sesión A' },
-    );
+    expect(sessionsService.create).toHaveBeenCalledWith('coach-123', 'week-1', {
+      name: 'Sesión A',
+    });
   });
 });
 

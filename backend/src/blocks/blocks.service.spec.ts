@@ -24,9 +24,7 @@ function buildMockPrisma(): MockPrisma {
   };
   return {
     ...tx,
-    $transaction: jest.fn((callback: (tx: MockTx) => unknown) =>
-      callback(tx),
-    ),
+    $transaction: jest.fn((callback: (tx: MockTx) => unknown) => callback(tx)),
   };
 }
 
@@ -154,7 +152,10 @@ describe('BlocksService.create', () => {
     programsService.findOwnedProgramOrThrow.mockResolvedValue({} as never);
     prisma.block.create.mockResolvedValue(buildBlock({ order: 1 }));
 
-    await service.create(COACH_ID, 'program-1', { name: 'Bloque nuevo', order: 1 });
+    await service.create(COACH_ID, 'program-1', {
+      name: 'Bloque nuevo',
+      order: 1,
+    });
 
     expect(prisma.block.updateMany).toHaveBeenCalledWith({
       where: { programId: 'program-1', order: { gte: 1 } },
