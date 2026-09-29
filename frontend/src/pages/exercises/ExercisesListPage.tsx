@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -51,7 +52,7 @@ export function ExercisesListPage() {
         <button type="submit">Buscar</button>
       </form>
 
-      {exercisesQuery.isLoading && <p>Cargando ejercicios…</p>}
+      {exercisesQuery.isLoading && <Skeleton label="Cargando ejercicios…" />}
 
       {exercisesQuery.isError && (
         <p role="alert" className="field-error">
@@ -71,45 +72,52 @@ export function ExercisesListPage() {
 
       {exercisesQuery.isSuccess && exercisesQuery.data.items.length > 0 && (
         <>
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Grupo muscular</th>
-                <th>Estado</th>
-                <th aria-label="Acciones" />
-              </tr>
-            </thead>
-            <tbody>
-              {exercisesQuery.data.items.map((exercise) => (
-                <tr key={exercise.id}>
-                  <td>
-                    <Link to={`/exercises/${exercise.id}`}>
-                      {exercise.name}
-                    </Link>
-                  </td>
-                  <td>{exercise.muscleGroup ?? '—'}</td>
-                  <td>
-                    <ExerciseStatusBadge isActive={exercise.isActive} />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleToggleStatus(exercise.id, exercise.isActive)
-                      }
-                      disabled={
-                        updateStatusMutation.isPending &&
-                        updateStatusMutation.variables?.id === exercise.id
-                      }
-                    >
-                      {exercise.isActive ? 'Desactivar' : 'Activar'}
-                    </button>
-                  </td>
+          <div
+            className="table-scroll"
+            role="region"
+            aria-label="Tabla de datos"
+            tabIndex={0}
+          >
+            <table className="students-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Grupo muscular</th>
+                  <th>Estado</th>
+                  <th aria-label="Acciones" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {exercisesQuery.data.items.map((exercise) => (
+                  <tr key={exercise.id}>
+                    <td>
+                      <Link to={`/exercises/${exercise.id}`}>
+                        {exercise.name}
+                      </Link>
+                    </td>
+                    <td>{exercise.muscleGroup ?? '—'}</td>
+                    <td>
+                      <ExerciseStatusBadge isActive={exercise.isActive} />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleStatus(exercise.id, exercise.isActive)
+                        }
+                        disabled={
+                          updateStatusMutation.isPending &&
+                          updateStatusMutation.variables?.id === exercise.id
+                        }
+                      >
+                        {exercise.isActive ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <nav className="pagination" aria-label="Paginación de ejercicios">
             <button

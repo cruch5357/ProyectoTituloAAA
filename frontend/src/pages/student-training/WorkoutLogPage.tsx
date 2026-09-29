@@ -1,7 +1,12 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { useWorkoutLog, useAddSetLogs, useFinishWorkoutLog } from '../../api/workoutLogs';
+import {
+  useWorkoutLog,
+  useAddSetLogs,
+  useFinishWorkoutLog,
+} from '../../api/workoutLogs';
 import { useUpdateSetLog } from '../../api/setLogs';
 import { useStudentSessionDetail } from '../../api/studentTraining';
 import { ApiError } from '../../lib/apiClient';
@@ -18,7 +23,7 @@ export function WorkoutLogPage() {
   const workoutLogQuery = useWorkoutLog(id);
 
   if (workoutLogQuery.isLoading) {
-    return <p>Cargando entrenamiento…</p>;
+    return <Skeleton label="Cargando entrenamiento…" />;
   }
 
   if (workoutLogQuery.isError) {
@@ -50,11 +55,14 @@ export function WorkoutLogPage() {
         </Link>
       </p>
 
-      <h1>Entrenamiento del {new Date(workoutLog.performedAt).toLocaleString()}</h1>
+      <h1>
+        Entrenamiento del {new Date(workoutLog.performedAt).toLocaleString()}
+      </h1>
       {workoutLog.session && (
         <p>
-          {workoutLog.session.name} — {workoutLog.session.week.block.program.name}{' '}
-          (Bloque {workoutLog.session.week.block.name}, semana{' '}
+          {workoutLog.session.name} —{' '}
+          {workoutLog.session.week.block.program.name} (Bloque{' '}
+          {workoutLog.session.week.block.name}, semana{' '}
           {workoutLog.session.week.number})
         </p>
       )}
@@ -73,25 +81,36 @@ export function WorkoutLogPage() {
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Ejercicio</th>
-              <th>Serie</th>
-              <th>Prescrito (reps / RPE / RIR)</th>
-              <th>Reps</th>
-              <th>Carga</th>
-              <th>RPE</th>
-              <th>RIR</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {workoutLog.setLogs.map((setLog) => (
-              <SetLogRow key={setLog.id} setLog={setLog} workoutLogId={workoutLog.id} />
-            ))}
-          </tbody>
-        </table>
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>Ejercicio</th>
+                <th>Serie</th>
+                <th>Prescrito (reps / RPE / RIR)</th>
+                <th>Reps</th>
+                <th>Carga</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {workoutLog.setLogs.map((setLog) => (
+                <SetLogRow
+                  key={setLog.id}
+                  setLog={setLog}
+                  workoutLogId={workoutLog.id}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
@@ -99,7 +118,10 @@ export function WorkoutLogPage() {
       )}
 
       {!isFinished && (
-        <AddSetLogForm workoutLogId={workoutLog.id} sessionId={workoutLog.sessionId} />
+        <AddSetLogForm
+          workoutLogId={workoutLog.id}
+          sessionId={workoutLog.sessionId}
+        />
       )}
 
       <FinishWorkoutLogForm
@@ -147,7 +169,10 @@ function SetLogRow({
         <td>{setLog.actualRpe ?? '—'}</td>
         <td>{setLog.actualRir ?? '—'}</td>
         <td>
-          <button type="button" onClick={() => setEditing((current) => !current)}>
+          <button
+            type="button"
+            onClick={() => setEditing((current) => !current)}
+          >
             {editing ? 'Cerrar' : 'Editar'}
           </button>
         </td>
@@ -574,9 +599,7 @@ function FinishWorkoutLogForm({
           </p>
         )}
 
-        {finishMutation.isSuccess && (
-          <p role="status">Resumen guardado.</p>
-        )}
+        {finishMutation.isSuccess && <p role="status">Resumen guardado.</p>}
 
         <button type="submit" disabled={finishMutation.isPending}>
           {finishMutation.isPending

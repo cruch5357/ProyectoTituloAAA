@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { Link, useParams } from 'react-router-dom';
 import { useStudentSessions, useStudentWeek } from '../../api/studentTraining';
 import { ApiError } from '../../lib/apiClient';
@@ -10,7 +11,7 @@ export function StudentWeekPage() {
   const sessionsQuery = useStudentSessions(id);
 
   if (weekQuery.isLoading) {
-    return <p>Cargando semana…</p>;
+    return <Skeleton label="Cargando semana…" />;
   }
 
   if (weekQuery.isError) {
@@ -43,7 +44,7 @@ export function StudentWeekPage() {
 
       <h2>Sesiones</h2>
 
-      {sessionsQuery.isLoading && <p>Cargando sesiones…</p>}
+      {sessionsQuery.isLoading && <Skeleton label="Cargando sesiones…" />}
 
       {sessionsQuery.isError && (
         <p role="alert" className="field-error">

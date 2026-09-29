@@ -25,7 +25,7 @@ export function LoginPage() {
   const locationState = location.state as LocationState | null;
 
   if (status === 'authenticated') {
-    const redirectTo = locationState?.from?.pathname ?? '/students';
+    const redirectTo = locationState?.from?.pathname ?? '/';
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -35,7 +35,7 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       await login({ email, password });
-      navigate('/students', { replace: true });
+      navigate(locationState?.from?.pathname ?? '/', { replace: true });
     } catch (submitError) {
       setError(
         submitError instanceof ApiError
@@ -49,7 +49,9 @@ export function LoginPage() {
 
   return (
     <section className="login-page">
+      <p className="eyebrow">Tu espacio de entrenamiento</p>
       <h1>Iniciar sesión</h1>
+      <p className="muted">Planifica con claridad. Entrena con propósito.</p>
       <form onSubmit={handleSubmit}>
         <label className="field">
           <span>Correo</span>

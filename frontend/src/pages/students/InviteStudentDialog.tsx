@@ -38,7 +38,11 @@ export function InviteStudentDialog() {
         Invitar alumno
       </button>
 
-      <dialog ref={dialogRef} className="invite-dialog">
+      <dialog
+        ref={dialogRef}
+        className="invite-dialog"
+        aria-label="Invitar alumno"
+      >
         <form onSubmit={handleSubmit}>
           <h2>Invitar alumno</h2>
           <p>
@@ -76,8 +80,8 @@ export function InviteStudentDialog() {
                 <strong>Solo en desarrollo:</strong> todavía no existe envío
                 real de correo (ver <code>docs/security.md</code>). Copia y
                 entrega manualmente este token de activación al alumno; este
-                mecanismo debe reemplazarse por un envío de correo real antes
-                de producción.
+                mecanismo debe reemplazarse por un envío de correo real antes de
+                producción.
               </p>
               <code className="activation-token">
                 {inviteMutation.data.activationToken}

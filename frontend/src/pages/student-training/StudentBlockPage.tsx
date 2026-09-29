@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { Link, useParams } from 'react-router-dom';
 import { useStudentBlock, useStudentWeeks } from '../../api/studentTraining';
 import { ApiError } from '../../lib/apiClient';
@@ -10,7 +11,7 @@ export function StudentBlockPage() {
   const weeksQuery = useStudentWeeks(id);
 
   if (blockQuery.isLoading) {
-    return <p>Cargando bloque…</p>;
+    return <Skeleton label="Cargando bloque…" />;
   }
 
   if (blockQuery.isError) {
@@ -45,7 +46,7 @@ export function StudentBlockPage() {
 
       <h2>Semanas</h2>
 
-      {weeksQuery.isLoading && <p>Cargando semanas…</p>}
+      {weeksQuery.isLoading && <Skeleton label="Cargando semanas…" />}
 
       {weeksQuery.isError && (
         <p role="alert" className="field-error">

@@ -1,3 +1,4 @@
+import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link } from 'react-router-dom';
 import { useMyProgramAssignments } from '../../api/programAssignments';
 import { ApiError } from '../../lib/apiClient';
@@ -24,7 +25,9 @@ export function MyAssignedProgramsPage() {
         <h1>Mis programas asignados</h1>
       </div>
 
-      {assignmentsQuery.isLoading && <p>Cargando tus programas…</p>}
+      {assignmentsQuery.isLoading && (
+        <Skeleton label="Cargando tus programas…" />
+      )}
 
       {assignmentsQuery.isError && (
         <p role="alert" className="field-error">
@@ -35,44 +38,53 @@ export function MyAssignedProgramsPage() {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length === 0 && (
-        <p>Todavía no tienes ningún programa asignado por tu coach.</p>
+        <EmptyState title="Sin programas asignados" description="Todavía no tienes ningún programa asignado por tu coach." />
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Programa</th>
-              <th>Duración</th>
-              <th>Estado</th>
-              <th>Asignado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignmentsQuery.data.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>
-                  {assignment.program ? (
-                    <Link to={`/student/programs/${assignment.program.id}`}>
-                      {assignment.program.name}
-                    </Link>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td>
-                  {assignment.program?.durationWeeks
-                    ? `${assignment.program.durationWeeks} semanas`
-                    : '—'}
-                </td>
-                <td>
-                  <AssignmentStatusBadge status={assignment.status} />
-                </td>
-                <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>Programa</th>
+                <th>Duración</th>
+                <th>Estado</th>
+                <th>Asignado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {assignmentsQuery.data.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td>
+                    {assignment.program ? (
+                      <Link to={`/student/programs/${assignment.program.id}`}>
+                        {assignment.program.name}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
+                    {assignment.program?.durationWeeks
+                      ? `${assignment.program.durationWeeks} semanas`
+                      : '—'}
+                  </td>
+                  <td>
+                    <AssignmentStatusBadge status={assignment.status} />
+                  </td>
+                  <td>
+                    {new Date(assignment.assignedAt).toLocaleDateString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { Link, useParams } from 'react-router-dom';
 import { useStudentBlocks, useStudentProgram } from '../../api/studentTraining';
 import { ApiError } from '../../lib/apiClient';
@@ -12,7 +13,7 @@ export function StudentProgramPage() {
   const blocksQuery = useStudentBlocks(id);
 
   if (programQuery.isLoading) {
-    return <p>Cargando programa…</p>;
+    return <Skeleton label="Cargando programa…" />;
   }
 
   if (programQuery.isError) {
@@ -51,7 +52,7 @@ export function StudentProgramPage() {
 
       <h2>Bloques</h2>
 
-      {blocksQuery.isLoading && <p>Cargando bloques…</p>}
+      {blocksQuery.isLoading && <Skeleton label="Cargando bloques…" />}
 
       {blocksQuery.isError && (
         <p role="alert" className="field-error">

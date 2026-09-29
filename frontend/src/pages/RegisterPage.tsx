@@ -26,7 +26,7 @@ export function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (status === 'authenticated') {
-    return <Navigate to="/students" replace />;
+    return <Navigate to="/" replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -58,6 +58,7 @@ export function RegisterPage() {
 
   return (
     <section className="login-page">
+      <p className="eyebrow">Un espacio para tu equipo</p>
       <h1>Crear cuenta de Coach</h1>
       <form onSubmit={handleSubmit}>
         <label className="field">

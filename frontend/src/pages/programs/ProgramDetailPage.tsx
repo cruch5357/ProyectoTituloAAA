@@ -1,3 +1,4 @@
+import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -18,6 +19,7 @@ import { ProgramStatusBadge } from './ProgramStatusBadge';
 import { AssignmentStatusBadge } from './AssignmentStatusBadge';
 import type { Program } from '../../types/program';
 import type { ProgramAssignmentStatus } from '../../types/programAssignment';
+import { ProgramBoard } from '../../components/program/ProgramBoard';
 
 // Detalle + edición de un programa propio, más la administración de sus
 // bloques (PROMPT 08: "Program -> Block -> Week -> Session"). Estructura
@@ -30,7 +32,7 @@ export function ProgramDetailPage() {
   const programQuery = useProgram(id);
 
   if (programQuery.isLoading) {
-    return <p>Cargando programa…</p>;
+    return <Skeleton label="Cargando programa…" />;
   }
 
   if (programQuery.isError) {
@@ -52,7 +54,9 @@ export function ProgramDetailPage() {
     return null;
   }
 
-  return <ProgramEditForm key={programQuery.data.id} program={programQuery.data} />;
+  return (
+    <ProgramEditForm key={programQuery.data.id} program={programQuery.data} />
+  );
 }
 
 function ProgramEditForm({ program }: { program: Program }) {
@@ -92,6 +96,8 @@ function ProgramEditForm({ program }: { program: Program }) {
         <ProgramStatusBadge isActive={program.isActive} />
       </div>
 
+      <ProgramBoard programId={program.id} />
+      <h2>Configuración del programa</h2>
       <form onSubmit={handleSubmit}>
         <label className="field">
           <span>Nombre</span>
@@ -192,10 +198,10 @@ function ProgramBlocksSection({ programId }: { programId: string }) {
     <section>
       <h2>Bloques</h2>
 
-      {blocksQuery.isLoading && <p>Cargando bloques…</p>}
+      {blocksQuery.isLoading && <Skeleton label="Cargando bloques…" />}
 
       {blocksQuery.isSuccess && blocksQuery.data.length === 0 && (
-        <p>Este programa todavía no tiene bloques.</p>
+        <EmptyState title="Sin bloques" description="Este programa todavía no tiene bloques." />
       )}
 
       {blocksQuery.isSuccess && blocksQuery.data.length > 0 && (
@@ -280,50 +286,63 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
     <section>
       <h2>Alumnos asignados</h2>
 
-      {assignmentsQuery.isLoading && <p>Cargando asignaciones…</p>}
+      {assignmentsQuery.isLoading && (
+        <Skeleton label="Cargando asignaciones…" />
+      )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length === 0 && (
-        <p>Este programa todavía no está asignado a ningún alumno.</p>
+        <EmptyState title="Sin asignaciones" description="Este programa todavía no está asignado a ningún alumno." />
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Alumno</th>
-              <th>Correo</th>
-              <th>Estado</th>
-              <th>Asignado</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {assignmentsQuery.data.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>{assignment.student?.name ?? '—'}</td>
-                <td>{assignment.student?.email ?? '—'}</td>
-                <td>
-                  <AssignmentStatusBadge status={assignment.status} />
-                </td>
-                <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleToggleStatus(assignment.id, assignment.status)
-                    }
-                    disabled={
-                      updateStatusMutation.isPending &&
-                      updateStatusMutation.variables?.id === assignment.id
-                    }
-                  >
-                    {assignment.status === 'ACTIVE' ? 'Finalizar' : 'Reactivar'}
-                  </button>
-                </td>
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Correo</th>
+                <th>Estado</th>
+                <th>Asignado</th>
+                <th aria-label="Acciones" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {assignmentsQuery.data.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td>{assignment.student?.name ?? '—'}</td>
+                  <td>{assignment.student?.email ?? '—'}</td>
+                  <td>
+                    <AssignmentStatusBadge status={assignment.status} />
+                  </td>
+                  <td>
+                    {new Date(assignment.assignedAt).toLocaleDateString()}
+                  </td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleStatus(assignment.id, assignment.status)
+                      }
+                      disabled={
+                        updateStatusMutation.isPending &&
+                        updateStatusMutation.variables?.id === assignment.id
+                      }
+                    >
+                      {assignment.status === 'ACTIVE'
+                        ? 'Finalizar'
+                        : 'Reactivar'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <form onSubmit={handleAssign} className="inline-create-form">

@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router-dom';
 import { useStudentDashboard } from '../../api/dashboard';
 import { useExercises } from '../../api/exercises';
 import { ApiError } from '../../lib/apiClient';
+import { EvolutionChart } from '../../components/ui/EvolutionChart';
+import { Skeleton } from '../../components/ui/Primitives';
 
 function formatNumber(value: number | null, digits = 1): string {
   return value !== null ? value.toFixed(digits) : '—';
@@ -16,16 +18,29 @@ function formatNumber(value: number | null, digits = 1): string {
 // (DashboardStudentService.getStudentDashboard(), reutilizando
 // StudentsService.getOwnedByCoach()) -- si no es así, la consulta falla con
 // 404 y esta página lo muestra como error, nunca inventa datos.
-export function StudentDashboardPage() {
-  const { studentId } = useParams<{ studentId: string }>();
+export function StudentDashboardPage({
+  embedded = false,
+  studentIdOverride,
+}: {
+  embedded?: boolean;
+  studentIdOverride?: string;
+}) {
+  const params = useParams<{ studentId: string }>();
+  const studentId = studentIdOverride ?? params.studentId;
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [exerciseId, setExerciseId] = useState('');
+  const [exerciseSearch, setExerciseSearch] = useState('');
+  const [exercisePage, setExercisePage] = useState(1);
 
   // Catálogo propio del coach para elegir un ejercicio puntual (RF-26,
   // "métricas de ejercicios") -- reutiliza useExercises ya existente desde
   // PROMPT 07, sin ningún endpoint nuevo para esto.
-  const exercisesQuery = useExercises({ page: 1, limit: 100 });
+  const exercisesQuery = useExercises({
+    page: exercisePage,
+    limit: 30,
+    search: exerciseSearch || undefined,
+  });
 
   const dashboardQuery = useStudentDashboard(studentId, {
     dateFrom: dateFrom || undefined,
@@ -39,11 +54,15 @@ export function StudentDashboardPage() {
 
   return (
     <section>
-      <p>
-        <Link to="/dashboard">← Volver al Dashboard</Link>
-      </p>
+      {!embedded && (
+        <p>
+          <Link to="/dashboard">← Volver al Dashboard</Link>
+        </p>
+      )}
 
-      {dashboardQuery.isLoading && <p>Cargando métricas del alumno…</p>}
+      {dashboardQuery.isLoading && (
+        <Skeleton label="Cargando métricas del alumno…" />
+      )}
 
       {dashboardQuery.isError && (
         <p role="alert" className="field-error">
@@ -55,8 +74,14 @@ export function StudentDashboardPage() {
 
       {dashboardQuery.isSuccess && (
         <>
-          <h1>{dashboardQuery.data.student.name}</h1>
-          <p>{dashboardQuery.data.student.email}</p>
+          {embedded ? (
+            <h2>Perfil Estadístico</h2>
+          ) : (
+            <>
+              <h1>{dashboardQuery.data.student.name}</h1>
+              <p>{dashboardQuery.data.student.email}</p>
+            </>
+          )}
 
           <form onSubmit={handleFiltersSubmit} className="search-form">
             <label className="field">
@@ -93,32 +118,120 @@ export function StudentDashboardPage() {
             )}
           </form>
 
+          <label className="field exercise-search">
+            Buscar en el catálogo
+            <input
+              type="search"
+              placeholder="Nombre del ejercicio…"
+              value={exerciseSearch}
+              onChange={(event) => {
+                setExerciseSearch(event.target.value);
+                setExercisePage(1);
+              }}
+            />
+          </label>
+          {exercisesQuery.isError && (
+            <p role="alert" className="field-error">
+              No pudimos cargar el catálogo.{' '}
+              <button
+                type="button"
+                onClick={() => void exercisesQuery.refetch()}
+              >
+                Reintentar
+              </button>
+            </p>
+          )}
+          {exercisesQuery.data && (
+            <>
+              <div className="chips" aria-label="Filtrar por ejercicio">
+                {exercisesQuery.data.items.map((exercise) => (
+                  <button
+                    type="button"
+                    key={exercise.id}
+                    aria-pressed={exerciseId === exercise.id}
+                    onClick={() =>
+                      setExerciseId(
+                        exerciseId === exercise.id ? '' : exercise.id,
+                      )
+                    }
+                  >
+                    {exercise.name}
+                  </button>
+                ))}
+              </div>
+              {exercisesQuery.data.meta.totalPages > 1 && (
+                <nav className="pagination" aria-label="Páginas del catálogo">
+                  <button
+                    type="button"
+                    disabled={exercisePage <= 1}
+                    onClick={() => setExercisePage(exercisePage - 1)}
+                  >
+                    Ejercicios anteriores
+                  </button>
+                  <span>
+                    Página {exercisePage} de{' '}
+                    {exercisesQuery.data.meta.totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={
+                      exercisePage >= exercisesQuery.data.meta.totalPages
+                    }
+                    onClick={() => setExercisePage(exercisePage + 1)}
+                  >
+                    Más ejercicios
+                  </button>
+                </nav>
+              )}
+            </>
+          )}
+          {exerciseId && (
+            <EvolutionChart
+              points={dashboardQuery.data.exerciseEvolution ?? []}
+            />
+          )}
           {dashboardQuery.data.workoutsRegistered === 0 ? (
-            <p>Este alumno todavía no tiene entrenamientos registrados en este rango.</p>
+            <p>
+              Este alumno todavía no tiene entrenamientos registrados en este
+              rango.
+            </p>
           ) : (
             <div className="stat-cards">
               <div className="stat-card">
-                <span className="stat-card__label">Entrenamientos registrados</span>
+                <span className="stat-card__label">
+                  Entrenamientos registrados
+                </span>
                 <span className="stat-card__value">
                   {dashboardQuery.data.workoutsRegistered}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-card__label">Entrenamientos finalizados</span>
+                <span className="stat-card__label">
+                  Entrenamientos finalizados
+                </span>
                 <span className="stat-card__value">
                   {dashboardQuery.data.workoutsFinished}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-card__label">Frecuencia (por semana)</span>
+                <span className="stat-card__label">
+                  Frecuencia (por semana)
+                </span>
                 <span className="stat-card__value">
-                  {formatNumber(dashboardQuery.data.summary.trainingFrequencyPerWeek)}
+                  {formatNumber(
+                    dashboardQuery.data.summary.trainingFrequencyPerWeek,
+                  )}
                 </span>
               </div>
               <div className="stat-card">
-                <span className="stat-card__label">Duración promedio (min)</span>
+                <span className="stat-card__label">
+                  Duración promedio (min)
+                </span>
                 <span className="stat-card__value">
-                  {formatNumber(dashboardQuery.data.summary.averageDurationMinutes, 0)}
+                  {formatNumber(
+                    dashboardQuery.data.summary.averageDurationMinutes,
+                    0,
+                  )}
                 </span>
               </div>
               <div className="stat-card">
@@ -146,9 +259,12 @@ export function StudentDashboardPage() {
             <>
               <h2>Cumplimiento (entrenamientos finalizados)</h2>
               <p>
-                Completados: {dashboardQuery.data.completionStatusBreakdown.completed} ·
-                Parciales: {dashboardQuery.data.completionStatusBreakdown.partial} ·
-                Omitidos: {dashboardQuery.data.completionStatusBreakdown.skipped}
+                Completados:{' '}
+                {dashboardQuery.data.completionStatusBreakdown.completed} ·
+                Parciales:{' '}
+                {dashboardQuery.data.completionStatusBreakdown.partial} ·
+                Omitidos:{' '}
+                {dashboardQuery.data.completionStatusBreakdown.skipped}
               </p>
             </>
           )}
@@ -158,30 +274,42 @@ export function StudentDashboardPage() {
               <h2>Evolución del ejercicio seleccionado</h2>
               {(!dashboardQuery.data.exerciseEvolution ||
                 dashboardQuery.data.exerciseEvolution.length === 0) && (
-                <p>Este alumno todavía no registró series de este ejercicio en este rango.</p>
+                <p>
+                  Este alumno todavía no registró series de este ejercicio en
+                  este rango.
+                </p>
               )}
               {dashboardQuery.data.exerciseEvolution &&
                 dashboardQuery.data.exerciseEvolution.length > 0 && (
-                  <table className="students-table">
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Carga máxima</th>
-                        <th>Reps totales</th>
-                        <th>Series</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboardQuery.data.exerciseEvolution.map((point) => (
-                        <tr key={point.workoutLogId}>
-                          <td>{new Date(point.performedAt).toLocaleDateString()}</td>
-                          <td>{point.maxActualLoad ?? '—'}</td>
-                          <td>{point.totalActualReps ?? '—'}</td>
-                          <td>{point.setCount}</td>
+                  <div
+                    className="table-scroll"
+                    role="region"
+                    aria-label="Tabla de datos"
+                    tabIndex={0}
+                  >
+                    <table className="students-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Carga máxima</th>
+                          <th>Reps totales</th>
+                          <th>Series</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {dashboardQuery.data.exerciseEvolution.map((point) => (
+                          <tr key={point.workoutLogId}>
+                            <td>
+                              {new Date(point.performedAt).toLocaleDateString()}
+                            </td>
+                            <td>{point.maxActualLoad ?? '—'}</td>
+                            <td>{point.totalActualReps ?? '—'}</td>
+                            <td>{point.setCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
             </div>
           )}

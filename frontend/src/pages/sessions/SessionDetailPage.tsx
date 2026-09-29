@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -23,7 +24,7 @@ export function SessionDetailPage() {
   const sessionQuery = useSession(id);
 
   if (sessionQuery.isLoading) {
-    return <p>Cargando sesión…</p>;
+    return <Skeleton label="Cargando sesión…" />;
   }
 
   if (sessionQuery.isError) {
@@ -44,7 +45,9 @@ export function SessionDetailPage() {
     return null;
   }
 
-  return <SessionEditForm key={sessionQuery.data.id} session={sessionQuery.data} />;
+  return (
+    <SessionEditForm key={sessionQuery.data.id} session={sessionQuery.data} />
+  );
 }
 
 function SessionEditForm({ session }: { session: Session }) {
@@ -144,32 +147,43 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
     <section>
       <h2>Ejercicios de la sesión</h2>
 
-      {itemsQuery.isLoading && <p>Cargando ejercicios…</p>}
+      {itemsQuery.isLoading && <Skeleton label="Cargando ejercicios…" />}
 
       {itemsQuery.isSuccess && itemsQuery.data.length === 0 && (
         <p>Esta sesión todavía no tiene ejercicios prescritos.</p>
       )}
 
       {itemsQuery.isSuccess && itemsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Ejercicio</th>
-              <th>Series</th>
-              <th>Reps</th>
-              <th>RPE</th>
-              <th>RIR</th>
-              <th>Descanso</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {itemsQuery.data.map((item) => (
-              <SessionExerciseRow key={item.id} item={item} sessionId={sessionId} />
-            ))}
-          </tbody>
-        </table>
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ejercicio</th>
+                <th>Series</th>
+                <th>Reps</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th>Descanso</th>
+                <th aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {itemsQuery.data.map((item) => (
+                <SessionExerciseRow
+                  key={item.id}
+                  item={item}
+                  sessionId={sessionId}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <AddSessionExerciseForm sessionId={sessionId} />
@@ -206,7 +220,10 @@ function SessionExerciseRow({
         <td>{item.targetRir ?? '—'}</td>
         <td>{item.restSeconds !== null ? `${item.restSeconds}s` : '—'}</td>
         <td>
-          <button type="button" onClick={() => setEditing((current) => !current)}>
+          <button
+            type="button"
+            onClick={() => setEditing((current) => !current)}
+          >
             {editing ? 'Cerrar' : 'Editar'}
           </button>
         </td>

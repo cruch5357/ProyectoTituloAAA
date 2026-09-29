@@ -1,15 +1,14 @@
-// Página placeholder: confirma que el enrutamiento y el layout base
-// funcionan. Se reemplaza por las pantallas reales de Coach/Alumno en
-// los prompts siguientes (no se desarrolla aún, ver PROMPT 01, regla 13).
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
+import { StudentHomePage } from './student-training/StudentHomePage';
+import { Skeleton } from '../components/ui/Primitives';
 export function HomePage() {
-  return (
-    <section>
-      <h1>Base técnica inicializada</h1>
-      <p>
-        Esta es la base del frontend (React + TypeScript + PWA). Las
-        funcionalidades de negocio (login, dashboard, entrenamientos, etc.)
-        se implementan progresivamente en los siguientes prompts.
-      </p>
-    </section>
+  const { status, user } = useAuth();
+  if (status === 'loading') return <Skeleton label="Preparando tu espacio…" />;
+  if (status === 'anonymous') return <Navigate to="/login" replace />;
+  return user?.role === 'COACH' ? (
+    <Navigate to="/dashboard" replace />
+  ) : (
+    <StudentHomePage />
   );
 }
