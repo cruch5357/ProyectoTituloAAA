@@ -58,7 +58,15 @@ async function bootstrap() {
     .addCookieAuth('refresh_token')
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/v1/docs', app, swaggerDocument);
+  // La documentación interactiva de la API (endpoints, DTOs, formas de
+  // request/response) no debe exponerse en producción: facilita
+  // reconocimiento de la superficie de ataque a un actor no autenticado.
+  // Se mantiene disponible en desarrollo/demo, donde es útil (PROMPT 19,
+  // hardening — información expuesta).
+  const isProduction = configService.get<string>('NODE_ENV') === 'production';
+  if (!isProduction) {
+    SwaggerModule.setup('api/v1/docs', app, swaggerDocument);
+  }
 
   const port = configService.get<number>('PORT') ?? 3000;
   await app.listen(port);
