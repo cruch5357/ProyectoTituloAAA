@@ -144,7 +144,9 @@ interface MutableProgram extends Omit<ImportPlanProgram, 'blocks'> {
   blocks: Map<number, MutableBlock>;
 }
 
-export function buildImportPlan(rows: NormalizedRowInput[]): BuildImportPlanResult {
+export function buildImportPlan(
+  rows: NormalizedRowInput[],
+): BuildImportPlanResult {
   const conflicts: GroupingConflict[] = [];
   const programs = new Map<string, MutableProgram>();
 

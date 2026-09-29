@@ -51,9 +51,7 @@ describe('Registro de ejecución - WorkoutLog (e2e) - validación HTTP sin base 
   // PROMPT 11 (RF-25): historial y evolución agregadas al mismo controller
   // (/workout-logs), con el mismo guard de clase (JwtAuthGuard + Roles).
   it('GET /workout-logs (historial) sin token responde 401', () => {
-    return request(app.getHttpServer())
-      .get('/api/v1/workout-logs')
-      .expect(401);
+    return request(app.getHttpServer()).get('/api/v1/workout-logs').expect(401);
   });
 
   it('GET /workout-logs/evolution sin token responde 401', () => {
