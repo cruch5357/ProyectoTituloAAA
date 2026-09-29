@@ -70,47 +70,49 @@ export function ProgramsListPage() {
 
       {programsQuery.isSuccess && programsQuery.data.items.length > 0 && (
         <>
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Duración</th>
-                <th>Estado</th>
-                <th aria-label="Acciones" />
-              </tr>
-            </thead>
-            <tbody>
-              {programsQuery.data.items.map((program) => (
-                <tr key={program.id}>
-                  <td>
-                    <Link to={`/programs/${program.id}`}>{program.name}</Link>
-                  </td>
-                  <td>
-                    {program.durationWeeks
-                      ? `${program.durationWeeks} semanas`
-                      : '—'}
-                  </td>
-                  <td>
-                    <ProgramStatusBadge isActive={program.isActive} />
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        handleToggleStatus(program.id, program.isActive)
-                      }
-                      disabled={
-                        updateStatusMutation.isPending &&
-                        updateStatusMutation.variables?.id === program.id
-                      }
-                    >
-                      {program.isActive ? 'Archivar' : 'Activar'}
-                    </button>
-                  </td>
+          <div className="table-scroll">
+              <table className="students-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Duración</th>
+                  <th>Estado</th>
+                  <th aria-label="Acciones" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {programsQuery.data.items.map((program) => (
+                  <tr key={program.id}>
+                    <td>
+                      <Link to={`/programs/${program.id}`}>{program.name}</Link>
+                    </td>
+                    <td>
+                      {program.durationWeeks
+                        ? `${program.durationWeeks} semanas`
+                        : '—'}
+                    </td>
+                    <td>
+                      <ProgramStatusBadge isActive={program.isActive} />
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleToggleStatus(program.id, program.isActive)
+                        }
+                        disabled={
+                          updateStatusMutation.isPending &&
+                          updateStatusMutation.variables?.id === program.id
+                        }
+                      >
+                        {program.isActive ? 'Archivar' : 'Activar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <nav className="pagination" aria-label="Paginación de programas">
             <button

@@ -7,6 +7,60 @@
   box-sizing: border-box;
 }
 
+/* ------------------------------------------------------------------- */
+/* PROMPT 17 — pulido responsive/UX: evitar overflow horizontal global y */
+/* dar un tamaño de toque razonable a los controles interactivos, sin    */
+/* introducir un sistema de diseño nuevo.                                */
+/* ------------------------------------------------------------------- */
+
+html {
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+button {
+  padding: 0.55rem 1rem;
+  font-size: 1rem;
+  min-height: 2.75rem;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  background: #f2f2f2;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #e6e6e6;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+a {
+  color: #1a4fb4;
+}
+
+:focus-visible {
+  outline: 2px solid #1a4fb4;
+  outline-offset: 2px;
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -32,9 +86,29 @@ body {
 
 .app-shell__nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   font-weight: 400;
+}
+
+/* PROMPT 17: el nombre completo de la app es largo (coherente con
+   README/manifest de PROMPT 16) y en una pantalla de 360-390px, junto a la
+   navegación, puede volverse pesado. Se muestra la versión corta
+   ("Entrenamiento", el mismo `short_name` del manifest PWA) en pantallas
+   angostas y el nombre completo desde ~480px en adelante. */
+.app-shell__brand-short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .app-shell__brand-full {
+    display: none;
+  }
+
+  .app-shell__brand-short {
+    display: inline;
+  }
 }
 
 /* ------------------------------------------------------------------- */
@@ -59,11 +133,21 @@ body {
   margin-bottom: 1rem;
 }
 
-.field input {
+.field input,
+.field select,
+.field textarea {
+  width: 100%;
+  max-width: 100%;
   padding: 0.5rem;
   font-size: 1rem;
+  min-height: 2.5rem;
   border: 1px solid #cccccc;
   border-radius: 4px;
+  background: #ffffff;
+}
+
+.field textarea {
+  min-height: 4.5rem;
 }
 
 .field-error {
@@ -83,8 +167,18 @@ body {
   min-width: 220px;
 }
 
+/* PROMPT 17: toda tabla se envuelve en `.table-scroll` (ver JSX) para que
+   el scroll horizontal, si hace falta en pantallas angostas, quede
+   contenido dentro de la tabla y nunca en la página completa. */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .students-table {
   width: 100%;
+  min-width: 32rem;
   border-collapse: collapse;
 }
 
@@ -110,6 +204,43 @@ body {
 .status-badge--inactive {
   background: #f6e3e3;
   color: #a32424;
+}
+
+.status-badge--warning {
+  background: #fdf0d5;
+  color: #8a5a00;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.badge--success {
+  background: #e3f6e8;
+  color: #1e7a34;
+}
+
+.badge--danger {
+  background: #f6e3e3;
+  color: #a32424;
+}
+
+.field-error-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #b00020;
+}
+
+.field-error-list li {
+  margin-bottom: 0.25rem;
+}
+
+.field-error-list li:last-child {
+  margin-bottom: 0;
 }
 
 .pagination {
@@ -163,6 +294,16 @@ body {
   margin: 2rem auto;
 }
 
+.home-page {
+  max-width: 42rem;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+.home-page__actions {
+  margin-top: 1.5rem;
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.35);
 }
@@ -173,6 +314,9 @@ dialog {
   padding: 1.5rem;
   max-width: 420px;
   width: calc(100% - 2rem);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
 
 .app-shell__content {
@@ -201,15 +345,26 @@ dialog {
 }
 
 .nested-list li {
-  padding: 0.4rem 0;
   border-bottom: 1px solid #e2e2e2;
+}
+
+.nested-list li a {
+  display: block;
+  padding: 0.75rem 0.25rem;
 }
 
 .inline-create-form {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   gap: 0.75rem;
   margin-top: 0.5rem;
+}
+
+.inline-create-form .field {
+  margin-bottom: 0;
+  min-width: 14rem;
+  flex: 1 1 14rem;
 }
 
 .prescription-form {

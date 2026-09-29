@@ -287,43 +287,45 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Alumno</th>
-              <th>Correo</th>
-              <th>Estado</th>
-              <th>Asignado</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {assignmentsQuery.data.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>{assignment.student?.name ?? '—'}</td>
-                <td>{assignment.student?.email ?? '—'}</td>
-                <td>
-                  <AssignmentStatusBadge status={assignment.status} />
-                </td>
-                <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
-                <td>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      handleToggleStatus(assignment.id, assignment.status)
-                    }
-                    disabled={
-                      updateStatusMutation.isPending &&
-                      updateStatusMutation.variables?.id === assignment.id
-                    }
-                  >
-                    {assignment.status === 'ACTIVE' ? 'Finalizar' : 'Reactivar'}
-                  </button>
-                </td>
+        <div className="table-scroll">
+            <table className="students-table">
+            <thead>
+              <tr>
+                <th>Alumno</th>
+                <th>Correo</th>
+                <th>Estado</th>
+                <th>Asignado</th>
+                <th aria-label="Acciones" />
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {assignmentsQuery.data.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td>{assignment.student?.name ?? '—'}</td>
+                  <td>{assignment.student?.email ?? '—'}</td>
+                  <td>
+                    <AssignmentStatusBadge status={assignment.status} />
+                  </td>
+                  <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+                  <td>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleToggleStatus(assignment.id, assignment.status)
+                      }
+                      disabled={
+                        updateStatusMutation.isPending &&
+                        updateStatusMutation.variables?.id === assignment.id
+                      }
+                    >
+                      {assignment.status === 'ACTIVE' ? 'Finalizar' : 'Reactivar'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <form onSubmit={handleAssign} className="inline-create-form">

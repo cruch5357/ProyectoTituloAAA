@@ -69,43 +69,45 @@ export function StudentsListPage() {
 
       {studentsQuery.isSuccess && studentsQuery.data.items.length > 0 && (
         <>
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Correo</th>
-                <th>Estado</th>
-                <th>Alta</th>
-                <th aria-label="Acciones" />
-              </tr>
-            </thead>
-            <tbody>
-              {studentsQuery.data.items.map((student) => (
-                <tr key={student.id}>
-                  <td>
-                    <Link to={`/students/${student.id}`}>{student.name}</Link>
-                  </td>
-                  <td>{student.email}</td>
-                  <td>
-                    <StudentStatusBadge isActive={student.isActive} />
-                  </td>
-                  <td>{new Date(student.createdAt).toLocaleDateString()}</td>
-                  <td>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStatus(student.id, student.isActive)}
-                      disabled={
-                        updateStatusMutation.isPending &&
-                        updateStatusMutation.variables?.id === student.id
-                      }
-                    >
-                      {student.isActive ? 'Desactivar' : 'Activar'}
-                    </button>
-                  </td>
+          <div className="table-scroll">
+              <table className="students-table">
+              <thead>
+                <tr>
+                  <th>Nombre</th>
+                  <th>Correo</th>
+                  <th>Estado</th>
+                  <th>Alta</th>
+                  <th aria-label="Acciones" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {studentsQuery.data.items.map((student) => (
+                  <tr key={student.id}>
+                    <td>
+                      <Link to={`/students/${student.id}`}>{student.name}</Link>
+                    </td>
+                    <td>{student.email}</td>
+                    <td>
+                      <StudentStatusBadge isActive={student.isActive} />
+                    </td>
+                    <td>{new Date(student.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(student.id, student.isActive)}
+                        disabled={
+                          updateStatusMutation.isPending &&
+                          updateStatusMutation.variables?.id === student.id
+                        }
+                      >
+                        {student.isActive ? 'Desactivar' : 'Activar'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <nav className="pagination" aria-label="Paginación de alumnos">
             <button

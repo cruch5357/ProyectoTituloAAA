@@ -39,40 +39,42 @@ export function MyAssignedProgramsPage() {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Programa</th>
-              <th>Duración</th>
-              <th>Estado</th>
-              <th>Asignado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignmentsQuery.data.map((assignment) => (
-              <tr key={assignment.id}>
-                <td>
-                  {assignment.program ? (
-                    <Link to={`/student/programs/${assignment.program.id}`}>
-                      {assignment.program.name}
-                    </Link>
-                  ) : (
-                    '—'
-                  )}
-                </td>
-                <td>
-                  {assignment.program?.durationWeeks
-                    ? `${assignment.program.durationWeeks} semanas`
-                    : '—'}
-                </td>
-                <td>
-                  <AssignmentStatusBadge status={assignment.status} />
-                </td>
-                <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+        <div className="table-scroll">
+            <table className="students-table">
+            <thead>
+              <tr>
+                <th>Programa</th>
+                <th>Duración</th>
+                <th>Estado</th>
+                <th>Asignado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {assignmentsQuery.data.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td>
+                    {assignment.program ? (
+                      <Link to={`/student/programs/${assignment.program.id}`}>
+                        {assignment.program.name}
+                      </Link>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
+                  <td>
+                    {assignment.program?.durationWeeks
+                      ? `${assignment.program.durationWeeks} semanas`
+                      : '—'}
+                  </td>
+                  <td>
+                    <AssignmentStatusBadge status={assignment.status} />
+                  </td>
+                  <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

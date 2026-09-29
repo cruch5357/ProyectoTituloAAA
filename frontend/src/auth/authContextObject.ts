@@ -7,7 +7,7 @@ export type AuthStatus = 'loading' | 'authenticated' | 'anonymous';
 export interface AuthContextValue {
   status: AuthStatus;
   user: PublicUser | null;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<PublicUser>;
   logout: () => Promise<void>;
 }
 

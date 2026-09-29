@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
+import { getHomePathForRole } from '../auth/roleHome';
 import { ApiError } from '../lib/apiClient';
 
 interface LocationState {
@@ -13,7 +14,7 @@ interface LocationState {
 // definitivo. La validación real (credenciales, rate limiting) la hace
 // siempre el backend; acá solo se muestra el resultado.
 export function LoginPage() {
-  const { status, login } = useAuth();
+  const { status, user, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -24,8 +25,8 @@ export function LoginPage() {
 
   const locationState = location.state as LocationState | null;
 
-  if (status === 'authenticated') {
-    const redirectTo = locationState?.from?.pathname ?? '/students';
+  if (status === 'authenticated' && user) {
+    const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(user.role);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -34,8 +35,9 @@ export function LoginPage() {
     setError(null);
     setIsSubmitting(true);
     try {
-      await login({ email, password });
-      navigate('/students', { replace: true });
+      const loggedInUser = await login({ email, password });
+      const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
+      navigate(redirectTo, { replace: true });
     } catch (submitError) {
       setError(
         submitError instanceof ApiError

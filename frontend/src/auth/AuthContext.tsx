@@ -58,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     accessTokenRef.current = result.accessToken;
     setUser(result.user);
     setStatus('authenticated');
+    return result.user;
   }, []);
 
   const logout = useCallback(async () => {

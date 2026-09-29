@@ -13,7 +13,10 @@ export function MainLayout() {
     <div className="app-shell">
       <header className="app-shell__header">
         <Link to="/" className="app-shell__brand">
-          Plataforma de Gestión y Seguimiento de Entrenamiento
+          <span className="app-shell__brand-full">
+            Plataforma de Gestión y Seguimiento de Entrenamiento
+          </span>
+          <span className="app-shell__brand-short">Entrenamiento</span>
         </Link>
         <nav className="app-shell__nav">
           {status === 'authenticated' && user?.role === 'COACH' && (

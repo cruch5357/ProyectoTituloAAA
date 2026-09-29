@@ -55,38 +55,40 @@ export function StudentSessionPage() {
       )}
 
       {session.exercises.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Ejercicio</th>
-              <th>Series</th>
-              <th>Reps</th>
-              <th>RPE</th>
-              <th>RIR</th>
-              <th>Descanso</th>
-            </tr>
-          </thead>
-          <tbody>
-            {session.exercises.map((item) => (
-              <tr key={item.id}>
-                <td>{item.order}</td>
-                <td>{item.exercise.name}</td>
-                <td>{item.targetSets ?? '—'}</td>
-                <td>
-                  {item.targetRepsMin !== null && item.targetRepsMax !== null
-                    ? item.targetRepsMin === item.targetRepsMax
-                      ? item.targetRepsMin
-                      : `${item.targetRepsMin}-${item.targetRepsMax}`
-                    : '—'}
-                </td>
-                <td>{item.targetRpe ?? '—'}</td>
-                <td>{item.targetRir ?? '—'}</td>
-                <td>{item.restSeconds !== null ? `${item.restSeconds}s` : '—'}</td>
+        <div className="table-scroll">
+            <table className="students-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ejercicio</th>
+                <th>Series</th>
+                <th>Reps</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th>Descanso</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {session.exercises.map((item) => (
+                <tr key={item.id}>
+                  <td>{item.order}</td>
+                  <td>{item.exercise.name}</td>
+                  <td>{item.targetSets ?? '—'}</td>
+                  <td>
+                    {item.targetRepsMin !== null && item.targetRepsMax !== null
+                      ? item.targetRepsMin === item.targetRepsMax
+                        ? item.targetRepsMin
+                        : `${item.targetRepsMin}-${item.targetRepsMax}`
+                      : '—'}
+                  </td>
+                  <td>{item.targetRpe ?? '—'}</td>
+                  <td>{item.targetRir ?? '—'}</td>
+                  <td>{item.restSeconds !== null ? `${item.restSeconds}s` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <SessionWorkoutLogsSection sessionId={session.id} />

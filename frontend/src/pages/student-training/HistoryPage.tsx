@@ -220,26 +220,28 @@ export function HistoryPage() {
               )}
               {evolutionQuery.data.exerciseEvolution &&
                 evolutionQuery.data.exerciseEvolution.length > 0 && (
-                  <table className="students-table">
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Carga máxima</th>
-                        <th>Reps totales</th>
-                        <th>Series</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {evolutionQuery.data.exerciseEvolution.map((point) => (
-                        <tr key={point.workoutLogId}>
-                          <td>{new Date(point.performedAt).toLocaleDateString()}</td>
-                          <td>{point.maxActualLoad ?? '—'}</td>
-                          <td>{point.totalActualReps ?? '—'}</td>
-                          <td>{point.setCount}</td>
+                  <div className="table-scroll">
+                      <table className="students-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Carga máxima</th>
+                          <th>Reps totales</th>
+                          <th>Series</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {evolutionQuery.data.exerciseEvolution.map((point) => (
+                          <tr key={point.workoutLogId}>
+                            <td>{new Date(point.performedAt).toLocaleDateString()}</td>
+                            <td>{point.maxActualLoad ?? '—'}</td>
+                            <td>{point.totalActualReps ?? '—'}</td>
+                            <td>{point.setCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
             </div>
           )}
@@ -264,43 +266,45 @@ export function HistoryPage() {
 
       {historyQuery.isSuccess && historyQuery.data.items.length > 0 && (
         <>
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th>Fecha</th>
-                <th>Sesión</th>
-                <th>Programa</th>
-                <th>Estado</th>
-                <th>Duración</th>
-                <th>Series</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyQuery.data.items.map((workoutLog) => (
-                <tr key={workoutLog.id}>
-                  <td>
-                    <Link to={`/workout-logs/${workoutLog.id}`}>
-                      {new Date(workoutLog.performedAt).toLocaleString()}
-                    </Link>
-                  </td>
-                  <td>{workoutLog.session?.name ?? '—'}</td>
-                  <td>{workoutLog.session?.week.block.program.name ?? '—'}</td>
-                  <td>
-                    <WorkoutCompletionStatusBadge
-                      status={workoutLog.completionStatus}
-                    />{' '}
-                    {workoutLog.durationMinutes === null && '(en curso)'}
-                  </td>
-                  <td>
-                    {workoutLog.durationMinutes !== null
-                      ? `${workoutLog.durationMinutes} min`
-                      : '—'}
-                  </td>
-                  <td>{workoutLog.setLogsCount ?? 0}</td>
+          <div className="table-scroll">
+              <table className="students-table">
+              <thead>
+                <tr>
+                  <th>Fecha</th>
+                  <th>Sesión</th>
+                  <th>Programa</th>
+                  <th>Estado</th>
+                  <th>Duración</th>
+                  <th>Series</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {historyQuery.data.items.map((workoutLog) => (
+                  <tr key={workoutLog.id}>
+                    <td>
+                      <Link to={`/workout-logs/${workoutLog.id}`}>
+                        {new Date(workoutLog.performedAt).toLocaleString()}
+                      </Link>
+                    </td>
+                    <td>{workoutLog.session?.name ?? '—'}</td>
+                    <td>{workoutLog.session?.week.block.program.name ?? '—'}</td>
+                    <td>
+                      <WorkoutCompletionStatusBadge
+                        status={workoutLog.completionStatus}
+                      />{' '}
+                      {workoutLog.durationMinutes === null && '(en curso)'}
+                    </td>
+                    <td>
+                      {workoutLog.durationMinutes !== null
+                        ? `${workoutLog.durationMinutes} min`
+                        : '—'}
+                    </td>
+                    <td>{workoutLog.setLogsCount ?? 0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <nav className="pagination" aria-label="Paginación del historial">
             <button

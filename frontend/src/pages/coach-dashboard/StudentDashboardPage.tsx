@@ -162,26 +162,28 @@ export function StudentDashboardPage() {
               )}
               {dashboardQuery.data.exerciseEvolution &&
                 dashboardQuery.data.exerciseEvolution.length > 0 && (
-                  <table className="students-table">
-                    <thead>
-                      <tr>
-                        <th>Fecha</th>
-                        <th>Carga máxima</th>
-                        <th>Reps totales</th>
-                        <th>Series</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dashboardQuery.data.exerciseEvolution.map((point) => (
-                        <tr key={point.workoutLogId}>
-                          <td>{new Date(point.performedAt).toLocaleDateString()}</td>
-                          <td>{point.maxActualLoad ?? '—'}</td>
-                          <td>{point.totalActualReps ?? '—'}</td>
-                          <td>{point.setCount}</td>
+                  <div className="table-scroll">
+                      <table className="students-table">
+                      <thead>
+                        <tr>
+                          <th>Fecha</th>
+                          <th>Carga máxima</th>
+                          <th>Reps totales</th>
+                          <th>Series</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {dashboardQuery.data.exerciseEvolution.map((point) => (
+                          <tr key={point.workoutLogId}>
+                            <td>{new Date(point.performedAt).toLocaleDateString()}</td>
+                            <td>{point.maxActualLoad ?? '—'}</td>
+                            <td>{point.totalActualReps ?? '—'}</td>
+                            <td>{point.setCount}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
             </div>
           )}

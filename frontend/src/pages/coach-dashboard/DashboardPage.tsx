@@ -201,45 +201,47 @@ export function DashboardPage() {
 
       {activityQuery.isSuccess && activityQuery.data.items.length > 0 && (
         <>
-          <table className="students-table">
-            <thead>
-              <tr>
-                <th>Alumno</th>
-                <th>Fecha</th>
-                <th>Sesión</th>
-                <th>Programa</th>
-                <th>Estado</th>
-                <th>Duración</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activityQuery.data.items.map((workoutLog) => (
-                <tr key={workoutLog.id}>
-                  <td>
-                    {workoutLog.student ? (
-                      <Link to={`/dashboard/students/${workoutLog.student.id}`}>
-                        {workoutLog.student.name}
-                      </Link>
-                    ) : (
-                      '—'
-                    )}
-                  </td>
-                  <td>{new Date(workoutLog.performedAt).toLocaleString()}</td>
-                  <td>{workoutLog.session?.name ?? '—'}</td>
-                  <td>{workoutLog.session?.week.block.program.name ?? '—'}</td>
-                  <td>
-                    <WorkoutCompletionStatusBadge status={workoutLog.completionStatus} />{' '}
-                    {workoutLog.durationMinutes === null && '(en curso)'}
-                  </td>
-                  <td>
-                    {workoutLog.durationMinutes !== null
-                      ? `${workoutLog.durationMinutes} min`
-                      : '—'}
-                  </td>
+          <div className="table-scroll">
+              <table className="students-table">
+              <thead>
+                <tr>
+                  <th>Alumno</th>
+                  <th>Fecha</th>
+                  <th>Sesión</th>
+                  <th>Programa</th>
+                  <th>Estado</th>
+                  <th>Duración</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {activityQuery.data.items.map((workoutLog) => (
+                  <tr key={workoutLog.id}>
+                    <td>
+                      {workoutLog.student ? (
+                        <Link to={`/dashboard/students/${workoutLog.student.id}`}>
+                          {workoutLog.student.name}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+                    <td>{new Date(workoutLog.performedAt).toLocaleString()}</td>
+                    <td>{workoutLog.session?.name ?? '—'}</td>
+                    <td>{workoutLog.session?.week.block.program.name ?? '—'}</td>
+                    <td>
+                      <WorkoutCompletionStatusBadge status={workoutLog.completionStatus} />{' '}
+                      {workoutLog.durationMinutes === null && '(en curso)'}
+                    </td>
+                    <td>
+                      {workoutLog.durationMinutes !== null
+                        ? `${workoutLog.durationMinutes} min`
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <nav className="pagination" aria-label="Paginación de actividad reciente">
             <button

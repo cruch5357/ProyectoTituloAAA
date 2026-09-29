@@ -151,25 +151,27 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
       )}
 
       {itemsQuery.isSuccess && itemsQuery.data.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Ejercicio</th>
-              <th>Series</th>
-              <th>Reps</th>
-              <th>RPE</th>
-              <th>RIR</th>
-              <th>Descanso</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {itemsQuery.data.map((item) => (
-              <SessionExerciseRow key={item.id} item={item} sessionId={sessionId} />
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+            <table className="students-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Ejercicio</th>
+                <th>Series</th>
+                <th>Reps</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th>Descanso</th>
+                <th aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {itemsQuery.data.map((item) => (
+                <SessionExerciseRow key={item.id} item={item} sessionId={sessionId} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       <AddSessionExerciseForm sessionId={sessionId} />

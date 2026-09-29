@@ -73,25 +73,27 @@ export function WorkoutLogPage() {
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
-        <table className="students-table">
-          <thead>
-            <tr>
-              <th>Ejercicio</th>
-              <th>Serie</th>
-              <th>Prescrito (reps / RPE / RIR)</th>
-              <th>Reps</th>
-              <th>Carga</th>
-              <th>RPE</th>
-              <th>RIR</th>
-              <th aria-label="Acciones" />
-            </tr>
-          </thead>
-          <tbody>
-            {workoutLog.setLogs.map((setLog) => (
-              <SetLogRow key={setLog.id} setLog={setLog} workoutLogId={workoutLog.id} />
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+            <table className="students-table">
+            <thead>
+              <tr>
+                <th>Ejercicio</th>
+                <th>Serie</th>
+                <th>Prescrito (reps / RPE / RIR)</th>
+                <th>Reps</th>
+                <th>Carga</th>
+                <th>RPE</th>
+                <th>RIR</th>
+                <th aria-label="Acciones" />
+              </tr>
+            </thead>
+            <tbody>
+              {workoutLog.setLogs.map((setLog) => (
+                <SetLogRow key={setLog.id} setLog={setLog} workoutLogId={workoutLog.id} />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (

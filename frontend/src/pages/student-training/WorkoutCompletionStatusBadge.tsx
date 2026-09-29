@@ -8,21 +8,16 @@ const LABELS: Record<WorkoutCompletionStatus, string> = {
   SKIPPED: 'Omitido',
 };
 
+const VARIANT_CLASS: Record<WorkoutCompletionStatus, string> = {
+  COMPLETED: 'status-badge status-badge--active',
+  PARTIAL: 'status-badge status-badge--warning',
+  SKIPPED: 'status-badge status-badge--inactive',
+};
+
 export function WorkoutCompletionStatusBadge({
   status,
 }: {
   status: WorkoutCompletionStatus;
 }) {
-  const isCompleted = status === 'COMPLETED';
-  return (
-    <span
-      className={
-        isCompleted
-          ? 'status-badge status-badge--active'
-          : 'status-badge status-badge--inactive'
-      }
-    >
-      {LABELS[status]}
-    </span>
-  );
+  return <span className={VARIANT_CLASS[status]}>{LABELS[status]}</span>;
 }
