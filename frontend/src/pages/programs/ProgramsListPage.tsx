@@ -1,3 +1,4 @@
+import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -50,7 +51,7 @@ export function ProgramsListPage() {
         <button type="submit">Buscar</button>
       </form>
 
-      {programsQuery.isLoading && <p>Cargando programas…</p>}
+      {programsQuery.isLoading && <Skeleton label="Cargando programas…" />}
 
       {programsQuery.isError && (
         <p role="alert" className="field-error">
@@ -70,8 +71,13 @@ export function ProgramsListPage() {
 
       {programsQuery.isSuccess && programsQuery.data.items.length > 0 && (
         <>
-          <div className="table-scroll">
-              <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Nombre</th>

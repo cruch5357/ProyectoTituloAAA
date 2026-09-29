@@ -59,6 +59,7 @@ export function RegisterPage() {
 
   return (
     <section className="login-page">
+      <p className="eyebrow">Un espacio para tu equipo</p>
       <h1>Crear cuenta de Coach</h1>
       <form onSubmit={handleSubmit}>
         <label className="field">
@@ -133,3 +134,5 @@ export function RegisterPage() {
     </section>
   );
 }
+
+export default RegisterPage;

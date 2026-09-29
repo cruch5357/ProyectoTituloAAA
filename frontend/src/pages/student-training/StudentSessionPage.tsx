@@ -1,3 +1,4 @@
+import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStudentSessionDetail } from '../../api/studentTraining';
 import {
@@ -17,7 +18,7 @@ export function StudentSessionPage() {
   const sessionQuery = useStudentSessionDetail(id);
 
   if (sessionQuery.isLoading) {
-    return <p>Cargando sesión…</p>;
+    return <Skeleton label="Cargando sesión…" />;
   }
 
   if (sessionQuery.isError) {
@@ -43,7 +44,9 @@ export function StudentSessionPage() {
   return (
     <section>
       <p>
-        <Link to={`/student/weeks/${session.weekId}`}>← Volver a la semana</Link>
+        <Link to={`/student/weeks/${session.weekId}`}>
+          ← Volver a la semana
+        </Link>
       </p>
 
       <h1>{session.name}</h1>
@@ -51,12 +54,17 @@ export function StudentSessionPage() {
       <h2>Prescripción del coach</h2>
 
       {session.exercises.length === 0 && (
-        <p>Esta sesión todavía no tiene ejercicios prescritos.</p>
+        <EmptyState title="Sin ejercicios" description="Esta sesión todavía no tiene ejercicios prescritos." />
       )}
 
       {session.exercises.length > 0 && (
-        <div className="table-scroll">
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -83,7 +91,9 @@ export function StudentSessionPage() {
                   </td>
                   <td>{item.targetRpe ?? '—'}</td>
                   <td>{item.targetRir ?? '—'}</td>
-                  <td>{item.restSeconds !== null ? `${item.restSeconds}s` : '—'}</td>
+<td>
+  {item.restSeconds !== null ? `${item.restSeconds}s` : '—'}
+</td>
                 </tr>
               ))}
             </tbody>
@@ -114,7 +124,9 @@ function SessionWorkoutLogsSection({ sessionId }: { sessionId: string }) {
     <section>
       <h2>Tus entrenamientos de esta sesión</h2>
 
-      {workoutLogsQuery.isLoading && <p>Cargando tus registros…</p>}
+      {workoutLogsQuery.isLoading && (
+        <Skeleton label="Cargando tus registros…" />
+      )}
 
       {workoutLogsQuery.isSuccess && workoutLogsQuery.data.length === 0 && (
         <p>Todavía no registraste ningún entrenamiento de esta sesión.</p>

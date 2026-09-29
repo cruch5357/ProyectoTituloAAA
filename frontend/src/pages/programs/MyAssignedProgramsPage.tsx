@@ -1,3 +1,4 @@
+import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link } from 'react-router-dom';
 import { useMyProgramAssignments } from '../../api/programAssignments';
 import { ApiError } from '../../lib/apiClient';
@@ -24,7 +25,9 @@ export function MyAssignedProgramsPage() {
         <h1>Mis programas asignados</h1>
       </div>
 
-      {assignmentsQuery.isLoading && <p>Cargando tus programas…</p>}
+      {assignmentsQuery.isLoading && (
+        <Skeleton label="Cargando tus programas…" />
+      )}
 
       {assignmentsQuery.isError && (
         <p role="alert" className="field-error">
@@ -35,12 +38,17 @@ export function MyAssignedProgramsPage() {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length === 0 && (
-        <p>Todavía no tienes ningún programa asignado por tu coach.</p>
+        <EmptyState title="Sin programas asignados" description="Todavía no tienes ningún programa asignado por tu coach." />
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <div className="table-scroll">
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>Programa</th>
@@ -69,7 +77,9 @@ export function MyAssignedProgramsPage() {
                   <td>
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
-                  <td>{new Date(assignment.assignedAt).toLocaleDateString()}</td>
+<td>
+  {new Date(assignment.assignedAt).toLocaleDateString()}
+</td>
                 </tr>
               ))}
             </tbody>

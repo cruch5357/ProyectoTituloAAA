@@ -1,417 +1,204 @@
-:root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-}
+@import './styles/tokens.css';
+@import './styles/components.css';
+@import './styles/layouts.css';
 
 * {
   box-sizing: border-box;
 }
-
-/* ------------------------------------------------------------------- */
-/* PROMPT 17 — pulido responsive/UX: evitar overflow horizontal global y */
-/* dar un tamaño de toque razonable a los controles interactivos, sin    */
-/* introducir un sistema de diseño nuevo.                                */
-/* ------------------------------------------------------------------- */
-
 html {
-  overflow-x: hidden;
+  font-family:
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+  font-size: 14px;
+  background: var(--color-background);
+  color: var(--color-text);
 }
-
 body {
-  overflow-x: hidden;
+  margin: 0;
+  min-width: 320px;
+  line-height: 1.55;
 }
-
 img,
 svg {
   max-width: 100%;
 }
-
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
 button,
 input,
 select,
 textarea {
-  font-family: inherit;
+  font: inherit;
 }
-
-button {
-  padding: 0.55rem 1rem;
-  font-size: 1rem;
-  min-height: 2.75rem;
-  border: 1px solid #cccccc;
-  border-radius: 4px;
-  background: #f2f2f2;
+button,
+.button {
+  min-height: 44px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 1rem;
+  color: var(--color-text);
+  background: var(--color-surface-raised);
   cursor: pointer;
-}
-
-button:hover:not(:disabled) {
-  background: #e6e6e6;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-a {
-  color: #1a4fb4;
-}
-
-:focus-visible {
-  outline: 2px solid #1a4fb4;
-  outline-offset: 2px;
-}
-
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
-
-.app-shell {
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
-}
-
-.app-shell__header {
-  display: flex;
-  flex-wrap: wrap;
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem;
+  justify-content: center;
+  gap: 0.5rem;
   font-weight: 600;
-  border-bottom: 1px solid #dddddd;
+  text-decoration: none;
 }
-
-.app-shell__nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  font-weight: 400;
+button:hover:not(:disabled),
+.button:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+  text-decoration: none;
 }
-
-/* PROMPT 17: el nombre completo de la app es largo (coherente con
-   README/manifest de PROMPT 16) y en una pantalla de 360-390px, junto a la
-   navegación, puede volverse pesado. Se muestra la versión corta
-   ("Entrenamiento", el mismo `short_name` del manifest PWA) en pantallas
-   angostas y el nombre completo desde ~480px en adelante. */
-.app-shell__brand-short {
-  display: none;
+button[type='submit'],
+.button--primary {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-on-primary);
 }
-
-@media (max-width: 480px) {
-  .app-shell__brand-full {
-    display: none;
-  }
-
-  .app-shell__brand-short {
-    display: inline;
-  }
+button[type='submit']:hover:not(:disabled),
+.button--primary:hover {
+  background: var(--color-primary-hover);
 }
-
-/* ------------------------------------------------------------------- */
-/* Gestión de alumnos (PROMPT 04) — estilos mínimos, sin diseño visual  */
-/* definitivo (instrucción explícita del prompt): priorizan estructura, */
-/* legibilidad y responsividad por sobre estética.                      */
-/* ------------------------------------------------------------------- */
-
-.page-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
-}
-
-.field input,
-.field select,
-.field textarea {
-  width: 100%;
+input,
+select,
+textarea {
+  min-height: 44px;
+  min-width: 0;
   max-width: 100%;
-  padding: 0.5rem;
-  font-size: 1rem;
-  min-height: 2.5rem;
-  border: 1px solid #cccccc;
-  border-radius: 4px;
-  background: #ffffff;
-}
-
-.field textarea {
-  min-height: 4.5rem;
-}
-
-.field-error {
-  color: #b00020;
-}
-
-.search-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
-}
-
-.search-form .field {
-  margin-bottom: 0;
-  min-width: 220px;
-}
-
-/* PROMPT 17: toda tabla se envuelve en `.table-scroll` (ver JSX) para que
-   el scroll horizontal, si hace falta en pantallas angostas, quede
-   contenido dentro de la tabla y nunca en la página completa. */
-.table-scroll {
   width: 100%;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  padding: 0.7rem 0.85rem;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
 }
-
-.students-table {
-  width: 100%;
-  min-width: 32rem;
-  border-collapse: collapse;
+textarea {
+  resize: vertical;
 }
-
-.students-table th,
-.students-table td {
-  text-align: left;
-  padding: 0.6rem 0.5rem;
-  border-bottom: 1px solid #e5e5e5;
+input[type='checkbox'],
+input[type='radio'] {
+  width: 20px;
 }
-
-.status-badge {
-  display: inline-block;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
+:focus-visible {
+  outline: 3px solid var(--color-primary);
+  outline-offset: 3px;
 }
-
-.status-badge--active {
-  background: #e3f6e8;
-  color: #1e7a34;
+h1,
+h2,
+h3 {
+  line-height: 1.25;
+  letter-spacing: -0.025em;
 }
-
-.status-badge--inactive {
-  background: #f6e3e3;
-  color: #a32424;
+h1 {
+  font-size: clamp(1.65rem, 2.4vw, 2.2rem);
+  margin: 0 0 0.65rem;
+  font-weight: 700;
 }
-
+h2 {
+  font-size: 1.3rem;
+  margin: 1.8rem 0 1rem;
+}
+h3 {
+  font-size: 1.05rem;
+}
+p,
+h1,
+h2,
+h3,
+h4,
+a {
+  overflow-wrap: anywhere;
+}
+small {
+  font-size: 0.8rem;
+}
+section,
+form,
+header,
+main,
+.app-main {
+  min-width: 0;
+}
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 2rem 0;
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.eyebrow {
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  margin: 0 0 0.8rem;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 1rem;
+  z-index: 100;
+  background: var(--color-surface);
+  padding: 1rem;
+}
+.skip-link:focus {
+  top: 1rem;
+}
+.home-page {
+  max-width: 42rem;
+  margin: 2rem auto;
+}
+.home-page__actions {
+  margin-top: 1.5rem;
+}
 .status-badge--warning {
-  background: #fdf0d5;
-  color: #8a5a00;
+  color: var(--color-warning);
+  background: color-mix(
+    in srgb,
+    var(--color-warning) 12%,
+    var(--color-surface)
+  );
 }
-
-.badge {
-  display: inline-block;
-  padding: 0.15rem 0.6rem;
-  border-radius: 999px;
-  font-size: 0.85rem;
-}
-
-.badge--success {
-  background: #e3f6e8;
-  color: #1e7a34;
-}
-
-.badge--danger {
-  background: #f6e3e3;
-  color: #a32424;
-}
-
 .field-error-list {
   margin: 0;
   padding: 0;
   list-style: none;
-  color: #b00020;
+  color: var(--color-danger);
 }
-
-.field-error-list li {
-  margin-bottom: 0.25rem;
+.field-error-list li + li {
+  margin-top: 0.25rem;
 }
-
-.field-error-list li:last-child {
-  margin-bottom: 0;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.detail-list {
-  display: grid;
-  gap: 0.75rem;
-  margin: 1.5rem 0;
-}
-
-.detail-list dt {
-  font-weight: 600;
-}
-
-.detail-list dd {
-  margin: 0;
-}
-
-.dialog-actions {
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1rem;
-}
-
-.dev-only-notice {
-  margin: 1rem 0;
-  padding: 0.75rem;
-  border: 1px dashed #b8860b;
-  background: #fff8e1;
-  border-radius: 4px;
-}
-
-.activation-token {
-  display: block;
-  margin-top: 0.5rem;
-  padding: 0.5rem;
-  word-break: break-all;
-  background: #fffefa;
-  border: 1px solid #e0d8b8;
-  border-radius: 4px;
-}
-
-.login-page {
-  max-width: 360px;
-  margin: 2rem auto;
-}
-
-.home-page {
-  max-width: 42rem;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
-
-.home-page__actions {
-  margin-top: 1.5rem;
-}
-
-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.35);
-}
-
-dialog {
-  border: none;
-  border-radius: 8px;
-  padding: 1.5rem;
-  max-width: 420px;
-  width: calc(100% - 2rem);
-  max-height: calc(100vh - 2rem);
-  overflow-y: auto;
-  box-sizing: border-box;
-}
-
-.app-shell__content {
-  flex: 1;
-  padding: 1rem;
-  max-width: 100%;
-}
-
-@media (min-width: 768px) {
-  .app-shell__content {
-    padding: 2rem;
-    max-width: 1100px;
-    margin: 0 auto;
-    width: 100%;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
   }
-}
-
-/* PROMPT 08: reglas mínimas para "Mis programas" (listas anidadas de
-   bloques/semanas/sesiones y los formularios de creación/prescripción
-   embebidos en las páginas de detalle). Se prioriza el flujo funcional
-   sobre el diseño final, tal como pide el enunciado del prompt. */
-.nested-list {
-  list-style: none;
-  padding: 0;
-  margin: 0.5rem 0 1rem;
-}
-
-.nested-list li {
-  border-bottom: 1px solid #e2e2e2;
-}
-
-.nested-list li a {
-  display: block;
-  padding: 0.75rem 0.25rem;
-}
-
-.inline-create-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.inline-create-form .field {
-  margin-bottom: 0;
-  min-width: 14rem;
-  flex: 1 1 14rem;
-}
-
-.prescription-form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: flex-end;
-  padding: 0.75rem;
-  background: #f7f7f7;
-  border-radius: 6px;
-  margin-top: 0.5rem;
-}
-
-.prescription-form .field {
-  min-width: 7rem;
-}
-
-/* ------------------------------------------------------------------- */
-/* Historial y evolución básica del Alumno (PROMPT 11) — mismo criterio */
-/* que el resto del archivo: estilos mínimos, sin diseño visual         */
-/* definitivo, mobile-first (tarjetas que se apilan en pantallas        */
-/* angostas en vez de una grilla fija).                                 */
-/* ------------------------------------------------------------------- */
-
-.stat-cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin: 1rem 0 1.5rem;
-}
-
-.stat-card {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 9rem;
-  padding: 0.75rem 1rem;
-  background: #f7f7f7;
-  border-radius: 6px;
-}
-
-.stat-card__label {
-  font-size: 0.8rem;
-  color: #555555;
-}
-
-.stat-card__value {
-  font-size: 1.4rem;
-  font-weight: 600;
 }

@@ -26,7 +26,8 @@ export function LoginPage() {
   const locationState = location.state as LocationState | null;
 
   if (status === 'authenticated' && user) {
-    const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(user.role);
+    const redirectTo =
+      locationState?.from?.pathname ?? getHomePathForRole(user.role);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -36,7 +37,8 @@ export function LoginPage() {
     setIsSubmitting(true);
     try {
       const loggedInUser = await login({ email, password });
-      const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
+      const redirectTo =
+        locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
       navigate(redirectTo, { replace: true });
     } catch (submitError) {
       setError(
@@ -51,7 +53,9 @@ export function LoginPage() {
 
   return (
     <section className="login-page">
+      <p className="eyebrow">Tu espacio de entrenamiento</p>
       <h1>Iniciar sesión</h1>
+      <p className="muted">Planifica con claridad. Entrena con propósito.</p>
       <form onSubmit={handleSubmit}>
         <label className="field">
           <span>Correo</span>
@@ -98,3 +102,5 @@ export function LoginPage() {
     </section>
   );
 }
+
+export default LoginPage;
