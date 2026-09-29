@@ -331,6 +331,13 @@ describe('AuthService.refresh', () => {
       where: { userId: 'user-1', revokedAt: null },
       data: expect.objectContaining({ revokedAt: expect.any(Date) }),
     });
+    // El reuso también debe invalidar cualquier access token ya emitido:
+    // incrementar tokenVersion hace que JwtAuthGuard rechace cualquier
+    // token firmado con la versión anterior, sin esperar su expiración.
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: { tokenVersion: { increment: 1 } },
+    });
     expect(auditService.record).toHaveBeenCalledWith(
       expect.objectContaining({ action: expect.stringContaining('reuse') }),
     );

@@ -72,6 +72,16 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('No autenticado');
     }
 
+    // El tokenVersion embebido en el access token ya verificado debe
+    // coincidir con el valor actual del usuario. Si no coincide, la sesión
+    // fue invalidada explícitamente (p. ej. reuso de refresh token
+    // detectado en AuthService.refresh) y el access token, aunque no haya
+    // expirado todavía, debe dejar de ser aceptado. Mismo mensaje genérico
+    // que un token inválido o expirado (docs/security.md, punto 16).
+    if (user.tokenVersion !== claims.tokenVersion) {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+
     request.user = {
       id: user.id,
       email: user.email,

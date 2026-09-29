@@ -241,6 +241,16 @@ export class AuthService {
         where: { userId: session.userId, revokedAt: null },
         data: { revokedAt: new Date() },
       });
+      // Además de revocar las RefreshSession, se incrementa tokenVersion
+      // para que CUALQUIER access token ya emitido (aunque no haya
+      // expirado, hasta 15 minutos) quede invalidado de inmediato en
+      // JwtAuthGuard. Sin esto, revocar solo las RefreshSession no cumplía
+      // la intención defensiva de "cerrar todas las sesiones" ante un
+      // posible robo de refresh token.
+      await this.prisma.user.update({
+        where: { id: session.userId },
+        data: { tokenVersion: { increment: 1 } },
+      });
       await this.auditService.record({
         actorId: session.userId,
         action: AUDIT_ACTIONS.REFRESH_REUSE_DETECTED,

@@ -104,6 +104,7 @@ describe('JwtAuthGuard', () => {
       name: 'A',
       coachId: null,
       isActive: true,
+      tokenVersion: 0,
       passwordHash: 'no-deberia-llegar-a-request-user',
     });
 
@@ -123,5 +124,26 @@ describe('JwtAuthGuard', () => {
       coachId: null,
     });
     expect(request.user).not.toHaveProperty('passwordHash');
+  });
+
+  it('rechaza un access token cuyo tokenVersion ya no coincide con el del usuario (sesión invalidada, p. ej. por reuso de refresh token detectado)', async () => {
+    tokenService.verifyAccessToken.mockReturnValue({
+      sub: 'user-1',
+      role: Role.COACH,
+      tokenVersion: 0,
+    });
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      email: 'a@a.com',
+      role: Role.COACH,
+      name: 'A',
+      coachId: null,
+      isActive: true,
+      tokenVersion: 1,
+    });
+    const ctx = buildContext({ authorization: 'Bearer token-viejo' });
+    await expect(guard.canActivate(ctx)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });
