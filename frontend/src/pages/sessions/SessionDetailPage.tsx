@@ -154,13 +154,13 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
       )}
 
       {itemsQuery.isSuccess && itemsQuery.data.length > 0 && (
-        <div
-          className="table-scroll"
-          role="region"
-          aria-label="Tabla de datos"
-          tabIndex={0}
-        >
-          <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -175,11 +175,11 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
             </thead>
             <tbody>
               {itemsQuery.data.map((item) => (
-                <SessionExerciseRow
-                  key={item.id}
-                  item={item}
-                  sessionId={sessionId}
-                />
+<SessionExerciseRow
+  key={item.id}
+  item={item}
+  sessionId={sessionId}
+/>
               ))}
             </tbody>
           </table>

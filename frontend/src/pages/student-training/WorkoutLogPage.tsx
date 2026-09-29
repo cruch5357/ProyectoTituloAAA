@@ -81,13 +81,13 @@ export function WorkoutLogPage() {
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
-        <div
-          className="table-scroll"
-          role="region"
-          aria-label="Tabla de datos"
-          tabIndex={0}
-        >
-          <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>Ejercicio</th>
@@ -102,11 +102,11 @@ export function WorkoutLogPage() {
             </thead>
             <tbody>
               {workoutLog.setLogs.map((setLog) => (
-                <SetLogRow
-                  key={setLog.id}
-                  setLog={setLog}
-                  workoutLogId={workoutLog.id}
-                />
+<SetLogRow
+  key={setLog.id}
+  setLog={setLog}
+  workoutLogId={workoutLog.id}
+/>
               ))}
             </tbody>
           </table>

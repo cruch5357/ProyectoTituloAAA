@@ -72,13 +72,13 @@ export function ExercisesListPage() {
 
       {exercisesQuery.isSuccess && exercisesQuery.data.items.length > 0 && (
         <>
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Tabla de datos"
-            tabIndex={0}
-          >
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Nombre</th>

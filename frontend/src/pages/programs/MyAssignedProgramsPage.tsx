@@ -42,13 +42,13 @@ export function MyAssignedProgramsPage() {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <div
-          className="table-scroll"
-          role="region"
-          aria-label="Tabla de datos"
-          tabIndex={0}
-        >
-          <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>Programa</th>
@@ -77,9 +77,9 @@ export function MyAssignedProgramsPage() {
                   <td>
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
-                  <td>
-                    {new Date(assignment.assignedAt).toLocaleDateString()}
-                  </td>
+<td>
+  {new Date(assignment.assignedAt).toLocaleDateString()}
+</td>
                 </tr>
               ))}
             </tbody>

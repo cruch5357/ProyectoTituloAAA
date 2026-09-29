@@ -281,13 +281,13 @@ export function StudentDashboardPage({
               )}
               {dashboardQuery.data.exerciseEvolution &&
                 dashboardQuery.data.exerciseEvolution.length > 0 && (
-                  <div
-                    className="table-scroll"
-                    role="region"
-                    aria-label="Tabla de datos"
-                    tabIndex={0}
-                  >
-                    <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
                       <thead>
                         <tr>
                           <th>Fecha</th>
@@ -299,9 +299,9 @@ export function StudentDashboardPage({
                       <tbody>
                         {dashboardQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
-                            <td>
-                              {new Date(point.performedAt).toLocaleDateString()}
-                            </td>
+<td>
+  {new Date(point.performedAt).toLocaleDateString()}
+</td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
                             <td>{point.setCount}</td>

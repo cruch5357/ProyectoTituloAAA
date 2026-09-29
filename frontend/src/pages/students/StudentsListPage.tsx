@@ -71,13 +71,13 @@ export function StudentsListPage() {
 
       {studentsQuery.isSuccess && studentsQuery.data.items.length > 0 && (
         <>
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Tabla de datos"
-            tabIndex={0}
-          >
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Nombre</th>
@@ -101,9 +101,9 @@ export function StudentsListPage() {
                     <td>
                       <button
                         type="button"
-                        onClick={() =>
-                          handleToggleStatus(student.id, student.isActive)
-                        }
+onClick={() =>
+  handleToggleStatus(student.id, student.isActive)
+}
                         disabled={
                           updateStatusMutation.isPending &&
                           updateStatusMutation.variables?.id === student.id

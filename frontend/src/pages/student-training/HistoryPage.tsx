@@ -240,13 +240,13 @@ export function HistoryPage() {
               )}
               {evolutionQuery.data.exerciseEvolution &&
                 evolutionQuery.data.exerciseEvolution.length > 0 && (
-                  <div
-                    className="table-scroll"
-                    role="region"
-                    aria-label="Tabla de datos"
-                    tabIndex={0}
-                  >
-                    <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
                       <thead>
                         <tr>
                           <th>Fecha</th>
@@ -258,9 +258,9 @@ export function HistoryPage() {
                       <tbody>
                         {evolutionQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
-                            <td>
-                              {new Date(point.performedAt).toLocaleDateString()}
-                            </td>
+<td>
+  {new Date(point.performedAt).toLocaleDateString()}
+</td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
                             <td>{point.setCount}</td>
@@ -293,13 +293,13 @@ export function HistoryPage() {
 
       {historyQuery.isSuccess && historyQuery.data.items.length > 0 && (
         <>
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Tabla de datos"
-            tabIndex={0}
-          >
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Fecha</th>
@@ -319,9 +319,9 @@ export function HistoryPage() {
                       </Link>
                     </td>
                     <td>{workoutLog.session?.name ?? '—'}</td>
-                    <td>
-                      {workoutLog.session?.week.block.program.name ?? '—'}
-                    </td>
+<td>
+  {workoutLog.session?.week.block.program.name ?? '—'}
+</td>
                     <td>
                       <WorkoutCompletionStatusBadge
                         status={workoutLog.completionStatus}

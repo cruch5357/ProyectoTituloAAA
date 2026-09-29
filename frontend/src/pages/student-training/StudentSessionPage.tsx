@@ -58,13 +58,13 @@ export function StudentSessionPage() {
       )}
 
       {session.exercises.length > 0 && (
-        <div
-          className="table-scroll"
-          role="region"
-          aria-label="Tabla de datos"
-          tabIndex={0}
-        >
-          <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -91,9 +91,9 @@ export function StudentSessionPage() {
                   </td>
                   <td>{item.targetRpe ?? '—'}</td>
                   <td>{item.targetRir ?? '—'}</td>
-                  <td>
-                    {item.restSeconds !== null ? `${item.restSeconds}s` : '—'}
-                  </td>
+<td>
+  {item.restSeconds !== null ? `${item.restSeconds}s` : '—'}
+</td>
                 </tr>
               ))}
             </tbody>

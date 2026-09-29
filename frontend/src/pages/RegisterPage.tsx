@@ -3,6 +3,7 @@ import type { FormEvent } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { register } from '../api/auth';
 import { useAuth } from '../auth/useAuth';
+import { getHomePathForRole } from '../auth/roleHome';
 import { ApiError } from '../lib/apiClient';
 
 // Registro mínimo de Coach (PROMPT 06, punto 14): formulario funcional, sin
@@ -15,7 +16,7 @@ import { ApiError } from '../lib/apiClient';
 // solo crea la cuenta (ver src/api/auth.ts). Por eso acá se redirige a
 // /login en vez de guardar sesión.
 export function RegisterPage() {
-  const { status } = useAuth();
+  const { status, user } = useAuth();
   const navigate = useNavigate();
 
   const [name, setName] = useState('');
@@ -25,8 +26,9 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (status === 'authenticated') {
-    return <Navigate to="/" replace />;
+if (status === 'authenticated' && user) {
+  return <Navigate to={getHomePathForRole(user.role)} replace />;
+}
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

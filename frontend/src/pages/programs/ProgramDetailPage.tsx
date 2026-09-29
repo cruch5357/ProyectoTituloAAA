@@ -295,13 +295,13 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
       )}
 
       {assignmentsQuery.isSuccess && assignmentsQuery.data.length > 0 && (
-        <div
-          className="table-scroll"
-          role="region"
-          aria-label="Tabla de datos"
-          tabIndex={0}
-        >
-          <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
             <thead>
               <tr>
                 <th>Alumno</th>
@@ -319,9 +319,9 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
                   <td>
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
-                  <td>
-                    {new Date(assignment.assignedAt).toLocaleDateString()}
-                  </td>
+<td>
+  {new Date(assignment.assignedAt).toLocaleDateString()}
+</td>
                   <td>
                     <button
                       type="button"
@@ -333,9 +333,9 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
                         updateStatusMutation.variables?.id === assignment.id
                       }
                     >
-                      {assignment.status === 'ACTIVE'
-                        ? 'Finalizar'
-                        : 'Reactivar'}
+{assignment.status === 'ACTIVE'
+  ? 'Finalizar'
+  : 'Reactivar'}
                     </button>
                   </td>
                 </tr>

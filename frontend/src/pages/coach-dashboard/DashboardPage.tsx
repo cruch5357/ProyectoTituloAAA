@@ -276,13 +276,13 @@ export function DashboardPage() {
 
       {activityQuery.isSuccess && activityQuery.data.items.length > 0 && (
         <>
-          <div
-            className="table-scroll"
-            role="region"
-            aria-label="Tabla de datos"
-            tabIndex={0}
-          >
-            <table className="students-table">
+<div
+  className="table-scroll"
+  role="region"
+  aria-label="Tabla de datos"
+  tabIndex={0}
+>
+  <table className="students-table">
               <thead>
                 <tr>
                   <th>Alumno</th>
@@ -296,33 +296,33 @@ export function DashboardPage() {
               <tbody>
                 {activityQuery.data.items.map((workoutLog) => (
                   <tr key={workoutLog.id}>
-                    <td data-label="Alumno">
-                      {workoutLog.student ? (
-                        <Link
-                          to={`/dashboard/students/${workoutLog.student.id}`}
-                        >
+<td data-label="Alumno">
+  {workoutLog.student ? (
+    <Link to={`/dashboard/students/${workoutLog.student.id}`}>
+      {workoutLog.student.name}
+    </Link>
+  ) : (
+    '—'
+  )}
+</td>
                           {workoutLog.student.name}
                         </Link>
                       ) : (
                         '—'
                       )}
                     </td>
-                    <td data-label="Fecha">
-                      {new Date(workoutLog.performedAt).toLocaleString()}
-                    </td>
-                    <td data-label="Sesión">
-                      {workoutLog.session?.name ?? '—'}
-                    </td>
-                    <td data-label="Programa">
-                      {workoutLog.session?.week.block.program.name ?? '—'}
-                    </td>
-                    <td data-label="Estado">
-                      <WorkoutCompletionStatusBadge
-                        status={workoutLog.completionStatus}
-                      />{' '}
-                      {workoutLog.durationMinutes === null && '(en curso)'}
-                    </td>
-                    <td data-label="Duración">
+<td data-label="Fecha">
+  {new Date(workoutLog.performedAt).toLocaleString()}
+</td>
+<td data-label="Sesión">{workoutLog.session?.name ?? '—'}</td>
+<td data-label="Programa">{workoutLog.session?.week.block.program.name ?? '—'}</td>
+<td data-label="Estado">
+  <WorkoutCompletionStatusBadge status={workoutLog.completionStatus} />{' '}
+  {workoutLog.durationMinutes === null && '(en curso)'}
+</td>
+<td data-label="Duración">
+  {workoutLog.durationMinutes !== null ? `${workoutLog.durationMinutes} min` : '—'}
+</td>
                       {workoutLog.durationMinutes !== null
                         ? `${workoutLog.durationMinutes} min`
                         : '—'}
