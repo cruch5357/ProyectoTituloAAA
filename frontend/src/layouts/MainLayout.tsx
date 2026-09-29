@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 
@@ -51,7 +52,19 @@ export function MainLayout() {
         </nav>
       </header>
       <main className="app-shell__content">
-        <Outlet />
+        {/* Suspense (PROMPT 20): cubre la carga de las páginas con
+            code-splitting por ruta (ver AppRouter.tsx). Mismo patrón de
+            estado accesible ya usado en RequireAuth.tsx, para no introducir
+            un componente de spinner nuevo solo para esto. */}
+        <Suspense
+          fallback={
+            <p role="status" aria-live="polite">
+              Cargando…
+            </p>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
