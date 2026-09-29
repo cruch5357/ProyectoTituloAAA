@@ -70,7 +70,7 @@ Prioridad: **MVP** (obligatorio para el alcance de 18 semanas) o **Futuro** (fue
 - RF-29 (Futuro) — Comunicación en tiempo real (WebSockets), notificaciones push, adjuntos multimedia.
 
 ### 3.9 PWA
-- RF-30 (MVP) — La aplicación es instalable (manifest + service worker) y responsiva en todos los flujos.
+- RF-30 (MVP) — La aplicación es instalable (manifest + service worker) y responsiva en todos los flujos. **Implementado en PROMPT 16** (ver `docs/api.md`, sección 17, y `docs/architecture.md`, sección 3).
 - RF-31 (Futuro) — Soporte offline-first con sincronización diferida de registros.
 
 ## 4. Requerimientos no funcionales (RNF)

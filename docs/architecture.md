@@ -51,7 +51,7 @@ El servicio de ciencia de datos se dibuja para dejar constancia de que existe un
 - **Estado:** estado de servidor (datos remotos) gestionado con una librería de data-fetching con cache (ej. TanStack Query) para evitar duplicar lógica de sincronización manual; estado de UI local con hooks/context solo donde se necesite.
 - **Enrutamiento por rol:** guards de ruta que redirigen según `role` del usuario autenticado; un alumno nunca puede navegar a rutas de coach y viceversa a nivel de UI (esto es una ayuda de UX, **no** un control de seguridad — la autorización real vive en el backend).
 - **Responsive:** diseño mobile-first para las vistas de alumno, adaptado con breakpoints para las vistas de coach que requieren tablas/calendarios más densos en desktop.
-- **PWA (alcance MVP):** manifest + service worker para instalabilidad y cache de assets estáticos. El offline-first de datos (cola de registros sin conexión) queda documentado como extensión futura.
+- **PWA (RF-30, implementado en PROMPT 16):** manifest (`vite-plugin-pwa`, estrategia `generateSW` de Workbox) + service worker registrado manualmente (`virtual:pwa-register`) para instalabilidad y precache únicamente de los assets estáticos del build (JS/CSS/HTML/íconos). El service worker nunca cachea respuestas de `/api/**` (sin `runtimeCaching` configurado + `navigateFallbackDenylist: [/^\/api\//]`), por lo que el offline-first de datos (cola de registros sin conexión) sigue quedando documentado como extensión futura (RF-31). Detalle completo en `docs/api.md`, sección 17.
 
 ## 4. Backend
 
@@ -133,3 +133,6 @@ Ver la sección de cierre en la respuesta de este PROMPT 00 y `roadmap.md` para 
 | PROMPT 03 | Autorización por propiedad de recurso: abstracción (`assertOwnsResource`) preparada y probada, sin endpoints de negocio a los que aplicarla todavía | Confirmado — se conecta a partir de PROMPT 04 |
 | PROMPT 03 | `prisma@8` (rc) evaluado como alternativa al bloqueo de `binaries.prisma.sh` | Descartado — la CLI de v8 reestructura todo en torno a "Prisma Platform" y ya no tiene un comando `generate` clásico; se mantiene `prisma@^5.20.0` |
 | PROMPT 13 | Librería de parseo de Excel: `exceljs` (no `xlsx`/SheetJS) | Confirmado — mantenida activamente, nunca ejecuta fórmulas, historial de advisories más limpio (ver `docs/api.md` sección 15) |
+| PROMPT 16 | PWA instalable con `vite-plugin-pwa` (Workbox `generateSW`), no `next-pwa`/Workbox a mano | Confirmado — única dependencia nueva del frontend para PWA, compatible con Vite 8/React 19 sin downgrade, evita mantener una configuración manual de Workbox |
+| PROMPT 16 | Sin `runtimeCaching` de Workbox y `navigateFallbackDenylist: [/^\/api\//]` para que el service worker nunca cachee respuestas de la API | Confirmado — cumple el requisito de no almacenar tokens/datos privados vía service worker sin necesidad de lógica adicional |
+| PROMPT 16 | Registro manual del service worker (`injectRegister: false` + `virtual:pwa-register` en `main.tsx`, solo si `import.meta.env.PROD`) | Confirmado — evita registrar el service worker en `vite dev` |

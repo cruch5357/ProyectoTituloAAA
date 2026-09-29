@@ -550,3 +550,95 @@ No se implementa mensajería, PWA avanzada, Ciencia de Datos, predicción, compa
 ### Limitación de entorno (sin cambios)
 
 Misma limitación persistente de `binaries.prisma.sh` documentada desde PROMPT 01/08/09/13 — no afecta la verificación de este prompt (tests unitarios con Prisma mockeado, incluyendo una mini base de datos en memoria con `$transaction`/rollback real para `excel-imports.confirm-reject.service.spec.ts`; `tsc`; `eslint` acotado a los archivos tocados; build con `tsc`/`vite` a un `outDir` temporal; `vitest`).
+
+## 17. Estado de implementación (PROMPT 16)
+
+Documenta RF-30: la aplicación pasa a ser una PWA instalable (manifest + service worker), sin introducir offline-first ni cachear información de negocio. Es un cambio exclusivamente de `frontend/` (build/tooling) — no se tocó ningún endpoint, esquema de base de datos ni la arquitectura de autenticación.
+
+### Estado encontrado antes de este prompt
+
+`docs/architecture.md` (sección 3) y `docs/requirements.md` (RF-30) ya documentaban la PWA como parte del alcance MVP, pero no existía ninguna implementación real: sin manifest, sin service worker, sin dependencia de PWA en `frontend/package.json`, sin íconos más allá de `favicon.svg` (un SVG con gradiente/máscara/blur, no apto tal cual para los tamaños PNG que exige un manifest instalable).
+
+### Tecnología elegida
+
+`vite-plugin-pwa@^1.3.0` (con sus peers `workbox-build@7.4.1` y `workbox-window@7.4.1`), única dependencia nueva agregada al proyecto. Se descartó escribir el service worker a mano (más superficie de error para las reglas de "nunca cachear `/api/**`") y se descartó `@vite-pwa/assets-generator` (dependencia opcional del plugin, solo para generar íconos automáticamente): los tres íconos requeridos se generaron una única vez a partir de `favicon.svg` y no se necesita mantener esa herramienta en el proyecto. No se cambió la versión mayor de Vite (sigue en `^8.3.0`) ni de React.
+
+### Manifest
+
+Generado por `vite-plugin-pwa` (`vite.config.ts`) a partir de la configuración `manifest: {...}` del plugin, emitido en build como `dist/manifest.webmanifest` y enlazado automáticamente en `index.html` (`<link rel="manifest">`):
+
+- `name`: "Plataforma de Entrenamiento" — mismo nombre ya usado en `<title>` de `index.html` (no se inventó una marca nueva; el nombre largo del README, "Plataforma de Gestión y Seguimiento de Entrenamiento", se dejó como `description`).
+- `short_name`: "Entrenamiento".
+- `lang`: "es" (interfaz se mantiene en español).
+- `start_url`/`scope`: `/`.
+- `display`: `standalone`.
+- `background_color`: `#ffffff`, `theme_color`: `#1f2937` — colores neutros, coherentes con la paleta de grises simple que ya usa `index.css` (la app no tiene un color de marca definido más allá del degradado del ícono SVG, que no se usó como color plano para no inventar una identidad nueva).
+- `icons`: los 3 PNG descritos abajo (`any` + `maskable`).
+- No se agregó `orientation`: la app es responsiva en cualquier orientación, no hay necesidad real de fijarla.
+
+### Service worker
+
+Estrategia `generateSW` de Workbox (la que ofrece `vite-plugin-pwa` por defecto, sin necesidad de mantener un `sw.ts` a mano):
+
+- `globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}']` — Workbox precachea **únicamente** los archivos estáticos que salen del build (`dist/`): JS/CSS/HTML/íconos. Nunca se configuró `runtimeCaching`, así que el service worker no intercepta ni cachea ninguna respuesta de red en tiempo de ejecución — ni de `/api/**` ni de ningún otro origen.
+- `navigateFallback: 'index.html'` + `navigateFallbackDenylist: [/^\/api\//]`: el fallback de navegación SPA (necesario para que recargar/pegar una URL de una ruta anidada de React Router funcione) explícitamente nunca se aplica a rutas que empiecen con `/api/`.
+- `registerType: 'autoUpdate'`: un nuevo build reemplaza automáticamente el service worker anterior sin requerir un diálogo de "hay una versión nueva, ¿recargar?" (aceptable para el alcance de este prompt; no hay datos offline en juego que se puedan perder al actualizar).
+- `injectRegister: false` + registro manual en `frontend/src/registerServiceWorker.ts`, importado desde `frontend/src/main.tsx` **solo si `import.meta.env.PROD`** es verdadero. Con esto, el service worker nunca se registra en `vite dev` (`devOptions.enabled` además se deja en `false` explícitamente), evitando cualquier interferencia con el flujo normal de desarrollo (HMR, etc.).
+- Verificado directamente en el `dist/sw.js` generado por un build real: la única ocurrencia de la cadena `api` en todo el archivo es la propia expresión regular `denylist:[/^\/api\//]` — ninguna URL de `/api/**` aparece en la lista de precache.
+
+### Íconos
+
+No existían íconos PNG previos (solo `favicon.svg`, con gradiente `color(display-p3 …)`, `<mask>` y `<filter>` de blur — formatos que herramientas como ImageMagick no renderizan correctamente). Se generaron 3 archivos nuevos en `frontend/public/`, renderizando el propio `favicon.svg` a resolución exacta:
+
+- `pwa-192x192.png` (192×192, fondo transparente, `purpose: any`).
+- `pwa-512x512.png` (512×512, fondo transparente, `purpose: any`).
+- `maskable-icon-512x512.png` (512×512, fondo sólido `#ede6ff`, ícono reducido a ~60% para respetar la "zona segura" que exige el formato `maskable`, `purpose: maskable`).
+
+No se introdujo un sistema de diseño ni una nueva identidad visual: los tres íconos derivan del mismo SVG que ya existía.
+
+### Consideraciones de seguridad
+
+No se modificó nada de `docs/security.md`: JWT, refresh token httpOnly, CSRF de doble cookie, roles, autorización por propiedad, CORS, Helmet y rate limiting siguen exactamente igual (ningún archivo de `backend/` se tocó en este prompt). El service worker:
+
+- No cachea tokens de acceso ni de refresh (nunca pasan por `fetch`/`cache` del service worker; el access token vive en memoria de la SPA y el refresh token es una cookie httpOnly que el service worker no puede leer).
+- No cachea respuestas de `/api/**` (ver sección de service worker arriba) — ninguna respuesta privada de alumno, `WorkoutLog`, `SetLog` ni dashboard de coach queda persistida por Workbox.
+- No se convierte en una capa de autenticación: no intercepta `fetch` para agregar/quitar headers, no reintenta requests fallidos, no implementa lógica de refresh de token. El único `fetch`/`addEventListener` que trae Workbox es el de servir los assets estáticos precacheados y el fallback de navegación (con el denylist de `/api/`).
+
+### Compatibilidad con React Router
+
+No se modificó `frontend/src/routes/AppRouter.tsx`: sigue usando `createBrowserRouter` (History API) con exactamente las mismas rutas de COACH y ALUMNO. Se verificó contra un `vite preview` real (build de producción) que la navegación directa por URL a rutas anidadas de ambos roles responde `200` (ej. `/students`, `/student/programs/:id`, `/workout-logs/:id`), gracias a `navigateFallback: 'index.html'` de Workbox + el manejo de fallback de `vite preview` para SPAs.
+
+### Tests
+
+- **Nuevo:** `frontend/src/registerServiceWorker.test.ts` (3 tests) — cubre `registerServiceWorker()` con `virtual:pwa-register` mockeado: no hace nada si `navigator.serviceWorker` no existe, llama a `registerSW({ immediate: true })` cuando sí existe, y no lanza excepción si el registro falla (queda logueado por `console.error`).
+- Se evaluó automatizar la instalabilidad end-to-end (manifest detectado por el navegador, service worker realmente activo, prompt de instalación) pero el proyecto no tiene Playwright/E2E instalado (ver `docs/testing.md`, sección "End-to-end"); se documentó en su lugar una checklist de verificación manual (`docs/testing.md`, nueva subsección "Pruebas de PWA (instalabilidad)").
+- **Limitación de entorno encontrada en esta sesión (no relacionada con el código de este prompt):** `npx vitest run` no logró ejecutarse en la terminal remota usada para este prompt — falla con `[vitest-pool-runner]: Timeout waiting for worker to respond` incluso para un test trivial (`expect(1+1).toBe(2)`) sin ninguna relación con PWA, y el mismo fallo persiste tras remover por completo `VitePWA` de `vite.config.ts` y probar `--pool=threads`/`--pool=forks`/`--maxWorkers=1`. Se descartó como causa: memoria (3.8GB libres), CPU, o el plugin PWA (falla igual sin él). `tsc -b`, `oxlint` y `vite build`/`vite preview` sí se ejecutaron con éxito en esa misma terminal. Queda pendiente que el equipo corra `npm run test` en un entorno local normal para confirmar el resultado completo de la suite (existente + los 3 tests nuevos).
+
+### Lint
+
+`npx oxlint` sobre `frontend/`: 0 warnings, 0 errores (88 archivos).
+
+### Build
+
+`tsc -b` sin errores. `vite build` genera correctamente `dist/index.html`, `dist/manifest.webmanifest`, `dist/sw.js`, `dist/workbox-*.js` y los assets versionados de siempre (15 entradas precacheadas, ~554 KiB).
+
+### Verificación de instalación
+
+Verificado contra `vite preview` (build de producción real, no `vite dev`):
+
+- `GET /manifest.webmanifest` → `200`, `Content-Type: application/manifest+json`.
+- `GET /sw.js` → `200`, `Content-Type: text/javascript`.
+- `<link rel="manifest" href="/manifest.webmanifest">` presente en el `index.html` servido.
+- Rutas anidadas de ambos roles (`/students`, `/student/programs/:id`, `/workout-logs/:id`) → `200` vía fallback SPA.
+- Contenido de `dist/sw.js` inspeccionado manualmente: precachea solo assets estáticos, `denylist` de `/api/` presente, ninguna URL de API en la lista de precache.
+- La verificación visual de "aparece el prompt de instalación del navegador" y "la app abre en modo standalone" queda en la checklist manual de `docs/testing.md` (no automatizable sin un navegador real con perfil de usuario, no disponible en este entorno de build remoto).
+
+### Problemas encontrados
+
+- El entorno de build remoto usado en esta sesión (carpeta del proyecto sincronizada vía OneDrive) tiene un throughput de escritura de archivos extremadamente bajo, lo que hizo que instalar `vite-plugin-pwa` y su árbol de dependencias (~16.000 archivos) directamente con `npm install` fuera inviable; se resolvió instalando en disco local rápido y transfiriendo el resultado en lotes. No afecta al código entregado, solo fue una dificultad operativa de esta sesión particular.
+- `npx oxlint` (sin argumentos) puede tardar más de 2 minutos si quedan carpetas temporales sueltas junto a `node_modules` (ajenas al patrón de ignorados por defecto); se verificó que el árbol de `frontend/` quedó limpio (sin carpetas temporales) antes de la entrega.
+- Ver limitación de `vitest` descrita arriba en la sección de Tests.
+
+### Alcance explícitamente fuera de PROMPT 16
+
+No se implementó offline-first, background sync, push notifications, WebSockets, almacenamiento offline de `WorkoutLog`/`SetLog`, IndexedDB para datos de negocio, caché de información privada, modo avión ni recuperación de datos desde caché — todo eso queda para prompts futuros según `docs/roadmap.md` (RF-31). Tampoco se implementó mensajería, Ciencia de Datos, Machine Learning, nuevos módulos de negocio ni un rediseño visual completo.
