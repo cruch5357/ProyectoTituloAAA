@@ -14,13 +14,13 @@ export function ExcelImportRowsTable({ rows }: { rows: ExcelImportRow[] }) {
   }
 
   return (
-<div
-  className="table-scroll"
-  role="region"
-  aria-label="Tabla de datos"
-  tabIndex={0}
->
-  <table className="students-table">
+    <div
+      className="table-scroll"
+      role="region"
+      aria-label="Tabla de datos"
+      tabIndex={0}
+    >
+      <table className="students-table">
         <thead>
           <tr>
             <th>Fila</th>
@@ -39,15 +39,9 @@ export function ExcelImportRowsTable({ rows }: { rows: ExcelImportRow[] }) {
               <td>
                 <span
                   className={
-<span
-  className={
-    row.status === 'VALID'
-      ? 'badge badge--success'
-      : 'badge badge--danger'
-  }
->
-  {row.status === 'VALID' ? 'Válida' : 'Inválida'}
-</span>
+                    row.status === 'VALID'
+                      ? 'badge badge--success'
+                      : 'badge badge--danger'
                   }
                 >
                   {row.status === 'VALID' ? 'Válida' : 'Inválida'}
@@ -64,16 +58,18 @@ export function ExcelImportRowsTable({ rows }: { rows: ExcelImportRow[] }) {
                   : ''}
               </td>
               <td>
-{row.data?.targetSets !== undefined
-  ? `${row.data.targetSets}x`
-  : '—'}
+                {row.data?.targetSets !== undefined
+                  ? `${row.data.targetSets}x`
+                  : '—'}
                 {row.data?.targetRepsMin !== undefined
                   ? `${row.data.targetRepsMin}-${row.data.targetRepsMax ?? row.data.targetRepsMin}`
                   : ''}
               </td>
               <td>
                 {row.resultSessionExerciseId ? (
-<span className="badge badge--success">Ejercicio programado</span>
+                  <span className="badge badge--success">
+                    Ejercicio programado
+                  </span>
                 ) : (
                   '—'
                 )}

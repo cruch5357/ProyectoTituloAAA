@@ -12,6 +12,8 @@ const paths = {
   collapse: 'M4 4h16v16H4V4m5 0v16m7-12-4 4 4 4',
   arrow: 'M5 12h14m-6-6 6 6-6 6',
   empty: 'M4 7h16v14H4V7m3 0V3h10v4m-9 5h8m-8 4h5',
+  sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5',
+  moon: 'M20.5 14.5A9 9 0 0 1 9.5 3.5a7 7 0 1 0 11 11M17 3v4m-2-2h4',
 } as const;
 export type IconName = keyof typeof paths;
 export function Icon({

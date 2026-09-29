@@ -25,10 +25,9 @@ export function LoginPage() {
 
   const locationState = location.state as LocationState | null;
 
-if (status === 'authenticated' && user) {
-  const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(user.role);
-  return <Navigate to={redirectTo} replace />;
-}
+  if (status === 'authenticated' && user) {
+    const redirectTo =
+      locationState?.from?.pathname ?? getHomePathForRole(user.role);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -37,8 +36,9 @@ if (status === 'authenticated' && user) {
     setError(null);
     setIsSubmitting(true);
     try {
-const loggedInUser = await login({ email, password });
-      const redirectTo = locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
+      const loggedInUser = await login({ email, password });
+      const redirectTo =
+        locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
       navigate(redirectTo, { replace: true });
     } catch (submitError) {
       setError(
@@ -102,3 +102,5 @@ const loggedInUser = await login({ email, password });
     </section>
   );
 }
+
+export default LoginPage;

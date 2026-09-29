@@ -26,9 +26,8 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-if (status === 'authenticated' && user) {
-  return <Navigate to={getHomePathForRole(user.role)} replace />;
-}
+  if (status === 'authenticated' && user) {
+    return <Navigate to={getHomePathForRole(user.role)} replace />;
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -135,3 +134,5 @@ if (status === 'authenticated' && user) {
     </section>
   );
 }
+
+export default RegisterPage;

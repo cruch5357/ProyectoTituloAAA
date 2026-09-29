@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThemeProvider, ThemeSelect } from './ThemeProvider';
+import { ThemeProvider, ThemeSelect, ThemeToggle } from './ThemeProvider';
+import userEvent from '@testing-library/user-event';
 let dark = false;
 let onChange: () => void;
 beforeEach(() => {
@@ -20,6 +21,44 @@ beforeEach(() => {
   );
 });
 describe('Temas visuales', () => {
+  it('el toggle refleja el sistema sin persistir hasta que se elige un tema', async () => {
+    dark = true;
+    const { unmount } = render(
+      <ThemeProvider>
+        <ThemeToggle />
+      </ThemeProvider>,
+    );
+    const toggle = screen.getByRole('switch', { name: 'Modo oscuro' });
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    expect(localStorage.getItem('ui-theme')).toBeNull();
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    expect(document.documentElement.dataset.theme).toBe('light');
+    expect(localStorage.getItem('ui-theme')).toBe('light');
+    unmount();
+    render(
+      <ThemeProvider>
+        <ThemeToggle />
+      </ThemeProvider>,
+    );
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
+    await userEvent.click(screen.getByRole('button', { name: 'Sistema' }));
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    expect(localStorage.getItem('ui-theme')).toBeNull();
+  });
+  it('se puede activar con teclado', async () => {
+    render(
+      <ThemeProvider>
+        <ThemeToggle />
+      </ThemeProvider>,
+    );
+    const toggle = screen.getByRole('switch');
+    toggle.focus();
+    await userEvent.keyboard(' ');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+    await userEvent.keyboard('{Enter}');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+  });
   it('respeta sistema y reacciona a sus cambios', () => {
     render(
       <ThemeProvider>
