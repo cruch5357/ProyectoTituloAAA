@@ -1,3 +1,4 @@
+import { MailService } from '../mail/mail.service';
 import {
   ConflictException,
   Injectable,
@@ -20,10 +21,7 @@ import { UpdateStudentStatusDto } from './dto/update-student-status.dto';
 export interface InviteStudentResult {
   email: string;
   expiresAt: Date;
-  // Ver StudentsService.invite(): entrega temporal del token en texto
-  // plano, mientras no exista un servicio real de envío de correo (idéntico
-  // a como se documentó en PROMPT 03 para el endpoint original).
-  activationToken: string;
+  emailSent: boolean;
 }
 
 export interface PaginatedStudents {
@@ -65,6 +63,7 @@ export class StudentsService {
     private readonly prisma: PrismaService,
     private readonly tokenService: TokenService,
     private readonly auditService: AuditService,
+    private readonly mailService: MailService,
   ) {}
 
   private normalizeEmail(email: string): string {
@@ -205,7 +204,7 @@ export class StudentsService {
       );
     }
 
-    await this.prisma.studentInvitation.deleteMany({
+    const removed = await this.prisma.studentInvitation.deleteMany({
       where: { coachId, email, usedAt: null },
     });
 
@@ -216,14 +215,17 @@ export class StudentsService {
       data: { email, coachId, tokenHash, expiresAt },
     });
 
+    await this.mailService.sendStudentInvitation(email, token, expiresAt);
     await this.auditService.record({
       actorId: coachId,
-      action: AUDIT_ACTIONS.STUDENT_INVITED,
+      action: removed?.count
+        ? 'STUDENT_INVITATION_RESENT'
+        : 'STUDENT_INVITATION_SENT',
       entityType: AUDIT_ENTITY_STUDENT_INVITATION,
       entityId: invitation.id,
       metadata: { email },
     });
 
-    return { email, expiresAt, activationToken: token };
+    return { email, expiresAt, emailSent: true };
   }
 }

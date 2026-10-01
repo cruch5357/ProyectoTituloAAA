@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/useAuth';
-import { getHomePathForRole } from '../auth/roleHome';
-import { ApiError } from '../lib/apiClient';
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth/useAuth";
+import { getHomePathForRole } from "../auth/roleHome";
+import { ApiError } from "../lib/apiClient";
 
 interface LocationState {
   from?: { pathname: string };
@@ -18,14 +18,14 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const locationState = location.state as LocationState | null;
 
-  if (status === 'authenticated' && user) {
+  if (status === "authenticated" && user) {
     const redirectTo =
       locationState?.from?.pathname ?? getHomePathForRole(user.role);
     return <Navigate to={redirectTo} replace />;
@@ -44,7 +44,7 @@ export function LoginPage() {
       setError(
         submitError instanceof ApiError
           ? submitError.message
-          : 'No se pudo iniciar sesión.',
+          : "No se pudo iniciar sesión.",
       );
     } finally {
       setIsSubmitting(false);
@@ -88,7 +88,7 @@ export function LoginPage() {
         )}
 
         <button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Ingresando…' : 'Ingresar'}
+          {isSubmitting ? "Ingresando…" : "Ingresar"}
         </button>
       </form>
 
@@ -96,6 +96,9 @@ export function LoginPage() {
         <p role="status">Cuenta creada. Ya puedes iniciar sesión.</p>
       )}
 
+      <p>
+        <Link to="/forgot-password">¿Olvidaste tu contraseña?</Link>
+      </p>
       <p>
         ¿No tienes cuenta? <Link to="/register">Regístrate</Link>
       </p>

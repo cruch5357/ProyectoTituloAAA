@@ -1,3 +1,4 @@
+import { MailModule } from '../mail/mail.module';
 import { Module } from '@nestjs/common';
 import { StudentsController } from './students.controller';
 import { StudentsService } from './students.service';
@@ -12,7 +13,7 @@ import { AuthModule } from '../auth/auth.module';
 // coach->alumno, 404 genérico) en vez de reimplementar ese chequeo para la
 // vista por-alumno del Dashboard del Coach.
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, MailModule],
   controllers: [StudentsController],
   providers: [StudentsService],
   exports: [StudentsService],

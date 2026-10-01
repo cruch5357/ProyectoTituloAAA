@@ -1,3 +1,4 @@
+import { MailService } from '../mail/mail.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { StudentsService } from './students.service';
@@ -29,6 +30,7 @@ let prisma: MockPrisma;
 let tokenService: jest.Mocked<TokenService>;
 let auditService: jest.Mocked<AuditService>;
 let service: StudentsService;
+let mail: { sendStudentInvitation: jest.Mock };
 
 const COACH_ID = 'coach-123';
 const OTHER_COACH_ID = 'coach-999';
@@ -63,10 +65,12 @@ beforeEach(() => {
     record: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<AuditService>;
 
+  mail = { sendStudentInvitation: jest.fn().mockResolvedValue(undefined) };
   service = new StudentsService(
     prisma as unknown as PrismaService,
     tokenService,
     auditService,
+    mail as unknown as MailService,
   );
 });
 
@@ -253,6 +257,34 @@ describe('StudentsService.updateStatus', () => {
 // (PROMPT 03); mismas pruebas, movidas junto con el código.
 // ---------------------------------------------------------------------------
 describe('StudentsService.invite', () => {
+  it('allows a retry after SMTP failure and only replaces invitations owned by this coach', async () => {
+    prisma.user.findUnique.mockResolvedValue(null);
+    prisma.studentInvitation.create.mockResolvedValue({ id: 'inv-1' });
+    prisma.studentInvitation.deleteMany.mockResolvedValue({ count: 1 });
+    mail.sendStudentInvitation.mockRejectedValueOnce(
+      new Error('mail unavailable'),
+    );
+    await expect(
+      service.invite(COACH_ID, { email: 'alumno@example.com' }),
+    ).rejects.toThrow('mail unavailable');
+    expect(auditService.record).not.toHaveBeenCalled();
+    tokenService.generateInvitationToken.mockReturnValue({
+      token: 'new-token',
+      tokenHash: 'new-hash',
+    });
+    await expect(
+      service.invite(COACH_ID, { email: 'alumno@example.com' }),
+    ).resolves.toMatchObject({ emailSent: true });
+    expect(prisma.studentInvitation.deleteMany).toHaveBeenLastCalledWith({
+      where: { coachId: COACH_ID, email: 'alumno@example.com', usedAt: null },
+    });
+    expect(prisma.studentInvitation.create).toHaveBeenLastCalledWith({
+      data: expect.objectContaining({ tokenHash: 'new-hash' }),
+    });
+    expect(auditService.record).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'STUDENT_INVITATION_RESENT' }),
+    );
+  });
   it('el coachId siempre viene del parámetro explícito, nunca del DTO', async () => {
     prisma.user.findUnique.mockResolvedValue(null);
     prisma.studentInvitation.create.mockResolvedValue({ id: 'inv-1' });
@@ -264,7 +296,16 @@ describe('StudentsService.invite', () => {
     expect(prisma.studentInvitation.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ coachId: COACH_ID }),
     });
-    expect(result.activationToken).toBe('raw-invite');
+    expect(result).not.toHaveProperty('activationToken');
+    expect(result.emailSent).toBe(true);
+    expect(mail.sendStudentInvitation).toHaveBeenCalledWith(
+      'alumno@example.com',
+      'raw-invite',
+      expect.any(Date),
+    );
+    expect(
+      prisma.studentInvitation.create.mock.calls[0][0].data.tokenHash,
+    ).toBe('hash-invite');
   });
 
   it('rechaza invitar un email que ya tiene cuenta', async () => {

@@ -1,29 +1,33 @@
-import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import { MainLayout } from '../layouts/MainLayout';
-import { HomePage } from '../pages/HomePage';
-import { NotFoundPage } from '../pages/NotFoundPage';
-import { LoginPage } from '../pages/LoginPage';
-import { RegisterPage } from '../pages/RegisterPage';
-import { StudentsListPage } from '../pages/students/StudentsListPage';
-import { AthleteWorkspace } from '../pages/students/AthleteWorkspace';
-import { ExercisesListPage } from '../pages/exercises/ExercisesListPage';
-import { ExerciseDetailPage } from '../pages/exercises/ExerciseDetailPage';
-import { ProgramsListPage } from '../pages/programs/ProgramsListPage';
-import { ProgramDetailPage } from '../pages/programs/ProgramDetailPage';
-import { BlockDetailPage } from '../pages/blocks/BlockDetailPage';
-import { WeekDetailPage } from '../pages/weeks/WeekDetailPage';
-import { SessionDetailPage } from '../pages/sessions/SessionDetailPage';
-import { MyAssignedProgramsPage } from '../pages/programs/MyAssignedProgramsPage';
-import { StudentProgramPage } from '../pages/student-training/StudentProgramPage';
-import { StudentBlockPage } from '../pages/student-training/StudentBlockPage';
-import { StudentWeekPage } from '../pages/student-training/StudentWeekPage';
-import { StudentSessionPage } from '../pages/student-training/StudentSessionPage';
-import { WorkoutLogPage } from '../pages/student-training/WorkoutLogPage';
-import { HistoryPage } from '../pages/student-training/HistoryPage';
-import { DashboardPage } from '../pages/coach-dashboard/DashboardPage';
-import { ImportExcelPage } from '../pages/imports/ImportExcelPage';
-import { StudentHomePage } from '../pages/student-training/StudentHomePage';
-import { RequireAuth } from '../auth/RequireAuth';
+import {
+  AccountLinkPage,
+  ForgotPasswordPage,
+} from "../pages/AccountRecoveryPages";
+import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { MainLayout } from "../layouts/MainLayout";
+import { HomePage } from "../pages/HomePage";
+import { NotFoundPage } from "../pages/NotFoundPage";
+import { LoginPage } from "../pages/LoginPage";
+import { RegisterPage } from "../pages/RegisterPage";
+import { StudentsListPage } from "../pages/students/StudentsListPage";
+import { AthleteWorkspace } from "../pages/students/AthleteWorkspace";
+import { ExercisesListPage } from "../pages/exercises/ExercisesListPage";
+import { ExerciseDetailPage } from "../pages/exercises/ExerciseDetailPage";
+import { ProgramsListPage } from "../pages/programs/ProgramsListPage";
+import { ProgramDetailPage } from "../pages/programs/ProgramDetailPage";
+import { BlockDetailPage } from "../pages/blocks/BlockDetailPage";
+import { WeekDetailPage } from "../pages/weeks/WeekDetailPage";
+import { SessionDetailPage } from "../pages/sessions/SessionDetailPage";
+import { MyAssignedProgramsPage } from "../pages/programs/MyAssignedProgramsPage";
+import { StudentProgramPage } from "../pages/student-training/StudentProgramPage";
+import { StudentBlockPage } from "../pages/student-training/StudentBlockPage";
+import { StudentWeekPage } from "../pages/student-training/StudentWeekPage";
+import { StudentSessionPage } from "../pages/student-training/StudentSessionPage";
+import { WorkoutLogPage } from "../pages/student-training/WorkoutLogPage";
+import { HistoryPage } from "../pages/student-training/HistoryPage";
+import { DashboardPage } from "../pages/coach-dashboard/DashboardPage";
+import { ImportExcelPage } from "../pages/imports/ImportExcelPage";
+import { StudentHomePage } from "../pages/student-training/StudentHomePage";
+import { RequireAuth } from "../auth/RequireAuth";
 
 // Rutas de "Mis alumnos" protegidas por sesión + rol COACH (PROMPT 04,
 // punto 16). Esto es solo una ayuda de UX: la autorización real (que el
@@ -32,46 +36,55 @@ import { RequireAuth } from '../auth/RequireAuth';
 // directamente sin pasar por esta UI sigue bloqueado por esos guards.
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: "/",
     element: <MainLayout />,
     children: [
       { index: true, element: <HomePage /> },
-      { path: 'login', element: <LoginPage /> },
-      { path: 'register', element: <RegisterPage /> },
+      { path: "login", element: <LoginPage /> },
+      { path: "register", element: <RegisterPage /> },
       {
-        element: <RequireAuth allowedRoles={['COACH']} />,
+        path: "activate",
+        element: <AccountLinkPage key="activate" mode="activate" />,
+      },
+      { path: "forgot-password", element: <ForgotPasswordPage /> },
+      {
+        path: "reset-password",
+        element: <AccountLinkPage key="reset" mode="reset-password" />,
+      },
+      {
+        element: <RequireAuth allowedRoles={["COACH"]} />,
         children: [
-          { path: 'students', element: <StudentsListPage /> },
-          { path: 'students/:id', element: <AthleteWorkspace /> },
-          { path: 'dashboard', element: <DashboardPage /> },
+          { path: "students", element: <StudentsListPage /> },
+          { path: "students/:id", element: <AthleteWorkspace /> },
+          { path: "dashboard", element: <DashboardPage /> },
           {
-            path: 'dashboard/students/:studentId',
+            path: "dashboard/students/:studentId",
             element: <AthleteWorkspace statistics />,
           },
-          { path: 'exercises', element: <ExercisesListPage /> },
-          { path: 'exercises/:id', element: <ExerciseDetailPage /> },
-          { path: 'programs', element: <ProgramsListPage /> },
-          { path: 'programs/:id', element: <ProgramDetailPage /> },
-          { path: 'blocks/:id', element: <BlockDetailPage /> },
-          { path: 'weeks/:id', element: <WeekDetailPage /> },
-          { path: 'sessions/:id', element: <SessionDetailPage /> },
-          { path: 'imports/excel', element: <ImportExcelPage /> },
+          { path: "exercises", element: <ExercisesListPage /> },
+          { path: "exercises/:id", element: <ExerciseDetailPage /> },
+          { path: "programs", element: <ProgramsListPage /> },
+          { path: "programs/:id", element: <ProgramDetailPage /> },
+          { path: "blocks/:id", element: <BlockDetailPage /> },
+          { path: "weeks/:id", element: <WeekDetailPage /> },
+          { path: "sessions/:id", element: <SessionDetailPage /> },
+          { path: "imports/excel", element: <ImportExcelPage /> },
         ],
       },
       {
-        element: <RequireAuth allowedRoles={['STUDENT']} />,
+        element: <RequireAuth allowedRoles={["STUDENT"]} />,
         children: [
-          { path: 'training', element: <StudentHomePage training /> },
-          { path: 'my-programs', element: <MyAssignedProgramsPage /> },
-          { path: 'student/programs/:id', element: <StudentProgramPage /> },
-          { path: 'student/blocks/:id', element: <StudentBlockPage /> },
-          { path: 'student/weeks/:id', element: <StudentWeekPage /> },
-          { path: 'student/sessions/:id', element: <StudentSessionPage /> },
-          { path: 'workout-logs/:id', element: <WorkoutLogPage /> },
-          { path: 'history', element: <HistoryPage /> },
+          { path: "training", element: <StudentHomePage training /> },
+          { path: "my-programs", element: <MyAssignedProgramsPage /> },
+          { path: "student/programs/:id", element: <StudentProgramPage /> },
+          { path: "student/blocks/:id", element: <StudentBlockPage /> },
+          { path: "student/weeks/:id", element: <StudentWeekPage /> },
+          { path: "student/sessions/:id", element: <StudentSessionPage /> },
+          { path: "workout-logs/:id", element: <WorkoutLogPage /> },
+          { path: "history", element: <HistoryPage /> },
         ],
       },
-      { path: '*', element: <NotFoundPage /> },
+      { path: "*", element: <NotFoundPage /> },
     ],
   },
 ]);

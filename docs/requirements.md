@@ -1,3 +1,7 @@
+## Actualización: invitación por email y recuperación
+
+Implementados correo de invitación, activación pública exclusivamente mediante invitación y recuperación para cuentas activas. No existe registro público de alumnos. La integración real requiere SMTP Login válido, SMTP Key y remitente verificado en Brevo. Ver [configuración y aceptación manual](email-setup.md).
+
 # Requisitos del Sistema
 
 > Documento de planificación técnica — PROMPT 00. Define el alcance funcional y no funcional acordado antes de iniciar la implementación. Fuente de verdad para los prompts siguientes.

@@ -24,6 +24,8 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CsrfGuard } from './guards/csrf.guard';
 import {
@@ -91,6 +93,34 @@ export class AuthController {
   async register(@Body() dto: RegisterDto) {
     const user = await this.authService.register(dto);
     return { data: user, error: null, meta: {} };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ [AUTH_THROTTLER_NAME]: { limit: 5, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Solicitar recuperación de contraseña; respuesta genérica',
+  })
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return {
+      data: await this.authService.forgotPassword(dto.email),
+      error: null,
+      meta: {},
+    };
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ [AUTH_THROTTLER_NAME]: { limit: 10, ttl: 60000 } })
+  @ApiOperation({
+    summary: 'Restablecer contraseña y revocar todas las sesiones',
+  })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return {
+      data: await this.authService.resetPassword(dto),
+      error: null,
+      meta: {},
+    };
   }
 
   @Post('activate')

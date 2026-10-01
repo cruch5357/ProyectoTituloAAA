@@ -30,10 +30,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Error interno del servidor';
 
-    this.logger.error(
-      `${request.method} ${request.url} -> ${status}`,
-      exception instanceof Error ? exception.stack : String(exception),
-    );
+    this.logger.error(`${request.method} ${request.path} -> ${status}`);
 
     response.status(status).json({
       data: null,
@@ -48,7 +45,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       },
       meta: {
         timestamp: new Date().toISOString(),
-        path: request.url,
+        path: request.path,
       },
     });
   }

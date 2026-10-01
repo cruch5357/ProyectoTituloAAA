@@ -8,8 +8,7 @@ import {
 
 export class ActivateDto {
   @ApiProperty({
-    description:
-      'Token de invitación recibido fuera de banda (por ahora, entregado por el coach; ver AuthService.inviteStudent)',
+    description: 'Token de invitación recibido por correo electrónico',
   })
   @IsString()
   @MinLength(1)

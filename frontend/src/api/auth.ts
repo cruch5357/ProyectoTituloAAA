@@ -3,8 +3,8 @@
 // como funciones simples en vez de hooks de TanStack Query, consumidas
 // únicamente desde AuthContext (ver src/auth/AuthContext.tsx). Las queries
 // de negocio (alumnos) sí usan TanStack Query — ver src/api/students.ts.
-import { apiClient } from '../lib/apiClient';
-import type { PublicUser } from '../types/user';
+import { apiClient } from "../lib/apiClient";
+import type { PublicUser } from "../types/user";
 
 export interface LoginPayload {
   email: string;
@@ -27,14 +27,14 @@ export interface RegisterPayload {
 // AuthController.register): solo crea la cuenta. El caller debe redirigir a
 // login para iniciar sesión — no hay "auto-login" tras registrarse.
 export async function register(payload: RegisterPayload): Promise<PublicUser> {
-  const res = await apiClient.post<PublicUser>('/auth/register', payload, {
+  const res = await apiClient.post<PublicUser>("/auth/register", payload, {
     skipAuth: true,
   });
   return res.data;
 }
 
 export async function login(payload: LoginPayload): Promise<SessionResult> {
-  const res = await apiClient.post<SessionResult>('/auth/login', payload, {
+  const res = await apiClient.post<SessionResult>("/auth/login", payload, {
     skipAuth: true,
   });
   return res.data;
@@ -46,16 +46,43 @@ export async function login(payload: LoginPayload): Promise<SessionResult> {
 // (ver nota en apiClient.ts) y este helper simplemente lo deja propagar;
 // AuthProvider lo interpreta como "no hay sesión".
 export async function refreshSession(): Promise<SessionResult> {
-  const res = await apiClient.post<SessionResult>(
-    '/auth/refresh',
-    undefined,
-    { skipAuth: true, withCsrf: true },
-  );
+  const res = await apiClient.post<SessionResult>("/auth/refresh", undefined, {
+    skipAuth: true,
+    withCsrf: true,
+  });
   return res.data;
 }
 
 export async function logout(): Promise<void> {
-  await apiClient.post<{ success: boolean }>('/auth/logout', undefined, {
+  await apiClient.post<{ success: boolean }>("/auth/logout", undefined, {
     withCsrf: true,
   });
+}
+
+export async function forgotPassword(email: string) {
+  return (
+    await apiClient.post<{ message: string }>(
+      "/auth/forgot-password",
+      { email },
+      { skipAuth: true },
+    )
+  ).data;
+}
+export async function resetPassword(token: string, newPassword: string) {
+  return (
+    await apiClient.post<{ message: string }>(
+      "/auth/reset-password",
+      { token, newPassword },
+      { skipAuth: true },
+    )
+  ).data;
+}
+export async function activate(token: string, name: string, password: string) {
+  return (
+    await apiClient.post<PublicUser>(
+      "/auth/activate",
+      { token, name, password },
+      { skipAuth: true },
+    )
+  ).data;
 }

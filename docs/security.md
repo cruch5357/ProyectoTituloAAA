@@ -1,3 +1,13 @@
+## Actualización: email y recuperación de contraseña
+
+La entrega manual de activationToken descrita en secciones históricas fue reemplazada por SMTP. Ningún token plano se devuelve en la API. Se conservan 32 bytes aleatorios y SHA-256 para tokens opacos; contraseñas con Argon2id y política existente (10–128 caracteres, letra y número). PasswordResetToken tiene hash único, expiración y usedAt. Un bloqueo de fila de usuario serializa recuperaciones simultáneas; el consumo condicional protege contra reuso. La activación también reclama la invitación condicionalmente dentro de la transacción.
+
+STARTTLS obligatorio en 587, verificación TLS habilitada, un transporter reutilizable y errores SMTP sanitizados. Secretos solo en backend/.env ignorado por Git. Validación de entorno no imprime valores. El filtro de excepciones registra método, ruta sin query y estado, sin stack ni payload sensible; auditoría tampoco imprime excepciones crudas. Eventos: STUDENT_INVITATION_SENT, STUDENT_INVITATION_RESENT, PASSWORD_RESET_REQUESTED, PASSWORD_RESET_COMPLETED y PASSWORD_RESET_EMAIL_FAILED.
+
+La UI retira tokens de la URL mediante replace al montar y los mantiene solo en memoria; recargar requiere volver a abrir el correo. Referrer-Policy no-referrer mediante meta. Workbox continúa precacheando únicamente el shell estático, sin runtimeCaching ni almacenamiento de enlaces/token/requests API. Publicar con HTTPS y configurar el servidor SPA para servir index.html y no registrar query strings de estos enlaces.
+
+Ver [guía de prueba](email-setup.md).
+
 # Seguridad
 
 > Documento de planificación técnica — PROMPT 00. Define cómo deberán implementarse los controles de seguridad en etapas posteriores. Nada de esto se implementa todavía. El backend es siempre la barrera de seguridad autoritativa; el frontend nunca es la única validación.

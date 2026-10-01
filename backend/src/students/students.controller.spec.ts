@@ -109,7 +109,7 @@ describe('StudentsController - delegación al servicio con coachId del token', (
     studentsService.invite.mockResolvedValue({
       email: 'alumno@example.com',
       expiresAt: new Date(),
-      activationToken: 'raw-invite',
+      emailSent: true,
     });
     const currentUser = buildCoachUser();
 
