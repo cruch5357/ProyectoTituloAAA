@@ -1,3 +1,15 @@
+## Correos transaccionales y recuperación (implementación vigente)
+
+Esta sección reemplaza los contratos históricos de invitación descritos más abajo.
+Todos los resultados usan el envelope `{ data, error: null, meta: {} }`.
+
+- `POST /api/v1/students/invite`: Coach autenticado, body `{ email }`. Devuelve `{ email, expiresAt, emailSent: true }` (201), sin token. Repetir la petición renueva únicamente las invitaciones pendientes de ese Coach y correo, invalidando sus enlaces anteriores. Un fallo SMTP devuelve 503 con mensaje controlado; se puede repetir la misma acción. No se crea el usuario hasta activar.
+- `POST /api/v1/auth/activate`: body `{ token, name, password }`; consume la invitación de forma atómica y crea STUDENT con el coachId de la invitación. 401 genérico si el enlace no existe, expiró o se usó; 409 si el correo ya tiene cuenta. El enlace abre `/activate?token=...` y la UI redirige a login después de activar.
+- `POST /api/v1/auth/forgot-password`: body `{ email }`, respuesta 200 `{ message }` idéntica para cuenta activa, inexistente, inactiva o fallo SMTP. Máximo 5 solicitudes/minuto/IP. Solo envía a cuentas activas; una solicitud nueva invalida los reset tokens anteriores. El mismo contenido público no garantiza tiempos de respuesta idénticos: SMTP se ejecuta sin cola.
+- `POST /api/v1/auth/reset-password`: body `{ token, newPassword }`. 200 `{ message }`, 401 para token inválido, expirado, usado o cuenta inactiva; 400 para contraseña inválida o campos extra. Máximo 10/minuto/IP. Cambia el hash Argon2id, consume todos los enlaces de recuperación pendientes, revoca refresh sessions e incrementa tokenVersion en una transacción. Los access tokens anteriores quedan rechazados por el guard existente.
+
+Invitar/reinvitar conserva el throttler auth existente (por defecto 10/minuto/IP). No se aceptan role, coachId o userId como autoridad en los bodies. Swagger incorpora los nuevos DTOs y endpoints.
+
 # API y Comunicación Frontend-Backend
 
 > Documento de planificación técnica — PROMPT 00. Define el contrato conceptual de la API. No se implementan endpoints en esta etapa.

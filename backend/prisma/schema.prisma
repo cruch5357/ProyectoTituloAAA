@@ -97,6 +97,7 @@ model User {
   auditLogs           AuditLog[]          @relation("ActorAuditLogs")
 
   // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
+  passwordResetTokens PasswordResetToken[]
   refreshSessions    RefreshSession[]
   studentInvitations StudentInvitation[]
 
@@ -471,4 +472,16 @@ model StudentInvitation {
   @@index([coachId])
   @@index([email])
   @@map("student_invitations")
+}
+
+model PasswordResetToken {
+  id String @id @default(cuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tokenHash String @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  usedAt DateTime? @map("used_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([userId, expiresAt])
+  @@map("password_reset_tokens")
 }

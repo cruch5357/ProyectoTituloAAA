@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Role } from '@prisma/client';
 import { AuthService } from './auth.service';
@@ -31,6 +33,7 @@ function buildMockPrisma(): MockPrisma {
       updateMany: jest.fn(),
     },
     studentInvitation: {
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
@@ -97,6 +100,8 @@ beforeEach(() => {
     passwordService,
     tokenService,
     auditService,
+    { sendPasswordReset: jest.fn() } as unknown as MailService,
+    new ConfigService({ PASSWORD_RESET_EXPIRES_IN_MINUTES: 30 }),
   );
 });
 

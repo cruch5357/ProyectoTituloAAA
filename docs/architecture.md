@@ -1,3 +1,7 @@
+## Actualización: correo transaccional
+
+AuthModule y StudentsModule importan MailModule. MailService encapsula Nodemailer con un único transporter STARTTLS y plantillas HTML escapadas/texto plano. Los servicios de dominio solo llaman sendStudentInvitation/sendPasswordReset. SMTP ocurre fuera de transacciones de base de datos; los fallos se manejan según el contrato de [API](api.md). No hay colas ni cambios en JWT, CSRF, ownership o registro exclusivo de Coach. PasswordResetToken complementa los modelos existentes. Las páginas públicas reutilizan MainLayout, login-page, temas y apiClient.
+
 # Arquitectura del Sistema
 
 > Documento de planificación técnica — PROMPT 00. Fuente de verdad arquitectónica para los prompts siguientes. Ninguna implementación posterior debe contradecir estas decisiones sin documentar y justificar el cambio aquí.

@@ -44,10 +44,9 @@ export class AuditService {
               : Prisma.JsonNull,
         },
       });
-    } catch (error) {
+    } catch {
       this.logger.error(
         `No se pudo registrar evento de auditoría (${event.action})`,
-        error instanceof Error ? error.stack : String(error),
       );
     }
   }

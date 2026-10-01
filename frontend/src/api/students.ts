@@ -2,9 +2,9 @@
 // Toda la data remota pasa por acá: ninguna página guarda alumnos en useState
 // propio ni cachea manualmente — se usa la caché de TanStack Query e
 // invalidación explícita tras cada mutación, exactamente como pide PROMPT 04.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../lib/apiClient';
-import type { PublicUser } from '../types/user';
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "../lib/apiClient";
+import type { PublicUser } from "../types/user";
 
 export interface ListStudentsParams {
   page: number;
@@ -22,30 +22,26 @@ export interface PaginationMeta {
 export interface InviteStudentResult {
   email: string;
   expiresAt: string;
-  // Ver docs/security.md / docs/api.md: el backend retorna este token en
-  // texto plano una única vez porque todavía no existe envío real de
-  // correo. InviteStudentDialog lo muestra marcado explícitamente como
-  // mecanismo temporal de desarrollo (nunca en producción sin advertencia).
-  activationToken: string;
+  emailSent: boolean;
 }
 
 // Raíz de query key compartida por todas las queries/mutaciones de alumnos,
 // para poder invalidar "todo lo de alumnos" de una sola vez si hiciera falta.
 const studentsKeys = {
-  all: ['students'] as const,
-  lists: () => [...studentsKeys.all, 'list'] as const,
+  all: ["students"] as const,
+  lists: () => [...studentsKeys.all, "list"] as const,
   list: (params: ListStudentsParams) =>
     [...studentsKeys.lists(), params] as const,
-  details: () => [...studentsKeys.all, 'detail'] as const,
+  details: () => [...studentsKeys.all, "detail"] as const,
   detail: (id: string) => [...studentsKeys.details(), id] as const,
 };
 
 function buildListQuery(params: ListStudentsParams): string {
   const query = new URLSearchParams();
-  query.set('page', String(params.page));
-  query.set('limit', String(params.limit));
+  query.set("page", String(params.page));
+  query.set("limit", String(params.limit));
   if (params.search) {
-    query.set('search', params.search);
+    query.set("search", params.search);
   }
   return `?${query.toString()}`;
 }
@@ -68,7 +64,7 @@ export function useStudents(params: ListStudentsParams) {
 
 export function useStudent(id: string | undefined) {
   return useQuery({
-    queryKey: studentsKeys.detail(id ?? ''),
+    queryKey: studentsKeys.detail(id ?? ""),
     queryFn: async () => {
       const res = await apiClient.get<PublicUser>(`/students/${id}`);
       return res.data;
@@ -82,7 +78,7 @@ export function useInviteStudent() {
   return useMutation({
     mutationFn: async (email: string) => {
       const res = await apiClient.post<InviteStudentResult>(
-        '/students/invite',
+        "/students/invite",
         { email },
       );
       return res.data;

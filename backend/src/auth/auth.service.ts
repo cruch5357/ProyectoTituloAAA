@@ -11,6 +11,9 @@ import { TokenService } from './tokens/token.service';
 import { RegisterDto } from './dto/register.dto';
 import { ActivateDto } from './dto/activate.dto';
 import { LoginDto } from './dto/login.dto';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { PublicUser, toPublicUser } from '../common/mappers/public-user.mapper';
 import {
   AUDIT_ACTIONS,
@@ -55,7 +58,104 @@ export class AuthService {
     private readonly passwordService: PasswordService,
     private readonly tokenService: TokenService,
     private readonly auditService: AuditService,
+    private readonly mailService: MailService,
+    private readonly config: ConfigService,
   ) {}
+
+  async forgotPassword(emailInput: string) {
+    const result = {
+      message:
+        'Si existe una cuenta activa con ese correo, recibirás instrucciones para restablecer tu contraseña.',
+    };
+    const user = await this.prisma.user.findUnique({
+      where: { email: this.normalizeEmail(emailInput) },
+    });
+    if (!user?.isActive) return result;
+    const { token, tokenHash } = this.tokenService.generateRefreshToken();
+    const expiresAt = new Date(
+      Date.now() +
+        this.config.getOrThrow<number>('PASSWORD_RESET_EXPIRES_IN_MINUTES') *
+          60000,
+    );
+    await this.prisma.$transaction(async (tx) => {
+      // Serialize requests and resets for the same account.
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id} FOR UPDATE`;
+      await tx.passwordResetToken.updateMany({
+        where: { userId: user.id, usedAt: null },
+        data: { usedAt: new Date() },
+      });
+      await tx.passwordResetToken.create({
+        data: { userId: user.id, tokenHash, expiresAt },
+      });
+    });
+    await this.auditService.record({
+      actorId: user.id,
+      action: 'PASSWORD_RESET_REQUESTED',
+      entityType: AUDIT_ENTITY_USER,
+      entityId: user.id,
+    });
+    try {
+      await this.mailService.sendPasswordReset(user.email, token, expiresAt);
+    } catch {
+      // Same public response for nonexistent, inactive and SMTP-failure cases.
+      await this.auditService.record({
+        actorId: user.id,
+        action: 'PASSWORD_RESET_EMAIL_FAILED',
+        entityType: AUDIT_ENTITY_USER,
+        entityId: user.id,
+      });
+    }
+    return result;
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    const invalid = () =>
+      new UnauthorizedException(
+        'Enlace inválido o expirado. Solicita uno nuevo.',
+      );
+    const tokenHash = this.tokenService.hashOpaqueToken(dto.token);
+    const reset = await this.prisma.passwordResetToken.findUnique({
+      where: { tokenHash },
+    });
+    if (!reset || reset.usedAt || reset.expiresAt.getTime() <= Date.now())
+      throw invalid();
+    const passwordHash = await this.passwordService.hashPassword(
+      dto.newPassword,
+    );
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${reset.userId} FOR UPDATE`;
+      const user = await tx.user.findUnique({ where: { id: reset.userId } });
+      if (!user?.isActive) throw invalid();
+      const now = new Date();
+      const claimed = await tx.passwordResetToken.updateMany({
+        where: { id: reset.id, usedAt: null, expiresAt: { gt: now } },
+        data: { usedAt: now },
+      });
+      if (claimed.count !== 1) throw invalid();
+      await tx.user.update({
+        where: { id: reset.userId },
+        data: { passwordHash, tokenVersion: { increment: 1 } },
+      });
+      await tx.passwordResetToken.updateMany({
+        where: { userId: reset.userId, usedAt: null },
+        data: { usedAt: now },
+      });
+      await tx.refreshSession.updateMany({
+        where: { userId: reset.userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+    });
+    await this.auditService.record({
+      actorId: reset.userId,
+      action: 'PASSWORD_RESET_COMPLETED',
+      entityType: AUDIT_ENTITY_USER,
+      entityId: reset.userId,
+    });
+    return {
+      message:
+        'Contraseña restablecida. Inicia sesión con tu nueva contraseña.',
+    };
+  }
 
   private normalizeEmail(email: string): string {
     return email.trim().toLowerCase();
@@ -123,6 +223,16 @@ export class AuthService {
     let user;
     try {
       user = await this.prisma.$transaction(async (tx) => {
+        const claimed = await tx.studentInvitation.updateMany({
+          where: {
+            id: invitation.id,
+            usedAt: null,
+            expiresAt: { gt: new Date() },
+          },
+          data: { usedAt: new Date() },
+        });
+        if (claimed.count !== 1)
+          throw new UnauthorizedException(GENERIC_INVITATION_ERROR);
         const createdUser = await tx.user.create({
           data: {
             email: invitation.email,
@@ -131,10 +241,6 @@ export class AuthService {
             name: dto.name,
             coachId: invitation.coachId,
           },
-        });
-        await tx.studentInvitation.update({
-          where: { id: invitation.id },
-          data: { usedAt: new Date() },
         });
         return createdUser;
       });

@@ -1,3 +1,9 @@
+## Pruebas de correo y recuperación
+
+Tests unitarios nuevos en mail/mail.service.spec.ts, auth/password-reset.spec.ts y config/env.validation.spec.ts; ampliación de students/auth tests. Prueban destinatario/asunto/enlaces, STARTTLS, hashes, mensajes genéricos, errores SMTP, contraseña real Argon2id, rechazo de contraseña antigua, login con nueva contraseña, revocación, concurrencia y reuso. HTTP: test/password-reset.e2e-spec.ts verifica DTOs, envelope y rate limiting sin DB. Frontend: AccountRecoveryPages.test.tsx y LoginPage.test.tsx verifican recuperación, activación, navegación, URL limpia, confirmación y errores. Nunca se envían emails reales desde tests: MailService/transporter se mockean; el transporte real rechaza NODE_ENV=test.
+
+Ejecutar npm run test --prefix backend -- --runInBand; npm run test:e2e --prefix backend -- --runInBand; npm run test --prefix frontend. Ver resultados y checklist manual en [email-setup.md](email-setup.md).
+
 # Estrategia de Testing y QA
 
 > Documento de planificación técnica — PROMPT 00. Define el enfoque de pruebas que se integrará durante todo el desarrollo, no solo al final. Angel (QA) es responsable de liderar esta estrategia junto con el equipo de desarrollo.

@@ -85,6 +85,37 @@ class EnvironmentVariables {
   @Min(1)
   @IsOptional()
   AUTH_THROTTLE_LIMIT: number = 10;
+
+  @IsString()
+  SMTP_HOST: string = 'smtp-relay.brevo.com';
+
+  @IsInt()
+  @Min(587)
+  @Max(587)
+  SMTP_PORT: number = 587;
+
+  @IsString()
+  SMTP_SECURE: string = 'false';
+
+  @IsString()
+  SMTP_USER: string = '';
+
+  @IsString()
+  SMTP_PASSWORD: string = '';
+
+  @IsString()
+  EMAIL_FROM: string = '';
+
+  @IsString()
+  EMAIL_FROM_NAME: string = 'Proyecto AAA';
+
+  @IsString()
+  FRONTEND_URL: string = 'http://localhost:5173';
+
+  @IsInt()
+  @Min(1)
+  @Max(1440)
+  PASSWORD_RESET_EXPIRES_IN_MINUTES: number = 30;
 }
 
 // Valida las variables de entorno al arrancar la aplicación para fallar rápido
@@ -96,10 +127,49 @@ export function validateEnv(config: Record<string, unknown>) {
   });
   const errors = validateSync(validatedConfig, {
     skipMissingProperties: false,
+    validationError: { target: false, value: false },
   });
 
   if (errors.length > 0) {
-    throw new Error(`Configuración de entorno inválida: ${errors.toString()}`);
+    throw new Error(
+      `Configuración de entorno inválida: ${errors.map((error) => error.property).join(', ')}`,
+    );
+  }
+  if (validatedConfig.SMTP_SECURE !== 'false')
+    throw new Error('SMTP_SECURE debe ser false para STARTTLS en puerto 587');
+  let frontend: URL;
+  try {
+    frontend = new URL(validatedConfig.FRONTEND_URL);
+  } catch {
+    throw new Error('FRONTEND_URL inválida');
+  }
+  if (
+    !['http:', 'https:'].includes(frontend.protocol) ||
+    frontend.username ||
+    frontend.password ||
+    frontend.search ||
+    frontend.hash
+  )
+    throw new Error('FRONTEND_URL inválida');
+  if (
+    validatedConfig.NODE_ENV === Environment.Production &&
+    frontend.protocol !== 'https:'
+  )
+    throw new Error('FRONTEND_URL debe utilizar HTTPS en producción');
+  if (validatedConfig.NODE_ENV !== Environment.Test) {
+    for (const key of [
+      'SMTP_USER',
+      'SMTP_PASSWORD',
+      'EMAIL_FROM',
+      'EMAIL_FROM_NAME',
+    ] as const) {
+      if (!validatedConfig[key]?.trim())
+        throw new Error(`Falta variable de correo: ${key}`);
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(validatedConfig.EMAIL_FROM))
+      throw new Error('EMAIL_FROM inválido');
+    if (!/^[a-zA-Z0-9.-]+$/.test(validatedConfig.SMTP_HOST))
+      throw new Error('SMTP_HOST debe ser un nombre de servidor sin protocolo');
   }
   return validatedConfig;
 }

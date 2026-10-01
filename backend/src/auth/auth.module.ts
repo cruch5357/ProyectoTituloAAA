@@ -1,3 +1,4 @@
+import { MailModule } from '../mail/mail.module';
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { AuthController } from './auth.controller';
@@ -11,7 +12,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
   // TokenService pasa `secret`/`expiresIn` explícitamente en cada llamada
   // (uno para access, y el refresh ni siquiera es un JWT), así que no hay
   // "el" secreto único del módulo que configurar acá.
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), MailModule],
   controllers: [AuthController],
   providers: [AuthService, PasswordService, TokenService, JwtAuthGuard],
   exports: [PasswordService, TokenService, JwtAuthGuard],
