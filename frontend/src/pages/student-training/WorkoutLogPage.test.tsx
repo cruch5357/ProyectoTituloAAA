@@ -74,6 +74,37 @@ beforeEach(() => {
 });
 
 describe('WorkoutLogPage', () => {
+  it('permite consultar técnica dentro del entrenamiento al seleccionar el ejercicio', async () => {
+    const session = buildSessionDetail();
+    Object.assign(session.exercises[0].exercise, {
+      videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
+    });
+    mockGetByPath({
+      '/workout-logs/workout-log-1': buildWorkoutLog(),
+      '/student/sessions/session-1': session,
+    });
+    renderWithRoute(<WorkoutLogPage />, {
+      path: '/workout-logs/:id',
+      route: '/workout-logs/workout-log-1',
+    });
+    await screen.findByRole('option', { name: /Video disponible/ });
+    await userEvent.selectOptions(
+      screen.getByLabelText('Ejercicio'),
+      'session-exercise-1',
+    );
+    expect(screen.getByRole('button', { name: 'Ver técnica' })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    );
+    expect(document.querySelector('iframe')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Ver técnica' }));
+    expect(
+      screen.getByTitle('Video demostrativo: Press de banca'),
+    ).toHaveAttribute(
+      'src',
+      expect.stringContaining('youtube-nocookie.com/embed/'),
+    );
+  });
   // PROMPT 10 — "ver claramente qué fue prescrito y qué fue realizado".
   it('muestra las series ya registradas junto a lo prescrito', async () => {
     mockGetByPath({
@@ -124,7 +155,9 @@ describe('WorkoutLogPage', () => {
     // de PROMPT 10 siempre quiso verificar).
     const table = await screen.findByRole('table');
     expect(within(table).getByText('Press de banca')).toBeInTheDocument();
-    expect(within(table).getByText('8-12 reps / RPE 8 / RIR 2')).toBeInTheDocument();
+    expect(
+      within(table).getByText('8-12 reps / RPE 8 / RIR 2'),
+    ).toBeInTheDocument();
     expect(within(table).getByText('10')).toBeInTheDocument();
   });
 
@@ -161,20 +194,26 @@ describe('WorkoutLogPage', () => {
     });
 
     await screen.findByText('1. Press de banca');
-    await user.selectOptions(screen.getByLabelText('Ejercicio'), 'session-exercise-1');
+    await user.selectOptions(
+      screen.getByLabelText('Ejercicio'),
+      'session-exercise-1',
+    );
     await user.type(screen.getByLabelText('Reps realizadas'), '10');
     await user.click(screen.getByRole('button', { name: 'Registrar serie' }));
 
     await waitFor(() => {
-      expect(postSpy).toHaveBeenCalledWith('/workout-logs/workout-log-1/set-logs', {
-        setLogs: [
-          expect.objectContaining({
-            sessionExerciseId: 'session-exercise-1',
-            setNumber: 1,
-            actualReps: 10,
-          }),
-        ],
-      });
+      expect(postSpy).toHaveBeenCalledWith(
+        '/workout-logs/workout-log-1/set-logs',
+        {
+          setLogs: [
+            expect.objectContaining({
+              sessionExerciseId: 'session-exercise-1',
+              setNumber: 1,
+              actualReps: 10,
+            }),
+          ],
+        },
+      );
     });
   });
 
@@ -202,12 +241,17 @@ describe('WorkoutLogPage', () => {
 
     await screen.findByLabelText('Duración (minutos)');
     await user.type(screen.getByLabelText('Duración (minutos)'), '45');
-    await user.click(screen.getByRole('button', { name: 'Finalizar entrenamiento' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Finalizar entrenamiento' }),
+    );
 
     await waitFor(() => {
       expect(patchSpy).toHaveBeenCalledWith(
         '/workout-logs/workout-log-1/finish',
-        expect.objectContaining({ completionStatus: 'COMPLETED', durationMinutes: 45 }),
+        expect.objectContaining({
+          completionStatus: 'COMPLETED',
+          durationMinutes: 45,
+        }),
       );
     });
     expect(await screen.findByText('Resumen guardado.')).toBeInTheDocument();
@@ -221,7 +265,10 @@ describe('WorkoutLogPage', () => {
       '/student/sessions/session-1': buildSessionDetail(),
     });
     vi.spyOn(apiClient, 'patch').mockRejectedValue(
-      new ApiError(422, 'La ventana de 24 horas para editar este registro ya expiró'),
+      new ApiError(
+        422,
+        'La ventana de 24 horas para editar este registro ya expiró',
+      ),
     );
 
     renderWithRoute(<WorkoutLogPage />, {
@@ -231,7 +278,9 @@ describe('WorkoutLogPage', () => {
 
     await screen.findByLabelText('Duración (minutos)');
     await user.type(screen.getByLabelText('Duración (minutos)'), '45');
-    await user.click(screen.getByRole('button', { name: 'Finalizar entrenamiento' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Finalizar entrenamiento' }),
+    );
 
     expect(
       await screen.findByText(
@@ -250,7 +299,9 @@ describe('WorkoutLogPage', () => {
       route: '/workout-logs/ajeno',
     });
 
-    expect(await screen.findByText('Entrenamiento no encontrado')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Entrenamiento no encontrado'),
+    ).toBeInTheDocument();
   });
 
   // PROMPT 11 (RF-25) — el detalle ahora muestra el contexto de
@@ -310,9 +361,7 @@ describe('WorkoutLogPage', () => {
       route: '/workout-logs/workout-log-1',
     });
 
-    expect(
-      await screen.findByText(/Fuerza General/),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(/Fuerza General/)).toBeInTheDocument();
     const link = screen.getByRole('link', { name: 'Press de banca' });
     expect(link.getAttribute('href')).toBe(
       '/history?exerciseId=exercise-1&exerciseName=Press%20de%20banca',

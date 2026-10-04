@@ -4,7 +4,11 @@
 // toda la data remota pasa por acá, ninguna página cachea manualmente.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
-import type { SetLog, WorkoutCompletionStatus, WorkoutLog } from '../types/workoutLog';
+import type {
+  SetLog,
+  WorkoutCompletionStatus,
+  WorkoutLog,
+} from '../types/workoutLog';
 import type { WorkoutEvolutionResult } from '../types/workoutEvolution';
 
 export interface CreateSetLogItemPayload {
@@ -48,6 +52,7 @@ export interface ListWorkoutLogsHistoryParams {
   completionStatus?: WorkoutCompletionStatus;
   programId?: string;
   sessionId?: string;
+  state?: 'in-progress';
   // Índice explícito: buildQueryString() recibe estos params como
   // Record<string, ...> para armar la query string de forma genérica (ver
   // más abajo) -- TypeScript exige que el tipo declare la firma de índice
@@ -152,7 +157,7 @@ export function useStartWorkoutLog(sessionId: string) {
     },
     onSuccess: (created) => {
       void queryClient.invalidateQueries({
-        queryKey: workoutLogsKeys.bySession(sessionId),
+        queryKey: workoutLogsKeys.all,
       });
       queryClient.setQueryData(workoutLogsKeys.detail(created.id), created);
     },
@@ -196,7 +201,7 @@ export function useFinishWorkoutLog(workoutLogId: string) {
     onSuccess: (updated) => {
       queryClient.setQueryData(workoutLogsKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({
-        queryKey: workoutLogsKeys.bySession(updated.sessionId),
+        queryKey: workoutLogsKeys.all,
       });
     },
   });

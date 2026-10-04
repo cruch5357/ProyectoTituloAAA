@@ -3,7 +3,10 @@
 // el historial del alumno (PROMPT 11) donde corresponde -- las métricas
 // descriptivas son EXACTAMENTE las mismas funciones reutilizadas con un
 // `where` distinto (por coach en vez de por alumno).
-import type { WorkoutSummaryMetrics } from './workoutEvolution';
+import type {
+  RecentPerformance,
+  WorkoutSummaryMetrics,
+} from './workoutEvolution';
 import type { PublicUser } from './user';
 
 // Distribución de `completionStatus` entre los entrenamientos finalizados
@@ -45,6 +48,7 @@ export interface ExerciseEvolutionPoint {
 
 export interface StudentDashboardResult {
   student: PublicUser;
+  recentPerformance?: RecentPerformance;
   workoutsRegistered: number;
   workoutsFinished: number;
   completionStatusBreakdown: CompletionStatusBreakdown;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -24,6 +24,7 @@ const ALLOWED_EXTENSION = '.xlsx';
 // están conectados a los endpoints reales (antes "Confirmar importación"
 // era un estado visual deshabilitado, "disponible próximamente").
 export function ImportExcelPage() {
+  const rejectDialog = useRef<HTMLDialogElement>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const uploadMutation = useUploadExcelImport();
@@ -58,7 +59,9 @@ export function ImportExcelPage() {
     // petición en algo que el backend rechazaría igual, pero el mensaje
     // final de "está bien o no" siempre lo da el backend.
     if (!file.name.toLowerCase().endsWith(ALLOWED_EXTENSION)) {
-      setClientError('Solo se aceptan archivos .xlsx (no se admiten .xlsm ni otros formatos).');
+      setClientError(
+        'Solo se aceptan archivos .xlsx (no se admiten .xlsm ni otros formatos).',
+      );
       setSelectedFile(null);
       return;
     }
@@ -83,21 +86,58 @@ export function ImportExcelPage() {
 
   return (
     <section>
+      <dialog
+        ref={rejectDialog}
+        className="invite-dialog"
+        aria-label="Confirmar rechazo"
+      >
+        <h2>Rechazar importación</h2>
+        <p>
+          Se rechazará {batch?.originalFilename}. Este lote no podrá confirmarse
+          después. No se eliminarán programas existentes; podrás subir el
+          archivo nuevamente como otro lote.
+        </p>
+        <div className="dialog-actions">
+          <button
+            type="button"
+            className="button--neutral"
+            onClick={() => rejectDialog.current?.close()}
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="button--danger"
+            onClick={() => {
+              rejectDialog.current?.close();
+              rejectMutation.mutate();
+            }}
+          >
+            Rechazar definitivamente
+          </button>
+        </div>
+      </dialog>
       <div className="page-header">
         <h1>Importar Excel</h1>
       </div>
 
       <p>
-        Sube un archivo <strong>.xlsx</strong> con tu planificación siguiendo
-        la plantilla de importación. El sistema valida el archivo y muestra
-        una vista previa con los errores encontrados en cada fila antes de
-        confirmar nada.
+        Sube un archivo <strong>.xlsx</strong> con tu planificación siguiendo la
+        plantilla de importación. El sistema valida el archivo y muestra una
+        vista previa con los errores encontrados en cada fila antes de confirmar
+        nada.
       </p>
 
       <ul>
-        <li>Formato admitido: únicamente <code>.xlsx</code> (no se aceptan archivos con macros, <code>.xlsm</code>).</li>
+        <li>
+          Formato admitido: únicamente <code>.xlsx</code> (no se aceptan
+          archivos con macros, <code>.xlsm</code>).
+        </li>
         <li>Tamaño máximo: 5 MB.</li>
-        <li>Cada fila representa la prescripción de un ejercicio dentro de una sesión.</li>
+        <li>
+          Cada fila representa la prescripción de un ejercicio dentro de una
+          sesión.
+        </li>
         <li>Los ejercicios referenciados deben existir ya en tu catálogo.</li>
       </ul>
 
@@ -111,7 +151,10 @@ export function ImportExcelPage() {
             disabled={uploadMutation.isPending}
           />
         </label>
-        <button type="submit" disabled={!selectedFile || uploadMutation.isPending}>
+        <button
+          type="submit"
+          disabled={!selectedFile || uploadMutation.isPending}
+        >
           {uploadMutation.isPending ? 'Procesando…' : 'Subir archivo'}
         </button>
       </form>
@@ -122,7 +165,9 @@ export function ImportExcelPage() {
         </p>
       )}
 
-      {uploadMutation.isPending && <p>Procesando el archivo, por favor espera…</p>}
+      {uploadMutation.isPending && (
+        <p>Procesando el archivo, por favor espera…</p>
+      )}
 
       {uploadMutation.isError && (
         <p role="alert" className="field-error">
@@ -149,16 +194,17 @@ export function ImportExcelPage() {
           {isPendingReview && (
             <div className="import-preview__confirmation">
               <p>
-                Las filas inválidas <strong>no se importarán</strong>: corrígelas
-                en tu archivo y vuelve a subirlo si quieres que también queden
-                programadas. Una vez confirmada, la importación pasa a formar
-                parte de tu programación de inmediato y{' '}
+                Las filas inválidas <strong>no se importarán</strong>:
+                corrígelas en tu archivo y vuelve a subirlo si quieres que
+                también queden programadas. Una vez confirmada, la importación
+                pasa a formar parte de tu programación de inmediato y{' '}
                 <strong>la operación no debe repetirse</strong>.
               </p>
 
               <div className="import-preview__actions">
                 <button
                   type="button"
+                  className="button--primary"
                   onClick={() => confirmMutation.mutate()}
                   disabled={
                     batch.counts.validRows === 0 ||
@@ -172,11 +218,15 @@ export function ImportExcelPage() {
                 </button>
                 <button
                   type="button"
-                  className="button--secondary"
-                  onClick={() => rejectMutation.mutate()}
-                  disabled={confirmMutation.isPending || rejectMutation.isPending}
+                  className="button--danger"
+                  onClick={() => rejectDialog.current?.showModal()}
+                  disabled={
+                    confirmMutation.isPending || rejectMutation.isPending
+                  }
                 >
-                  {rejectMutation.isPending ? 'Rechazando…' : 'Rechazar importación'}
+                  {rejectMutation.isPending
+                    ? 'Rechazando…'
+                    : 'Rechazar importación'}
                 </button>
               </div>
 

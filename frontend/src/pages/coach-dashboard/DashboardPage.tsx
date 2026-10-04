@@ -5,7 +5,7 @@ import { useDashboardSummary, useRecentActivity } from '../../api/dashboard';
 import { ApiError } from '../../lib/apiClient';
 import type { WorkoutCompletionStatus } from '../../types/workoutLog';
 import { WorkoutCompletionStatusBadge } from '../student-training/WorkoutCompletionStatusBadge';
-import { Card, EmptyState, Skeleton } from '../../components/ui/Primitives';
+import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { AuthContext } from '../../auth/authContextObject';
 import { Icon } from '../../components/ui/Icon';
 
@@ -16,10 +16,6 @@ const STATUS_OPTIONS: { value: WorkoutCompletionStatus; label: string }[] = [
   { value: 'PARTIAL', label: 'Parcial' },
   { value: 'SKIPPED', label: 'Omitido' },
 ];
-
-function formatNumber(value: number | null, digits = 1): string {
-  return value !== null ? value.toFixed(digits) : '—';
-}
 
 // Dashboard del Coach (PROMPT 12, RF-26): resumen agregado de TODOS sus
 // alumnos + actividad reciente. Usa EXCLUSIVAMENTE datos realmente
@@ -67,8 +63,8 @@ export function DashboardPage() {
         </p>
       )}
       <p>
-        Métricas agregadas de tus alumnos, calculadas únicamente a partir de los
-        entrenamientos que realmente registraron.
+        Alumnos, asignaciones y actividad registrada de tu equipo. Consulta el
+        perfil de cada alumno para revisar su rendimiento personal.
       </p>
 
       <h2>Resumen</h2>
@@ -132,37 +128,7 @@ export function DashboardPage() {
                 {summaryQuery.data.workoutsFinished}
               </span>
             </div>
-            <div className="stat-card">
-              <span className="stat-card__label">Frecuencia (por semana)</span>
-              <span className="stat-card__value">
-                {formatNumber(
-                  summaryQuery.data.summary.trainingFrequencyPerWeek,
-                )}
-              </span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-card__label">Duración promedio (min)</span>
-              <span className="stat-card__value">
-                {formatNumber(
-                  summaryQuery.data.summary.averageDurationMinutes,
-                  0,
-                )}
-              </span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-card__label">RPE promedio</span>
-              <span className="stat-card__value">
-                {formatNumber(summaryQuery.data.summary.averageOverallRpe)}
-              </span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-card__label">Fatiga promedio</span>
-              <span className="stat-card__value">
-                {formatNumber(summaryQuery.data.summary.averageFatigue)}
-              </span>
-            </div>
           </div>
-
           {summaryQuery.data.workoutsFinished === 0 ? (
             <p>
               Todavía no hay entrenamientos finalizados para calcular una
@@ -183,41 +149,14 @@ export function DashboardPage() {
         </>
       )}
 
-      <div className="dashboard-grid planning-grid">
-        <Card>
-          <h2>Atletas pendientes</h2>
-          <EmptyState
-            title="Sin datos de pendientes"
-            description="Aún no hay un indicador de atletas que requieren revisión."
-          />
-        </Card>
-        <Card>
-          <h2>Necesidades de planificación</h2>
-          <EmptyState
-            title="Planificación por programa"
-            description="Revisa tus bloques y asignaciones desde el espacio de programas."
-            action={
-              <Link className="button" to="/programs">
-                Revisar programas
-              </Link>
-            }
-          />
-        </Card>
-        <Card>
-          <h2>Próximos bloques</h2>
-          <EmptyState
-            title="Sin fechas programadas"
-            description="Los bloques aún no tienen fechas de inicio y término."
-          />
-        </Card>
-        <Card>
-          <h2>Próximas competiciones</h2>
-          <EmptyState
-            title="Sin competiciones disponibles"
-            description="Esta información aún no forma parte del modelo actual."
-          />
-        </Card>
-      </div>
+      <p className="dialog-actions">
+        <Link className="button button--secondary" to="/students">
+          Ver alumnos
+        </Link>
+        <Link className="button button--secondary" to="/programs">
+          Revisar asignaciones
+        </Link>
+      </p>
       <h2>Actividad reciente</h2>
 
       <form onSubmit={handleFiltersSubmit} className="search-form">

@@ -1,3 +1,4 @@
+import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
@@ -20,7 +21,6 @@ import {
   ErrorState,
   PageHeader,
   Skeleton,
-  StatCard,
 } from '../../components/ui/Primitives';
 
 export function StudentHomePage({ training = false }: { training?: boolean }) {
@@ -28,6 +28,12 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
   const assignments = useMyProgramAssignments();
   const history = useWorkoutLogsHistory({ page: 1, limit: 5 });
   const evolution = useWorkoutEvolution({});
+  const inProgress = useWorkoutLogsHistory({
+    page: 1,
+    limit: 1,
+    state: 'in-progress',
+  });
+  const pending = inProgress.data?.items[0];
   const [selected, setSelected] = useState('');
   const active =
     assignments.data?.filter(
@@ -43,11 +49,37 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         }
         description="Cada sesión cuenta. Encuentra tu programa y registra tu entrenamiento."
       />
+      {inProgress.isLoading && (
+        <Skeleton label="Buscando entrenamientos en curso…" />
+      )}
+      {inProgress.isError && (
+        <ErrorState
+          retry={() => void inProgress.refetch()}
+          message="No pudimos comprobar si tienes un entrenamiento en curso."
+        />
+      )}
+      {pending && (
+        <section className="hero-card">
+          <p className="eyebrow">Entrenamiento en curso</p>
+          <h2>{pending.session?.name ?? 'Tu sesión'}</h2>
+          <p>
+            {pending.session?.week.block.program.name} ·{' '}
+            {pending.session?.week.block.name} · Semana{' '}
+            {pending.session?.week.number}
+          </p>
+          <Link
+            className="button button--primary"
+            to={`/workout-logs/${pending.id}`}
+          >
+            Continuar entrenamiento
+          </Link>
+        </section>
+      )}
       {assignments.isLoading && <Skeleton label="Cargando tu entrenamiento…" />}
       {assignments.isError && (
         <ErrorState retry={() => void assignments.refetch()} />
       )}
-      {assignments.isSuccess && !program && (
+      {assignments.isSuccess && !program && !pending && (
         <Card>
           <EmptyState
             title="Tu próximo paso empieza aquí"
@@ -60,7 +92,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           />
         </Card>
       )}
-      {program && (
+      {program && !pending && inProgress.isSuccess && (
         <section className="hero-card">
           <p className="eyebrow">Entrenamiento disponible</p>
           <h2>{program.name}</h2>
@@ -87,30 +119,16 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
       )}
       {!training && (
         <>
-          <h2>Tu progreso</h2>
           {evolution.isLoading && <Skeleton />}
           {evolution.isError && (
             <ErrorState retry={() => void evolution.refetch()} />
           )}
           {evolution.data && (
-            <div className="stat-cards">
-              <StatCard
-                label="Entrenamientos finalizados"
-                value={evolution.data.summary.totalWorkouts}
-              />
-              <StatCard
-                label="Series registradas"
-                value={evolution.data.summary.totalSetLogs}
-                icon="exercise"
-              />
-              <StatCard
-                label="RPE promedio"
-                value={
-                  evolution.data.summary.averageOverallRpe?.toFixed(1) ?? '—'
-                }
-                icon="chart"
-              />
-            </div>
+            <PersonalPerformance
+              summary={evolution.data.summary}
+              recent={evolution.data.recentPerformance}
+              registered={history.data?.meta.total}
+            />
           )}
           <Card>
             <div className="page-header">

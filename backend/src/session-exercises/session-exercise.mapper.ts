@@ -7,6 +7,7 @@ export interface EmbeddedExercise {
   id: string;
   name: string;
   muscleGroup: string | null;
+  videoUrl: string | null;
   isActive: boolean;
 }
 
@@ -54,6 +55,7 @@ export function toPublicSessionExercise(
       id: sessionExercise.exercise.id,
       name: sessionExercise.exercise.name,
       muscleGroup: sessionExercise.exercise.muscleGroup,
+      videoUrl: sessionExercise.exercise.videoUrl,
       isActive: sessionExercise.exercise.isActive,
     },
   };

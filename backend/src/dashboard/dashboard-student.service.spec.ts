@@ -10,13 +10,23 @@ import { StudentsService } from '../students/students.service';
 // coach. La verificación de propiedad se delega en
 // StudentsService.getOwnedByCoach() (reutilizado, no reimplementado).
 type MockPrisma = {
-  workoutLog: { count: jest.Mock; aggregate: jest.Mock; groupBy: jest.Mock };
+  workoutLog: {
+    count: jest.Mock;
+    aggregate: jest.Mock;
+    groupBy: jest.Mock;
+    findMany: jest.Mock;
+  };
   setLog: { count: jest.Mock; findMany: jest.Mock };
 };
 
 function buildMockPrisma(): MockPrisma {
   return {
-    workoutLog: { count: jest.fn(), aggregate: jest.fn(), groupBy: jest.fn() },
+    workoutLog: {
+      count: jest.fn(),
+      aggregate: jest.fn(),
+      groupBy: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
+    },
     setLog: { count: jest.fn(), findMany: jest.fn() },
   };
 }

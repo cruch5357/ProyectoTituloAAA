@@ -33,7 +33,17 @@ describe('ExerciseFormDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nuevo ejercicio' }));
     await user.type(screen.getByLabelText('Nombre'), 'Sentadilla trasera');
-    await user.type(screen.getByLabelText('Grupo muscular (opcional)'), 'Piernas');
+    await user.type(
+      screen.getByLabelText('Grupo muscular (opcional)'),
+      'Piernas',
+    );
+    await user.type(
+      screen.getByLabelText('Video demostrativo (opcional)'),
+      'https://youtu.be/dQw4w9WgXcQ',
+    );
+    expect(
+      screen.getByRole('button', { name: 'Vista previa' }),
+    ).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Crear ejercicio' }));
 
     await waitFor(() => {
@@ -42,6 +52,7 @@ describe('ExerciseFormDialog', () => {
         expect.objectContaining({
           name: 'Sentadilla trasera',
           muscleGroup: 'Piernas',
+          videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
         }),
       );
     });
@@ -60,6 +71,8 @@ describe('ExerciseFormDialog', () => {
     await user.type(screen.getByLabelText('Nombre'), 'X');
     await user.click(screen.getByRole('button', { name: 'Crear ejercicio' }));
 
-    expect(await screen.findByText('El nombre es obligatorio')).toBeInTheDocument();
+    expect(
+      await screen.findByText('El nombre es obligatorio'),
+    ).toBeInTheDocument();
   });
 });

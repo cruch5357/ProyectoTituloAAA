@@ -43,7 +43,9 @@ function QuickStudents() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
         />
-        <button type="submit">Buscar</button>
+        <button type="submit" className="button--secondary">
+          Buscar
+        </button>
       </form>
       {query.isLoading && <Skeleton label="Cargando alumnos…" />}
       {query.isError && <ErrorState retry={() => void query.refetch()} />}

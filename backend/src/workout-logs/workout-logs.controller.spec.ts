@@ -198,6 +198,14 @@ describe('WorkoutLogsController - historial y evolución (PROMPT 11)', () => {
         firstWorkoutAt: null,
         lastWorkoutAt: null,
       },
+      recentPerformance: {
+        from: new Date(),
+        to: new Date(),
+        averageOverallRpe: null,
+        effortPoints: [],
+        workoutsRegistered: 0,
+        lastActivityAt: null,
+      },
       exerciseEvolution: null,
     });
     const query = { exerciseId: 'exercise-1' };

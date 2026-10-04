@@ -1,3 +1,4 @@
+import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -190,70 +191,22 @@ export function StudentDashboardPage({
               points={dashboardQuery.data.exerciseEvolution ?? []}
             />
           )}
-          {dashboardQuery.data.workoutsRegistered === 0 ? (
+          {dashboardQuery.data.workoutsRegistered === 0 && (
             <p>
               Este alumno todavía no tiene entrenamientos registrados en este
               rango.
             </p>
-          ) : (
-            <div className="stat-cards">
-              <div className="stat-card">
-                <span className="stat-card__label">
-                  Entrenamientos registrados
-                </span>
-                <span className="stat-card__value">
-                  {dashboardQuery.data.workoutsRegistered}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">
-                  Entrenamientos finalizados
-                </span>
-                <span className="stat-card__value">
-                  {dashboardQuery.data.workoutsFinished}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">
-                  Frecuencia (por semana)
-                </span>
-                <span className="stat-card__value">
-                  {formatNumber(
-                    dashboardQuery.data.summary.trainingFrequencyPerWeek,
-                  )}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">
-                  Duración promedio (min)
-                </span>
-                <span className="stat-card__value">
-                  {formatNumber(
-                    dashboardQuery.data.summary.averageDurationMinutes,
-                    0,
-                  )}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">RPE promedio</span>
-                <span className="stat-card__value">
-                  {formatNumber(dashboardQuery.data.summary.averageOverallRpe)}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">Fatiga promedio</span>
-                <span className="stat-card__value">
-                  {formatNumber(dashboardQuery.data.summary.averageFatigue)}
-                </span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-card__label">Series registradas</span>
-                <span className="stat-card__value">
-                  {dashboardQuery.data.summary.totalSetLogs}
-                </span>
-              </div>
-            </div>
           )}
+          <PersonalPerformance
+            summary={dashboardQuery.data.summary}
+            recent={dashboardQuery.data.recentPerformance}
+            registered={dashboardQuery.data.workoutsRegistered}
+          />
+          <p className="muted">
+            Fatiga promedio (historial consultado):{' '}
+            {formatNumber(dashboardQuery.data.summary.averageFatigue)} · Series
+            registradas: {dashboardQuery.data.summary.totalSetLogs}
+          </p>
 
           {dashboardQuery.data.workoutsFinished > 0 && (
             <>
@@ -281,13 +234,13 @@ export function StudentDashboardPage({
               )}
               {dashboardQuery.data.exerciseEvolution &&
                 dashboardQuery.data.exerciseEvolution.length > 0 && (
-<div
-  className="table-scroll"
-  role="region"
-  aria-label="Tabla de datos"
-  tabIndex={0}
->
-  <table className="students-table">
+                  <div
+                    className="table-scroll"
+                    role="region"
+                    aria-label="Tabla de datos"
+                    tabIndex={0}
+                  >
+                    <table className="students-table">
                       <thead>
                         <tr>
                           <th>Fecha</th>
@@ -299,9 +252,9 @@ export function StudentDashboardPage({
                       <tbody>
                         {dashboardQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
-<td>
-  {new Date(point.performedAt).toLocaleDateString()}
-</td>
+                            <td>
+                              {new Date(point.performedAt).toLocaleDateString()}
+                            </td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
                             <td>{point.setCount}</td>

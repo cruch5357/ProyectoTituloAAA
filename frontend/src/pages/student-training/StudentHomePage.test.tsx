@@ -5,7 +5,7 @@ import { renderWithProviders } from '../../test/renderWithProviders';
 import { apiClient } from '../../lib/apiClient';
 import { AuthContext } from '../../auth/authContextObject';
 import { StudentHomePage } from './StudentHomePage';
-function renderHome() {
+function renderHome(training = true) {
   return renderWithProviders(
     <AuthContext.Provider
       value={{
@@ -23,7 +23,7 @@ function renderHome() {
         logout: vi.fn(),
       }}
     >
-      <StudentHomePage training />
+      <StudentHomePage training={training} />
     </AuthContext.Provider>,
   );
 }
@@ -93,5 +93,56 @@ describe('Inicio del alumno', () => {
       screen.queryByRole('button', { name: 'Iniciar entrenamiento' }),
     ).not.toBeInTheDocument();
     expect(post).not.toHaveBeenCalled();
+  });
+  it('prioriza un registro en curso de otra sesión sin recorrer el programa', async () => {
+    const get = mockSession();
+    const original = get.getMockImplementation()!;
+    get.mockImplementation(async (path) =>
+      path.includes('state=in-progress')
+        ? {
+            data: [
+              {
+                id: 'older-log',
+                durationMinutes: null,
+                session: {
+                  name: 'Sesión pendiente',
+                  week: {
+                    number: 2,
+                    block: {
+                      name: 'Bloque anterior',
+                      program: { name: 'Programa real' },
+                    },
+                  },
+                },
+              },
+            ],
+            error: null,
+            meta: { total: 1 },
+          }
+        : original(path),
+    );
+    renderHome();
+    expect(
+      await screen.findByText('Entrenamiento en curso'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Continuar entrenamiento' }),
+    ).toHaveAttribute('href', '/workout-logs/older-log');
+    expect(
+      screen.queryByRole('button', { name: 'Iniciar entrenamiento' }),
+    ).not.toBeInTheDocument();
+    expect(get).not.toHaveBeenCalledWith('/student/programs/p1/blocks');
+  });
+  it('muestra métricas personales y ausencia de datos sin inventar ceros de RPE', async () => {
+    mockSession();
+    renderHome(false);
+    expect(await screen.findByText('Rendimiento reciente')).toBeInTheDocument();
+    expect(
+      screen.getByText('Esfuerzo promedio · últimos 15 días'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText('Sin datos suficientes').length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText('0.0 / 10')).not.toBeInTheDocument();
   });
 });
