@@ -24,6 +24,7 @@ export interface CoachDashboardSummary {
   workoutsRegistered: number;
   workoutsFinished: number;
   completionStatusBreakdown: CompletionStatusBreakdown;
+  /** @deprecated Personal averages are not meaningful for groups. Use the student endpoint. */
   summary: WorkoutSummaryMetrics;
 }
 

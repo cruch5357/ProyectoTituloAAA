@@ -1,3 +1,5 @@
+import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
+import { parseExerciseVideo } from '../../lib/exerciseVideo';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -70,6 +72,7 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (videoUrl.trim() && !parseExerciseVideo(videoUrl)) return;
     try {
       await updateMutation.mutateAsync({
         id: exercise.id,
@@ -77,7 +80,7 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
           name,
           muscleGroup: muscleGroup.trim() || undefined,
           instructions: instructions.trim() || undefined,
-          videoUrl: videoUrl.trim() || undefined,
+          videoUrl: videoUrl.trim() || null,
         },
       });
     } catch {
@@ -134,17 +137,25 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
         </label>
 
         <label className="field">
-          <span>Video/enlace (opcional)</span>
+          <span>Video demostrativo (opcional)</span>
           <input
             type="url"
             maxLength={500}
-            placeholder="https://…"
+            placeholder="https://www.youtube.com/watch?v=..."
             value={videoUrl}
             onChange={(event) => setVideoUrl(event.target.value)}
             disabled={updateMutation.isPending}
           />
         </label>
 
+        <ExerciseVideo
+          videoUrl={videoUrl.trim()}
+          name={name || 'Ejercicio'}
+          label="Vista previa"
+        />
+        <p className="muted">
+          YouTube público o no listado, con reproducción embebida habilitada.
+        </p>
         {updateMutation.isError && (
           <p role="alert" className="field-error">
             {updateMutation.error instanceof ApiError
@@ -158,7 +169,11 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
         <div className="dialog-actions">
           <button
             type="submit"
-            disabled={updateMutation.isPending || name.trim().length === 0}
+            disabled={
+              updateMutation.isPending ||
+              name.trim().length === 0 ||
+              (!!videoUrl.trim() && !parseExerciseVideo(videoUrl))
+            }
           >
             {updateMutation.isPending ? 'Guardando…' : 'Guardar cambios'}
           </button>

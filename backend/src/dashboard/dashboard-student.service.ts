@@ -7,6 +7,8 @@ import {
   CompletionStatusBreakdown,
   ExerciseEvolutionPoint,
   WorkoutSummaryMetrics,
+  RecentPerformance,
+  computeRecentPerformance,
   buildWorkoutLogFilterWhere,
   computeCompletionStatusBreakdown,
   computeExerciseEvolution,
@@ -23,6 +25,7 @@ export interface StudentDashboardResult {
   workoutsFinished: number;
   completionStatusBreakdown: CompletionStatusBreakdown;
   summary: WorkoutSummaryMetrics;
+  recentPerformance: RecentPerformance;
   // `null` cuando no se pidió `exerciseId` en la query -- mismo criterio
   // exacto que WorkoutEvolutionResult.exerciseEvolution (PROMPT 11,
   // WorkoutLogsService.getEvolution()): la evolución de un ejercicio
@@ -79,11 +82,13 @@ export class DashboardStudentService {
 
     const [
       workoutsRegistered,
+      recentPerformance,
       summary,
       completionStatusBreakdown,
       exerciseEvolution,
     ] = await Promise.all([
       countRegisteredWorkouts(this.prisma, where),
+      computeRecentPerformance(this.prisma, where),
       computeWorkoutSummaryMetrics(this.prisma, where),
       computeCompletionStatusBreakdown(this.prisma, where),
       query.exerciseId
@@ -93,6 +98,7 @@ export class DashboardStudentService {
 
     return {
       student,
+      recentPerformance,
       workoutsRegistered,
       workoutsFinished: summary.totalWorkouts,
       completionStatusBreakdown,

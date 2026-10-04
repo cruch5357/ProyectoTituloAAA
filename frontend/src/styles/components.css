@@ -582,13 +582,3 @@ button.theme-toggle {
 .theme-toggle[aria-checked='true'] > .icon:last-of-type {
   color: var(--color-on-primary);
 }
-button.theme-system {
-  border-color: transparent;
-  padding: 0.5rem;
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
-  background: none;
-}
-button.theme-system[aria-pressed='true'] {
-  color: var(--color-primary);
-}

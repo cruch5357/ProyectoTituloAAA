@@ -1,7 +1,7 @@
-import { useRef, useState } from "react";
-import type { FormEvent } from "react";
-import { useInviteStudent } from "../../api/students";
-import { ApiError } from "../../lib/apiClient";
+import { useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import { useInviteStudent } from '../../api/students';
+import { ApiError } from '../../lib/apiClient';
 
 // Formulario de invitación (PROMPT 04, punto 14). Usa el elemento nativo
 // <dialog> (soportado en navegadores modernos) en vez de una librería de
@@ -9,11 +9,11 @@ import { ApiError } from "../../lib/apiClient";
 // accesibilidad básica (foco atrapado, cierre con Esc) de fábrica.
 export function InviteStudentDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState('');
   const inviteMutation = useInviteStudent();
 
   function openDialog() {
-    setEmail("");
+    setEmail('');
     inviteMutation.reset();
     dialogRef.current?.showModal();
   }
@@ -66,7 +66,7 @@ export function InviteStudentDialog() {
             <p role="alert" className="field-error">
               {inviteMutation.error instanceof ApiError
                 ? inviteMutation.error.message
-                : "No se pudo enviar la invitación."}
+                : 'No se pudo enviar la invitación.'}
             </p>
           )}
 
@@ -81,9 +81,13 @@ export function InviteStudentDialog() {
               type="submit"
               disabled={inviteMutation.isPending || email.length === 0}
             >
-              {inviteMutation.isPending ? "Enviando…" : "Enviar invitación"}
+              {inviteMutation.isPending ? 'Enviando…' : 'Enviar invitación'}
             </button>
-            <button type="button" onClick={closeDialog}>
+            <button
+              type="button"
+              className="button--neutral"
+              onClick={closeDialog}
+            >
               Cerrar
             </button>
           </div>

@@ -17,7 +17,7 @@ function buildMockPrisma(): MockPrisma {
     workoutLog: {
       findUnique: jest.fn(),
       create: jest.fn(),
-      findMany: jest.fn(),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn(),
       count: jest.fn(),
       aggregate: jest.fn(),
@@ -470,6 +470,21 @@ describe('WorkoutLogsService.listHistory', () => {
 });
 
 describe('WorkoutLogsService.getEvolution', () => {
+  it('filtra registros en curso en servidor manteniendo studentId del token', async () => {
+    prisma.workoutLog.findMany.mockResolvedValue([]);
+    prisma.workoutLog.count.mockResolvedValue(0);
+    await service.listHistory(STUDENT_ID, {
+      page: 1,
+      limit: 1,
+      state: 'in-progress',
+    });
+    expect(prisma.workoutLog.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { studentId: STUDENT_ID, durationMinutes: null },
+        take: 1,
+      }),
+    );
+  });
   it('evolución con datos: calcula promedios y frecuencia a partir de entrenamientos finalizados', async () => {
     const first = new Date('2026-01-01T00:00:00.000Z');
     const last = new Date('2026-01-15T00:00:00.000Z'); // 2 semanas después

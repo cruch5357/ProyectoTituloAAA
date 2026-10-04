@@ -93,6 +93,13 @@ describe('DashboardPage', () => {
     expect(screen.getByText('Fuerza General')).toBeInTheDocument();
     expect(screen.getByText('3')).toBeInTheDocument(); // totalStudents
     expect(screen.getByText('45 min')).toBeInTheDocument();
+    for (const label of [
+      'Fatiga promedio',
+      'RPE promedio',
+      'Frecuencia (por semana)',
+      'Duración promedio (min)',
+    ])
+      expect(screen.queryByText(label)).not.toBeInTheDocument();
   });
 
   it('muestra un mensaje cuando el coach todavía no tiene alumnos', async () => {
@@ -109,7 +116,9 @@ describe('DashboardPage', () => {
 
     renderWithProviders(<DashboardPage />);
 
-    expect(await screen.findByText(/Todavía no tienes alumnos/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Todavía no tienes alumnos/),
+    ).toBeInTheDocument();
   });
 
   it('aplica los filtros de fecha y estado en la consulta de actividad reciente', async () => {

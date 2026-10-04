@@ -1,3 +1,4 @@
+import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useStudentSessionDetail } from '../../api/studentTraining';
@@ -54,17 +55,20 @@ export function StudentSessionPage() {
       <h2>Prescripción del coach</h2>
 
       {session.exercises.length === 0 && (
-        <EmptyState title="Sin ejercicios" description="Esta sesión todavía no tiene ejercicios prescritos." />
+        <EmptyState
+          title="Sin ejercicios"
+          description="Esta sesión todavía no tiene ejercicios prescritos."
+        />
       )}
 
       {session.exercises.length > 0 && (
-<div
-  className="table-scroll"
-  role="region"
-  aria-label="Tabla de datos"
-  tabIndex={0}
->
-  <table className="students-table">
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -80,7 +84,13 @@ export function StudentSessionPage() {
               {session.exercises.map((item) => (
                 <tr key={item.id}>
                   <td>{item.order}</td>
-                  <td>{item.exercise.name}</td>
+                  <td>
+                    {item.exercise.name}
+                    <ExerciseVideo
+                      videoUrl={item.exercise.videoUrl}
+                      name={item.exercise.name}
+                    />
+                  </td>
                   <td>{item.targetSets ?? '—'}</td>
                   <td>
                     {item.targetRepsMin !== null && item.targetRepsMax !== null
@@ -91,9 +101,9 @@ export function StudentSessionPage() {
                   </td>
                   <td>{item.targetRpe ?? '—'}</td>
                   <td>{item.targetRir ?? '—'}</td>
-<td>
-  {item.restSeconds !== null ? `${item.restSeconds}s` : '—'}
-</td>
+                  <td>
+                    {item.restSeconds !== null ? `${item.restSeconds}s` : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

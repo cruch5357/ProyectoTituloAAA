@@ -107,7 +107,11 @@ export function ProgramFormDialog() {
             >
               {createMutation.isPending ? 'Creando…' : 'Crear programa'}
             </button>
-            <button type="button" onClick={closeDialog}>
+            <button
+              type="button"
+              className="button--neutral"
+              onClick={closeDialog}
+            >
               Cerrar
             </button>
           </div>

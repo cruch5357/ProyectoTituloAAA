@@ -40,6 +40,7 @@ function buildItem(
       id: 'exercise-1',
       name: 'Sentadilla',
       muscleGroup: 'Piernas',
+      videoUrl: null,
       isActive: true,
     },
     ...overrides,

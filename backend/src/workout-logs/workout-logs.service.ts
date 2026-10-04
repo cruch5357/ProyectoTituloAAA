@@ -25,6 +25,8 @@ import { ensureWithinEditWindow } from '../common/training/edit-window';
 import {
   ExerciseEvolutionPoint,
   WorkoutSummaryMetrics,
+  RecentPerformance,
+  computeRecentPerformance,
   buildWorkoutLogFilterWhere,
   computeExerciseEvolution,
   computeWorkoutSummaryMetrics,
@@ -65,6 +67,7 @@ export interface PaginatedWorkoutLogs {
 
 export interface WorkoutEvolutionResult {
   summary: WorkoutSummaryMetrics;
+  recentPerformance: RecentPerformance;
   exerciseEvolution: ExerciseEvolutionPoint[] | null;
 }
 
@@ -209,6 +212,7 @@ export class WorkoutLogsService {
         programId: query.programId,
         sessionId: query.sessionId,
       }),
+      ...(query.state === 'in-progress' ? { durationMinutes: null } : {}),
     };
 
     const [items, total] = await Promise.all([
@@ -251,13 +255,16 @@ export class WorkoutLogsService {
       }),
     };
 
-    const summary = await computeWorkoutSummaryMetrics(this.prisma, where);
+    const [summary, recentPerformance] = await Promise.all([
+      computeWorkoutSummaryMetrics(this.prisma, where),
+      computeRecentPerformance(this.prisma, where),
+    ]);
 
     const exerciseEvolution = query.exerciseId
       ? await computeExerciseEvolution(this.prisma, where, query.exerciseId)
       : null;
 
-    return { summary, exerciseEvolution };
+    return { summary, recentPerformance, exerciseEvolution };
   }
 
   // GET /workout-logs/:id — detalle propio. Desde PROMPT 11 embebe además

@@ -2,6 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsDateString,
+  IsIn,
   IsEnum,
   IsInt,
   IsOptional,
@@ -32,6 +33,11 @@ export const WORKOUT_LOGS_MAX_LIMIT = 100;
 // ninguna fila propia y devuelve una lista vacía — nunca datos de otro
 // alumno (ver docs/api.md, "Estado de implementación (PROMPT 11)").
 export class ListWorkoutLogsQueryDto {
+  @ApiPropertyOptional({ enum: ['in-progress'] })
+  @IsOptional()
+  @IsIn(['in-progress'])
+  state?: 'in-progress';
+
   @ApiPropertyOptional({ default: WORKOUT_LOGS_DEFAULT_PAGE, minimum: 1 })
   @IsOptional()
   @Type(() => Number)

@@ -26,5 +26,15 @@ export interface ExerciseEvolutionPoint {
 
 export interface WorkoutEvolutionResult {
   summary: WorkoutSummaryMetrics;
+  recentPerformance?: RecentPerformance;
   exerciseEvolution: ExerciseEvolutionPoint[] | null;
+}
+
+export interface RecentPerformance {
+  from: string;
+  to: string;
+  averageOverallRpe: number | null;
+  effortPoints: { performedAt: string; overallRpe: number }[];
+  workoutsRegistered: number;
+  lastActivityAt: string | null;
 }

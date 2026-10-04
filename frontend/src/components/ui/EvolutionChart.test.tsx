@@ -2,6 +2,22 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { EvolutionChart } from './EvolutionChart';
 describe('Evolución real', () => {
+  it('reutiliza la línea temporal para RPE con escala fija y conserva el cero medido', () => {
+    render(
+      <EvolutionChart
+        effortPoints={[
+          { performedAt: '2026-10-01', overallRpe: 0 },
+          { performedAt: '2026-10-03', overallRpe: 8 },
+        ]}
+      />,
+    );
+    expect(
+      screen.getByRole('img', { name: /Esfuerzo por fecha/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Esfuerzo percibido (RPE 0–10) · últimos 15 días'),
+    ).toBeInTheDocument();
+  });
   it('no fabrica puntos cuando falta carga', () => {
     render(
       <EvolutionChart

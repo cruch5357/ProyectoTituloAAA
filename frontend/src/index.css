@@ -202,3 +202,55 @@ hr {
     scroll-behavior: auto !important;
   }
 }
+
+/* Semantic action hierarchy, shared by native buttons and links. */
+button.button--secondary,
+.button.button--secondary,
+button.button--neutral,
+.button.button--neutral {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: var(--color-border);
+  font-weight: 500;
+}
+button.button--ghost,
+.button.button--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+button.button--secondary:hover:not(:disabled),
+button.button--neutral:hover:not(:disabled),
+button.button--ghost:hover:not(:disabled) {
+  background: var(--color-primary-soft);
+}
+button.button--secondary .icon {
+  color: var(--color-primary);
+}
+button.button--danger,
+.button.button--danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: var(--color-surface);
+}
+button.button--danger:hover:not(:disabled),
+.button.button--danger:hover {
+  color: var(--color-danger);
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger) 18%, var(--color-surface));
+}
+.exercise-video {
+  width: 100%;
+  min-width: 0;
+  grid-column: 1 / -1;
+}
+.exercise-video iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: var(--radius-md);
+  display: block;
+}
+.exercise-video__player {
+  margin-top: var(--space-3);
+}

@@ -1,3 +1,4 @@
+import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -154,13 +155,13 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
       )}
 
       {itemsQuery.isSuccess && itemsQuery.data.length > 0 && (
-<div
-  className="table-scroll"
-  role="region"
-  aria-label="Tabla de datos"
-  tabIndex={0}
->
-  <table className="students-table">
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
             <thead>
               <tr>
                 <th>#</th>
@@ -175,11 +176,11 @@ function SessionExercisesSection({ sessionId }: { sessionId: string }) {
             </thead>
             <tbody>
               {itemsQuery.data.map((item) => (
-<SessionExerciseRow
-  key={item.id}
-  item={item}
-  sessionId={sessionId}
-/>
+                <SessionExerciseRow
+                  key={item.id}
+                  item={item}
+                  sessionId={sessionId}
+                />
               ))}
             </tbody>
           </table>
@@ -423,6 +424,15 @@ function AddSessionExerciseForm({ sessionId }: { sessionId: string }) {
   return (
     <form onSubmit={handleSubmit} className="prescription-form">
       <h3>Agregar ejercicio del catálogo</h3>
+      {exercisesQuery.data?.items
+        .filter((item) => item.id === exerciseId)
+        .map((item) => (
+          <ExerciseVideo
+            key={item.id}
+            videoUrl={item.videoUrl}
+            name={item.name}
+          />
+        ))}
 
       <label className="field">
         <span>Ejercicio</span>
@@ -437,6 +447,7 @@ function AddSessionExerciseForm({ sessionId }: { sessionId: string }) {
             <option key={exercise.id} value={exercise.id}>
               {exercise.name}
               {exercise.muscleGroup ? ` (${exercise.muscleGroup})` : ''}
+              {exercise.videoUrl ? ' · Video disponible' : ''}
               {!exercise.isActive ? ' — inactivo' : ''}
             </option>
           ))}

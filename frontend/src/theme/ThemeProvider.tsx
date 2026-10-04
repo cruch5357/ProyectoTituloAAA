@@ -3,61 +3,59 @@ import {
   useContext,
   useEffect,
   useState,
-  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import { Icon } from '../components/ui/Icon';
-export type ThemePreference = 'light' | 'dark' | 'system';
+export type ThemePreference = 'light' | 'dark';
 const ThemeContext = createContext<{
   preference: ThemePreference;
   resolvedTheme: 'light' | 'dark';
   setPreference: (value: ThemePreference) => void;
-}>({ preference: 'system', resolvedTheme: 'light', setPreference: () => {} });
+}>({ preference: 'light', resolvedTheme: 'light', setPreference: () => {} });
 const systemQuery = '(prefers-color-scheme: dark)';
-function subscribeToSystemTheme(listener: () => void) {
-  const media = window.matchMedia(systemQuery);
-  media.addEventListener('change', listener);
-  return () => media.removeEventListener('change', listener);
-}
-function getSystemDark() {
-  return window.matchMedia(systemQuery).matches;
-}
 function readPreference(): ThemePreference {
   try {
     const saved = localStorage.getItem('ui-theme');
-    return saved === 'light' || saved === 'dark' ? saved : 'system';
+    return saved === 'light' || saved === 'dark'
+      ? saved
+      : window.matchMedia(systemQuery).matches
+        ? 'dark'
+        : 'light';
   } catch {
-    return 'system';
+    return window.matchMedia(systemQuery).matches ? 'dark' : 'light';
   }
 }
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [preference, setPreference] = useState<ThemePreference>(readPreference);
-  const systemDark = useSyncExternalStore(
-    subscribeToSystemTheme,
-    getSystemDark,
-    () => false,
-  );
-  const resolvedTheme =
-    preference === 'system' ? (systemDark ? 'dark' : 'light') : preference;
+  const resolvedTheme = preference;
   useEffect(() => {
     document.documentElement.dataset.theme = resolvedTheme;
+    const color = getComputedStyle(document.documentElement)
+      .getPropertyValue('--color-background')
+      .trim();
+    if (color)
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', color);
   }, [resolvedTheme]);
-  useEffect(() => {
+  function chooseTheme(value: ThemePreference) {
+    setPreference(value);
     try {
-      if (preference === 'system') localStorage.removeItem('ui-theme');
-      else localStorage.setItem('ui-theme', preference);
+      localStorage.setItem('ui-theme', value);
     } catch {
       /* Optional visual preference. */
     }
-  }, [preference]);
+  }
   return (
-    <ThemeContext.Provider value={{ preference, resolvedTheme, setPreference }}>
+    <ThemeContext.Provider
+      value={{ preference, resolvedTheme, setPreference: chooseTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );
 }
 export function ThemeToggle() {
-  const { preference, resolvedTheme, setPreference } = useContext(ThemeContext);
+  const { resolvedTheme, setPreference } = useContext(ThemeContext);
   const isDark = resolvedTheme === 'dark';
   return (
     <div className="theme-controls" role="group" aria-label="Apariencia">
@@ -74,32 +72,6 @@ export function ThemeToggle() {
         <Icon name="sun" />
         <Icon name="moon" />
       </button>
-      <button
-        type="button"
-        className="theme-system"
-        aria-pressed={preference === 'system'}
-        title="Seguir la preferencia de tu dispositivo"
-        onClick={() => setPreference('system')}
-      >
-        Sistema
-      </button>
     </div>
-  );
-}
-export function ThemeSelect() {
-  const { preference, setPreference } = useContext(ThemeContext);
-  return (
-    <label className="theme-select">
-      <span>Tema</span>
-      <select
-        aria-label="Tema visual"
-        value={preference}
-        onChange={(e) => setPreference(e.target.value as ThemePreference)}
-      >
-        <option value="system">Sistema</option>
-        <option value="light">Claro</option>
-        <option value="dark">Oscuro</option>
-      </select>
-    </label>
   );
 }

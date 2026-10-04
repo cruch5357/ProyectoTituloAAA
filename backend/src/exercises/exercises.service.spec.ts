@@ -150,6 +150,18 @@ describe('ExercisesService.getOwnedByCoach', () => {
 // POST /exercises — creación de un ejercicio propio.
 // ---------------------------------------------------------------------------
 describe('ExercisesService.create', () => {
+  it('persiste videoUrl opcional sin crear campos nuevos', async () => {
+    const videoUrl = 'https://youtu.be/dQw4w9WgXcQ';
+    prisma.exercise.create.mockResolvedValue(buildExercise({ videoUrl }));
+    const result = await service.create(COACH_ID, {
+      name: 'Sentadilla',
+      videoUrl,
+    });
+    expect(result.videoUrl).toBe(videoUrl);
+    expect(prisma.exercise.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ coachId: COACH_ID, videoUrl }),
+    });
+  });
   it('crea el ejercicio con el coachId del usuario autenticado, nunca uno del dto', async () => {
     prisma.exercise.create.mockResolvedValue(buildExercise());
 
@@ -175,6 +187,15 @@ describe('ExercisesService.create', () => {
 // activar/desactivar (única forma de "eliminar", ver StudentsService).
 // ---------------------------------------------------------------------------
 describe('ExercisesService.update', () => {
+  it('permite reemplazar o quitar el video y conserva la autorización del ejercicio', async () => {
+    prisma.exercise.findUnique.mockResolvedValue(buildExercise());
+    prisma.exercise.update.mockResolvedValue(buildExercise({ videoUrl: null }));
+    await service.update(COACH_ID, 'exercise-1', { videoUrl: null });
+    expect(prisma.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-1' },
+      data: { videoUrl: null },
+    });
+  });
   it('actualiza solo los campos presentes en el dto', async () => {
     prisma.exercise.findUnique.mockResolvedValue(buildExercise());
     prisma.exercise.update.mockResolvedValue(

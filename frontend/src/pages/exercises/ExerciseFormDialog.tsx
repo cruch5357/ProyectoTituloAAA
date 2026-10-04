@@ -1,3 +1,5 @@
+import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
+import { parseExerciseVideo } from '../../lib/exerciseVideo';
 import { useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useCreateExercise } from '../../api/exercises';
@@ -37,6 +39,7 @@ export function ExerciseFormDialog() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (videoUrl.trim() && !parseExerciseVideo(videoUrl)) return;
     try {
       await createMutation.mutateAsync({
         name,
@@ -101,17 +104,25 @@ export function ExerciseFormDialog() {
           </label>
 
           <label className="field">
-            <span>Video/enlace (opcional)</span>
+            <span>Video demostrativo (opcional)</span>
             <input
               type="url"
               maxLength={500}
-              placeholder="https://…"
+              placeholder="https://www.youtube.com/watch?v=..."
               value={videoUrl}
               onChange={(event) => setVideoUrl(event.target.value)}
               disabled={createMutation.isPending}
             />
           </label>
 
+          <ExerciseVideo
+            videoUrl={videoUrl.trim()}
+            name={name || 'Ejercicio'}
+            label="Vista previa"
+          />
+          <p className="muted">
+            YouTube público o no listado, con reproducción embebida habilitada.
+          </p>
           {createMutation.isError && (
             <p role="alert" className="field-error">
               {createMutation.error instanceof ApiError
@@ -123,11 +134,19 @@ export function ExerciseFormDialog() {
           <div className="dialog-actions">
             <button
               type="submit"
-              disabled={createMutation.isPending || name.trim().length === 0}
+              disabled={
+                createMutation.isPending ||
+                name.trim().length === 0 ||
+                (!!videoUrl.trim() && !parseExerciseVideo(videoUrl))
+              }
             >
               {createMutation.isPending ? 'Creando…' : 'Crear ejercicio'}
             </button>
-            <button type="button" onClick={closeDialog}>
+            <button
+              type="button"
+              className="button--neutral"
+              onClick={closeDialog}
+            >
               Cerrar
             </button>
           </div>

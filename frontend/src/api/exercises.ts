@@ -24,7 +24,7 @@ export interface CreateExercisePayload {
   name: string;
   muscleGroup?: string;
   instructions?: string;
-  videoUrl?: string;
+  videoUrl?: string | null;
 }
 
 export type UpdateExercisePayload = Partial<CreateExercisePayload>;

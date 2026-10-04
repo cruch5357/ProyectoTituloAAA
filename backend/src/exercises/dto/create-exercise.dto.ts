@@ -40,7 +40,7 @@ export class CreateExerciseDto {
 
   @ApiPropertyOptional({ example: 'https://ejemplo.com/video-sentadilla' })
   @IsOptional()
-  @IsUrl()
+  @IsUrl({ protocols: ['https'], require_protocol: true })
   @MaxLength(500)
-  videoUrl?: string;
+  videoUrl?: string | null;
 }

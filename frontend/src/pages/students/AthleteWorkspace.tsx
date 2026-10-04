@@ -1,3 +1,4 @@
+import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStudent } from '../../api/students';
 import { useStudentDashboard } from '../../api/dashboard';
@@ -10,7 +11,6 @@ import {
   EmptyState,
   ErrorState,
   Skeleton,
-  StatCard,
 } from '../../components/ui/Primitives';
 const tabs = [
   ['overview', 'Resumen'],
@@ -28,7 +28,11 @@ export function AthleteWorkspace({
   const id = params.id ?? params.studentId;
   const [search] = useSearchParams();
   const requestedTab = search.get('tab');
-  const selected = statistics ? 'statistics' : tabs.some(([key]) => key === requestedTab) ? requestedTab : 'overview';
+  const selected = statistics
+    ? 'statistics'
+    : tabs.some(([key]) => key === requestedTab)
+      ? requestedTab
+      : 'overview';
   const query = useStudent(id);
   if (query.isLoading) return <Skeleton label="Cargando alumno…" />;
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
@@ -92,27 +96,11 @@ function AthleteSummary({ id }: { id: string }) {
   if (!query.data) return null;
   return (
     <>
-      <div className="stat-cards">
-        <StatCard
-          label="Entrenamientos registrados"
-          value={query.data.workoutsRegistered}
-        />
-        <StatCard label="Finalizados" value={query.data.workoutsFinished} />
-        <StatCard
-          label="Series registradas"
-          value={query.data.summary.totalSetLogs}
-          icon="exercise"
-        />
-        <StatCard
-          label="Último entrenamiento"
-          value={
-            query.data.summary.lastWorkoutAt
-              ? new Date(query.data.summary.lastWorkoutAt).toLocaleDateString()
-              : '—'
-          }
-          icon="calendar"
-        />
-      </div>
+      <PersonalPerformance
+        summary={query.data.summary}
+        recent={query.data.recentPerformance}
+        registered={query.data.workoutsRegistered}
+      />
       <Card>
         <h2>Programa activo</h2>
         <p className="muted">

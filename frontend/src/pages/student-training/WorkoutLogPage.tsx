@@ -1,3 +1,4 @@
+import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -81,13 +82,13 @@ export function WorkoutLogPage() {
       )}
 
       {workoutLog.setLogs && workoutLog.setLogs.length > 0 && (
-<div
-  className="table-scroll"
-  role="region"
-  aria-label="Tabla de datos"
-  tabIndex={0}
->
-  <table className="students-table">
+        <div
+          className="table-scroll"
+          role="region"
+          aria-label="Tabla de datos"
+          tabIndex={0}
+        >
+          <table className="students-table">
             <thead>
               <tr>
                 <th>Ejercicio</th>
@@ -102,11 +103,11 @@ export function WorkoutLogPage() {
             </thead>
             <tbody>
               {workoutLog.setLogs.map((setLog) => (
-<SetLogRow
-  key={setLog.id}
-  setLog={setLog}
-  workoutLogId={workoutLog.id}
-/>
+                <SetLogRow
+                  key={setLog.id}
+                  setLog={setLog}
+                  workoutLogId={workoutLog.id}
+                />
               ))}
             </tbody>
           </table>
@@ -384,11 +385,21 @@ function AddSetLogForm({
             {sessionQuery.data?.exercises.map((exercise) => (
               <option key={exercise.id} value={exercise.id}>
                 {exercise.order}. {exercise.exercise.name}
+                {exercise.exercise.videoUrl ? ' · Video disponible' : ''}
               </option>
             ))}
           </select>
         </label>
 
+        {sessionQuery.data?.exercises
+          .filter((item) => item.id === sessionExerciseId)
+          .map((item) => (
+            <ExerciseVideo
+              key={item.id}
+              videoUrl={item.exercise.videoUrl}
+              name={item.exercise.name}
+            />
+          ))}
         <label className="field">
           <span>Número de serie</span>
           <input

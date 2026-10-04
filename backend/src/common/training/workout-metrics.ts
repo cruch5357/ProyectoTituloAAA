@@ -88,6 +88,60 @@ export interface WorkoutSummaryMetrics {
   lastWorkoutAt: Date | null;
 }
 
+export interface RecentPerformance {
+  from: Date;
+  to: Date;
+  averageOverallRpe: number | null;
+  effortPoints: { performedAt: Date; overallRpe: number }[];
+  workoutsRegistered: number;
+  lastActivityAt: Date | null;
+}
+
+/** Personal only. Rolling 15 × 24 hours, inclusive; never substitutes fatigue or set RPE. */
+export async function computeRecentPerformance(
+  prisma: PrismaService,
+  where: Prisma.WorkoutLogWhereInput,
+  now = new Date(),
+): Promise<RecentPerformance> {
+  const from = new Date(now.getTime() - 15 * 24 * 60 * 60 * 1000);
+  const [activity, effort] = await Promise.all([
+    prisma.workoutLog.aggregate({
+      where,
+      _count: { _all: true },
+      _max: { performedAt: true },
+    }),
+    prisma.workoutLog.findMany({
+      where: {
+        AND: [
+          where,
+          {
+            performedAt: { gte: from, lte: now },
+            durationMinutes: { not: null },
+            overallRpe: { not: null },
+          },
+        ],
+      },
+      select: { performedAt: true, overallRpe: true },
+      orderBy: { performedAt: 'asc' },
+    }),
+  ]);
+  const effortPoints = effort.map((row) => ({
+    performedAt: row.performedAt,
+    overallRpe: Number(row.overallRpe),
+  }));
+  return {
+    from,
+    to: now,
+    effortPoints,
+    averageOverallRpe: effortPoints.length
+      ? effortPoints.reduce((sum, row) => sum + row.overallRpe, 0) /
+        effortPoints.length
+      : null,
+    workoutsRegistered: activity._count._all,
+    lastActivityAt: activity._max.performedAt,
+  };
+}
+
 // "Realizado" = un WorkoutLog que pasó por finish() al menos una vez
 // (`durationMinutes !== null`, misma señal ya establecida en PROMPT 10 —
 // ver el comentario de clase de WorkoutLogsService). Un WorkoutLog todavía
