@@ -39,6 +39,9 @@ export interface RecentActivityMeta {
 }
 
 export interface ExerciseEvolutionPoint {
+  volume?: number | null;
+  averageRpe?: number | null;
+  averageRir?: number | null;
   workoutLogId: string;
   performedAt: string;
   maxActualLoad: number | null;

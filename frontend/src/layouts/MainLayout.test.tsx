@@ -77,6 +77,6 @@ describe('Navegación por rol', () => {
         screen.getByRole('navigation', { name: 'Navegación móvil' }),
       ).getByRole('link', { name: 'Entrenamiento' }),
     ).toHaveAttribute('href', '/training');
-    expect(apiClient.get).not.toHaveBeenCalled();
+    expect(apiClient.get).not.toHaveBeenCalledWith(expect.stringMatching(/^\/students/));
   });
 });

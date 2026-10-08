@@ -1,4 +1,5 @@
 const paths = {
+  bell: 'M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4',
   activity: 'M3 12h4l3-8 4 16 3-8h4',
   home: 'm3 10 9-7 9 7v10H3V10m6 10v-7h6v7',
   users:

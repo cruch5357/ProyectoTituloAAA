@@ -32,6 +32,7 @@ export interface PublicProgramAssignment {
   programId: string;
   studentId: string;
   status: ProgramAssignmentStatus;
+  startDate: Date | null;
   assignedAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -56,6 +57,7 @@ export function toPublicProgramAssignment(
     programId: assignment.programId,
     studentId: assignment.studentId,
     status: assignment.status,
+    startDate: assignment.startDate ?? null,
     assignedAt: assignment.assignedAt,
     createdAt: assignment.createdAt,
     updatedAt: assignment.updatedAt,

@@ -1,3 +1,5 @@
+import { AthletePlan, Calendar } from '../../components/coaching/Planning';
+import { CompetitionsPage } from '../coaching/CompetitionsPage';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useStudent } from '../../api/students';
@@ -70,7 +72,7 @@ export function AthleteWorkspace({
       ) : selected === 'program' ? (
         <AthleteProgramPanel key={id} studentId={id!} />
       ) : selected === 'calendar' ? (
-        <AthleteCalendar id={id!} />
+        <><Calendar studentId={id!} /><CompetitionsPage studentId={id!} /></>
       ) : selected === 'forms' ? (
         <Card>
           <EmptyState
@@ -80,7 +82,7 @@ export function AthleteWorkspace({
         </Card>
       ) : (
         <>
-          <AthleteSummary id={id!} />
+          <AthletePlan studentId={id!} /><AthleteSummary id={id!} />
           <Card>
             <StudentDetailPage embedded />
           </Card>
@@ -101,35 +103,7 @@ function AthleteSummary({ id }: { id: string }) {
         recent={query.data.recentPerformance}
         registered={query.data.workoutsRegistered}
       />
-      <Card>
-        <h2>Programa activo</h2>
-        <p className="muted">
-          Las asignaciones se consultan desde cada programa.
-        </p>
-        <Link to={`/students/${id}?tab=program`}>Ir a programación →</Link>
-      </Card>
+
     </>
-  );
-}
-function AthleteCalendar({ id }: { id: string }) {
-  const query = useStudentDashboard(id, {});
-  return (
-    <Card>
-      <h2>Calendario</h2>
-      <EmptyState
-        title="Sin fechas de planificación"
-        description="Los bloques y semanas aún no tienen fechas programadas. Aquí aparecerá el calendario cuando estén disponibles."
-      />
-      {query.isLoading && <Skeleton />}
-      {query.isError && <ErrorState retry={() => void query.refetch()} />}
-      {query.data?.summary.lastWorkoutAt && (
-        <p>
-          Última actividad registrada:{' '}
-          <time dateTime={query.data.summary.lastWorkoutAt}>
-            {new Date(query.data.summary.lastWorkoutAt).toLocaleDateString()}
-          </time>
-        </p>
-      )}
-    </Card>
   );
 }

@@ -1,3 +1,4 @@
+import { CoachOperations } from '../../components/coaching/CoachOperations';
 import { useContext, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -51,7 +52,7 @@ export function DashboardPage() {
   return (
     <section className="coach-dashboard">
       <p className="eyebrow">Vista general · Coach</p>
-      <h1>Dashboard</h1>
+      <h1>Dashboard</h1><CoachOperations />
       {auth?.user && (
         <p className="dashboard-greeting">
           {hour < 12

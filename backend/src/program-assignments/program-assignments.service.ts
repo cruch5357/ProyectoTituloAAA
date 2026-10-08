@@ -1,3 +1,5 @@
+import { dateOnly } from '../common/training/calendar-date';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConflictException,
   Injectable,
@@ -74,6 +76,7 @@ export class ProgramAssignmentsService {
     private readonly prisma: PrismaService,
     private readonly programsService: ProgramsService,
     private readonly auditService: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // Verifica que el alumno exista, sea STUDENT, pertenezca al coach
@@ -156,9 +159,24 @@ export class ProgramAssignmentsService {
       // `status` nace siempre ACTIVE (default del schema) y `assignedAt`
       // siempre `now()` (default del schema) — ninguno de los dos es
       // elegible por el cliente en este endpoint.
-      const created = await this.prisma.programAssignment.create({
-        data: { programId, studentId: student.id },
-        include: { student: { select: STUDENT_SUMMARY_SELECT } },
+      const created = await this.prisma.$transaction(async (tx) => {
+        const assignment = await tx.programAssignment.create({
+          data: {
+            programId,
+            studentId: student.id,
+            ...(dto.startDate ? { startDate: dateOnly(dto.startDate) } : {}),
+          },
+          include: { student: { select: STUDENT_SUMMARY_SELECT } },
+        });
+        await this.notifications.create(
+          tx,
+          student.id,
+          'PROGRAM_ASSIGNED',
+          'Tu coach te asignó un programa',
+          'program',
+          programId,
+        );
+        return assignment;
       });
 
       await this.auditService.record({

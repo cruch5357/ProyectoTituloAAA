@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Prisma, WorkoutCompletionStatus } from '@prisma/client';
 import { WorkoutLogsService } from './workout-logs.service';
@@ -6,14 +7,16 @@ import { StudentTrainingService } from '../student-training/student-training.ser
 import { AuditService } from '../audit/audit.service';
 
 type MockPrisma = {
+  user: Record<string, jest.Mock>;
+  $transaction: jest.Mock;
   workoutLog: Record<string, jest.Mock>;
   sessionExercise: Record<string, jest.Mock>;
   setLog: Record<string, jest.Mock>;
-  $transaction: jest.Mock;
 };
 
 function buildMockPrisma(): MockPrisma {
   return {
+    user: { findUnique: jest.fn().mockResolvedValue(null) },
     workoutLog: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -69,6 +72,11 @@ function buildWorkoutLog(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   prisma = buildMockPrisma();
+  prisma.$transaction = jest.fn((input: unknown) =>
+    typeof input === 'function'
+      ? input(prisma)
+      : Promise.all(input as Promise<unknown>[]),
+  );
   studentTrainingService = {
     findAssignedSessionOrThrow: jest.fn().mockResolvedValue({ id: SESSION_ID }),
   } as unknown as jest.Mocked<StudentTrainingService>;
@@ -80,6 +88,7 @@ beforeEach(() => {
     prisma as unknown as PrismaService,
     studentTrainingService,
     auditService,
+    { create: jest.fn() } as unknown as NotificationsService,
   );
 });
 
@@ -569,6 +578,9 @@ describe('WorkoutLogsService.getEvolution', () => {
       {
         workoutLogId: 'wl-1',
         performedAt: new Date('2026-01-01'),
+        volume: 1120,
+        averageRpe: null,
+        averageRir: null,
         maxActualLoad: 65,
         totalActualReps: 18,
         setCount: 2,

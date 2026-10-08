@@ -45,12 +45,14 @@ export async function login(payload: LoginPayload): Promise<SessionResult> {
 // nuevo. Si no hay cookie o es inválida, el backend responde con un error
 // (ver nota en apiClient.ts) y este helper simplemente lo deja propagar;
 // AuthProvider lo interpreta como "no hay sesión".
-export async function refreshSession(): Promise<SessionResult> {
-  const res = await apiClient.post<SessionResult>("/auth/refresh", undefined, {
+let pendingRefresh: Promise<SessionResult> | undefined;
+export function refreshSession(): Promise<SessionResult> {
+  // React StrictMode can mount twice; rotate each refresh cookie only once.
+  pendingRefresh ??= apiClient.post<SessionResult>("/auth/refresh", undefined, {
     skipAuth: true,
     withCsrf: true,
-  });
-  return res.data;
+  }).then((res) => res.data).finally(() => { pendingRefresh = undefined; });
+  return pendingRefresh;
 }
 
 export async function logout(): Promise<void> {

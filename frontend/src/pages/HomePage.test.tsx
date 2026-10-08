@@ -30,7 +30,7 @@ function renderHome(authValue: AuthContextValue) {
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<div>Panel del coach</div>} />
-          <Route path="/my-programs" element={<div>Mis programas asignados</div>} />
+          <Route path="/home" element={<div>Mis programas asignados</div>} />
         </Routes>
       </MemoryRouter>
     </AuthContext.Provider>,
@@ -43,15 +43,15 @@ describe('HomePage', () => {
 
     expect(
       screen.getByRole('heading', {
-        name: 'Plataforma de Gestión y Seguimiento de Entrenamiento',
+        name: 'Entrena mejor.Planifica con datos.',
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Iniciar sesión' })).toHaveAttribute(
+    expect(screen.getAllByRole('link', { name: 'Iniciar sesión' })[0]).toHaveAttribute(
       'href',
       '/login',
     );
     expect(
-      screen.getByRole('link', { name: 'Crear cuenta de coach' }),
+      screen.getAllByRole('link', { name: 'Crear cuenta Coach' })[0],
     ).toHaveAttribute('href', '/register');
   });
 
@@ -66,7 +66,7 @@ describe('HomePage', () => {
     expect(screen.getByText('Panel del coach')).toBeInTheDocument();
   });
 
-  it('redirige a /my-programs cuando hay sesión de alumno', () => {
+  it('redirige a /home cuando hay sesión de alumno', () => {
     renderHome({
       status: 'authenticated',
       user: buildUser({ role: 'STUDENT' }),
@@ -85,7 +85,7 @@ describe('HomePage', () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', {
-        name: 'Plataforma de Gestión y Seguimiento de Entrenamiento',
+        name: 'Entrena mejor.Planifica con datos.',
       }),
     ).toBeInTheDocument();
   });

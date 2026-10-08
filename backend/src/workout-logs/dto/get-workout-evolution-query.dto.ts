@@ -11,6 +11,9 @@ import { IsDateString, IsOptional, Matches } from 'class-validator';
 // evolución de carga/repeticiones de ESE ejercicio del catálogo a través
 // del tiempo (ver WorkoutLogsService.getEvolution()).
 export class GetWorkoutEvolutionQueryDto {
+  @IsOptional()
+  @Matches(/^c[a-z0-9]{24}$/)
+  blockId?: string;
   @ApiPropertyOptional({
     description: 'Fecha desde (ISO 8601), inclusive',
     example: '2026-01-01',

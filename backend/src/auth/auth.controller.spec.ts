@@ -57,18 +57,20 @@ describe('AuthController - cookies de sesión', () => {
     );
     expect(refreshCookieCall).toBeDefined();
     expect(refreshCookieCall[1]).toBe('refresh-token-value');
-    expect(refreshCookieCall[2]).toMatchObject({
-      httpOnly: true,
-      sameSite: 'strict',
+      expect(refreshCookieCall[2]).toMatchObject({
+        httpOnly: true,
+        sameSite: 'strict',
+        path: '/api/v1/auth',
     });
 
     const csrfCookieCall = res.cookie.mock.calls.find(
       (c: any[]) => c[0] === 'csrf_token',
     );
     expect(csrfCookieCall).toBeDefined();
-    expect(csrfCookieCall[2]).toMatchObject({
-      httpOnly: false,
-      sameSite: 'strict',
+      expect(csrfCookieCall[2]).toMatchObject({
+        httpOnly: false,
+        sameSite: 'strict',
+        path: '/',
     });
   });
 

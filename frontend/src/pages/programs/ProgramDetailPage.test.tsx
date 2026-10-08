@@ -197,7 +197,7 @@ describe('ProgramDetailPage', () => {
 
     await waitFor(() => {
       expect(postSpy).toHaveBeenCalledWith('/programs/program-1/assign', {
-        studentId: 'student-1',
+        studentId: 'student-1', startDate: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       });
     });
   });

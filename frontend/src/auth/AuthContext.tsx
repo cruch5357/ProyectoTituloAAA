@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { setAccessTokenGetter } from '../lib/apiClient';
 import { login as apiLogin, logout as apiLogout, refreshSession } from '../api/auth';
 import type { LoginPayload } from '../api/auth';
@@ -20,6 +21,7 @@ import type { AuthContextValue, AuthStatus } from './authContextObject';
 // RolesGuard, verificación de propiedad en StudentsService) — cualquiera
 // que llame a la API directamente sin pasar por esta UI sigue bloqueado ahí.
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient();
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<PublicUser | null>(null);
   const accessTokenRef = useRef<string | null>(null);
@@ -55,11 +57,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (payload: LoginPayload) => {
     const result = await apiLogin(payload);
+    await queryClient.cancelQueries();
+    queryClient.clear();
     accessTokenRef.current = result.accessToken;
     setUser(result.user);
     setStatus('authenticated');
     return result.user;
-  }, []);
+  }, [queryClient]);
 
   const logout = useCallback(async () => {
     try {
@@ -68,10 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Best-effort: aunque la llamada al backend falle (ej. red caída), la
       // sesión se limpia igual del lado del cliente.
       accessTokenRef.current = null;
+      await queryClient.cancelQueries();
+      queryClient.clear();
       setUser(null);
       setStatus('anonymous');
     }
-  }, []);
+  }, [queryClient]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ status, user, login, logout }),

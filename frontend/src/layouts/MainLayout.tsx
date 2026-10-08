@@ -1,3 +1,4 @@
+import { NotificationBell } from '../components/coaching/Notifications';
 import { useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
@@ -14,10 +15,12 @@ const coachLinks: { to: string; label: string; icon: IconName }[] = [
   { to: '/imports/excel', label: 'Importar Excel', icon: 'upload' },
 ];
 const studentLinks: typeof coachLinks = [
-  { to: '/', label: 'Inicio', icon: 'home' },
+  { to: '/home', label: 'Inicio', icon: 'home' },
   { to: '/training', label: 'Entrenamiento', icon: 'exercise' },
   { to: '/my-programs', label: 'Mis programas', icon: 'program' },
   { to: '/history', label: 'Historial', icon: 'chart' },
+  { to: '/calendar', label: 'Calendario', icon: 'program' },
+  { to: '/competitions', label: 'Competiciones', icon: 'activity' },
 ];
 function QuickStudents() {
   const location = useLocation();
@@ -81,7 +84,8 @@ export function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const [more, setMore] = useState(false);
   const authenticated = status === 'authenticated' && !!user;
-  const links = user?.role === 'COACH' ? coachLinks : studentLinks;
+  const baseLinks = user?.role === 'COACH' ? coachLinks : studentLinks;
+  const links = [...baseLinks, { to: '/messages', label: 'Mensajes', icon: 'users' as const }, { to: '/profile', label: 'Mi perfil', icon: 'users' as const }];
   const navigation = (mobile = false) =>
     (mobile ? links.slice(0, 4) : links).map((item) => (
       <NavLink
@@ -130,11 +134,11 @@ export function MainLayout() {
           </nav>
           {!collapsed && user.role === 'COACH' && <QuickStudents />}
           <div className="sidebar-footer">
-            <span className="avatar">{user.name.slice(0, 1)}</span>
-            <span className="brand-text">
-              {user.name}
-              <small>{user.role === 'COACH' ? 'Coach' : 'Alumno'}</small>
-            </span>
+            <Link className="avatar" to="/profile" aria-label="Mi perfil">{user.name.slice(0, 1)}</Link>
+              <Link className="brand-text" to="/profile">
+                {user.name}
+                <small>{user.role === 'COACH' ? 'Coach' : 'Alumno'}</small>
+              </Link>
           </div>
         </aside>
       )}
@@ -154,6 +158,7 @@ export function MainLayout() {
             </Link>
           )}
           <div className="topbar-actions">
+            {authenticated && <NotificationBell />}
             <ThemeToggle />
             {authenticated ? (
               <button
@@ -190,10 +195,7 @@ export function MainLayout() {
           </nav>
           {more && (
             <div id="mobile-more" className="mobile-more">
-              <Link to="/imports/excel" onClick={() => setMore(false)}>
-                <Icon name="upload" />
-                Importar Excel
-              </Link>
+              {links.slice(4).map((item) => <Link key={item.to} to={item.to} onClick={() => setMore(false)}><Icon name={item.icon} />{item.label}</Link>)}
               <button type="button" onClick={() => setMore(false)}>
                 Cerrar menú
               </button>

@@ -1,3 +1,4 @@
+import { AssignmentDate } from '../../components/coaching/Planning';
 import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -258,6 +259,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
   const updateStatusMutation = useUpdateProgramAssignmentStatus(programId);
 
   const [studentId, setStudentId] = useState('');
+  const [startDate, setStartDate] = useState(() => new Date().toLocaleDateString('en-CA')); 
 
   const activeStudents =
     studentsQuery.data?.items.filter((student) => student.isActive) ?? [];
@@ -265,7 +267,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
   async function handleAssign(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     try {
-      await assignMutation.mutateAsync(studentId);
+      await assignMutation.mutateAsync({ studentId, startDate });
       setStudentId('');
     } catch {
       // El error queda disponible en assignMutation.error.
@@ -320,7 +322,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
 <td>
-  {new Date(assignment.assignedAt).toLocaleDateString()}
+  {new Date(assignment.assignedAt).toLocaleDateString()}<AssignmentDate id={assignment.id} startDate={assignment.startDate} />
 </td>
                   <td>
                     <button
@@ -345,7 +347,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
         </div>
       )}
 
-      <form onSubmit={handleAssign} className="inline-create-form">
+      <form onSubmit={handleAssign} className="inline-create-form"><label className="field">Fecha de inicio<input type="date" required value={startDate} onChange={(e) => setStartDate(e.target.value)} /></label>
         <label className="field">
           <span>Asignar a alumno</span>
           <select

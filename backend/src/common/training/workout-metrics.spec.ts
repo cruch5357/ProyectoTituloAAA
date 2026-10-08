@@ -209,6 +209,9 @@ describe('computeExerciseEvolution', () => {
       {
         workoutLogId: 'wl-1',
         performedAt: new Date('2026-01-01'),
+        volume: 1124,
+        averageRpe: null,
+        averageRir: null,
         maxActualLoad: 65.5,
         totalActualReps: 18,
         setCount: 2,
@@ -216,6 +219,9 @@ describe('computeExerciseEvolution', () => {
       {
         workoutLogId: 'wl-2',
         performedAt: new Date('2026-01-08'),
+        volume: 420,
+        averageRpe: null,
+        averageRir: null,
         maxActualLoad: 70,
         totalActualReps: 6,
         setCount: 1,
@@ -244,6 +250,9 @@ describe('computeExerciseEvolution', () => {
       {
         workoutLogId: 'wl-1',
         performedAt: new Date('2026-01-01'),
+        volume: null,
+        averageRpe: null,
+        averageRir: null,
         maxActualLoad: null,
         totalActualReps: null,
         setCount: 1,

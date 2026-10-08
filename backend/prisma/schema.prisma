@@ -95,6 +95,9 @@ model User {
   sentMessages        Message[]           @relation("SentMessages")
   receivedMessages    Message[]           @relation("ReceivedMessages")
   auditLogs           AuditLog[]          @relation("ActorAuditLogs")
+  profile             UserProfile?
+  competitions        Competition[]
+  notifications       Notification[]
 
   // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
   passwordResetTokens PasswordResetToken[]
@@ -259,6 +262,7 @@ model SessionExercise {
 // ---------------------------------------------------------------------------
 
 model ProgramAssignment {
+  startDate  DateTime? @db.Date @map("start_date")
   id         String                  @id @default(cuid())
   programId  String                  @map("program_id")
   program    Program                 @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -377,6 +381,7 @@ model ExcelImportRow {
 // ---------------------------------------------------------------------------
 
 model Message {
+  attachments MessageAttachment[]
   id         String   @id @default(cuid())
   senderId   String   @map("sender_id")
   sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
@@ -484,4 +489,89 @@ model PasswordResetToken {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([userId, expiresAt])
   @@map("password_reset_tokens")
+}
+
+enum CompetitionStatus {
+  UPCOMING
+  COMPLETED
+  CANCELLED
+}
+
+enum AttachmentType {
+  IMAGE
+  VIDEO
+}
+
+enum NotificationType {
+  NEW_MESSAGE
+  NEW_MESSAGE_ATTACHMENT
+  COMPETITION_CREATED
+  COMPETITION_UPDATED
+  COMPETITION_GOAL_UPDATED
+  PROGRAM_ASSIGNED
+  WORKOUT_COMPLETED
+}
+
+model Competition {
+  id String @id @default(cuid())
+  studentId String @map("student_id")
+  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name String
+  eventDate DateTime @db.Date @map("event_date")
+  category String
+  location String?
+  goal String?
+  coachGoal String? @map("coach_goal")
+  notes String?
+  status CompetitionStatus @default(UPCOMING)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@index([studentId, status, eventDate])
+  @@map("competitions")
+}
+
+model UserProfile {
+  id String @id @default(cuid())
+  userId String @unique @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String? @map("display_name")
+  avatarUrl String? @map("avatar_url")
+  phone String?
+  birthDate DateTime? @db.Date @map("birth_date")
+  city String?
+  sport String?
+  bio String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@map("user_profiles")
+}
+
+model MessageAttachment {
+  id String @id @default(cuid())
+  messageId String @map("message_id")
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  type AttachmentType
+  storageKey String @unique @map("storage_key")
+  mimeType String @map("mime_type")
+  originalFilename String @map("original_filename")
+  sizeBytes Int @map("size_bytes")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([messageId])
+  @@map("message_attachments")
+}
+
+model Notification {
+  id String @id @default(cuid())
+  userId String @map("user_id")
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type NotificationType
+  title String
+  body String
+  readAt DateTime? @map("read_at")
+  resourceType String? @map("resource_type")
+  resourceId String? @map("resource_id")
+  dedupeKey String? @unique @map("dedupe_key")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([userId, readAt, createdAt])
+  @@map("notifications")
 }
