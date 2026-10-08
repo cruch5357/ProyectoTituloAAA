@@ -39,6 +39,7 @@ function buildAssignment(
   overrides: Partial<PublicProgramAssignment> = {},
 ): PublicProgramAssignment {
   return {
+    startDate: null,
     id: 'assignment-1',
     programId: 'program-1',
     studentId: 'student-123',

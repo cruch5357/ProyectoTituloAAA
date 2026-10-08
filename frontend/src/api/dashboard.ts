@@ -24,6 +24,7 @@ export interface RecentActivityParams {
 }
 
 export interface StudentDashboardParams {
+  blockId?: string;
   dateFrom?: string;
   dateTo?: string;
   programId?: string;

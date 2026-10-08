@@ -72,11 +72,14 @@ export class AuthController {
     });
 
     const csrfToken = randomBytes(32).toString('base64url');
+    // Remove the legacy path-scoped cookie; the SPA must read the double-submit
+    // value from /home, /messages, etc. The refresh token remains HttpOnly.
+    res.clearCookie(CSRF_COOKIE, { path: REFRESH_TOKEN_COOKIE_PATH });
     res.cookie(CSRF_COOKIE, csrfToken, {
       httpOnly: false, // el frontend debe poder leerla para el header CSRF
       secure: this.isProduction(),
       sameSite: 'strict',
-      path: REFRESH_TOKEN_COOKIE_PATH,
+      path: '/',
       maxAge,
     });
   }
@@ -84,6 +87,7 @@ export class AuthController {
   private clearSessionCookies(res: Response): void {
     res.clearCookie(REFRESH_TOKEN_COOKIE, { path: REFRESH_TOKEN_COOKIE_PATH });
     res.clearCookie(CSRF_COOKIE, { path: REFRESH_TOKEN_COOKIE_PATH });
+    res.clearCookie(CSRF_COOKIE, { path: '/' });
   }
 
   @Post('register')

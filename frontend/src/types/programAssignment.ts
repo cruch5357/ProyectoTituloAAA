@@ -30,6 +30,7 @@ export interface ProgramAssignment {
   programId: string;
   studentId: string;
   status: ProgramAssignmentStatus;
+  startDate?: string | null;
   assignedAt: string;
   createdAt: string;
   updatedAt: string;

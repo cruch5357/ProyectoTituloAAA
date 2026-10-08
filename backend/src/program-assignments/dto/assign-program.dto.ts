@@ -1,5 +1,5 @@
+import { IsOptional, Matches } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { Matches } from 'class-validator';
 
 // Body de POST /programs/:programId/assign (PROMPT 09). DELIBERADAMENTE
 // angosto: el UNICO campo que este endpoint acepta es `studentId` (formato
@@ -22,6 +22,7 @@ import { Matches } from 'class-validator';
 // independiente — evita ademas tener que decidir un comportamiento
 // "todo o nada" vs "parcial" para una lista, que el enunciado no pide.
 export class AssignProgramDto {
+  @IsOptional() @Matches(/^\d{4}-\d{2}-\d{2}$/) startDate?: string;
   @ApiProperty({ example: 'ckv6q8x9z0000qzrmn831p6k' })
   @Matches(/^c[a-z0-9]{24}$/, { message: 'id con formato inválido' })
   studentId: string;

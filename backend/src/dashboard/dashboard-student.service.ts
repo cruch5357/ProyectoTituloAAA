@@ -77,6 +77,9 @@ export class DashboardStudentService {
         dateFrom: parseDateFrom(query.dateFrom),
         dateTo: parseDateTo(query.dateTo),
         programId: query.programId,
+        ...(query.blockId
+          ? { blockId: (query as GetWorkoutEvolutionQueryDto).blockId }
+          : {}),
       }),
     };
 

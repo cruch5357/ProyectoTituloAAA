@@ -36,14 +36,15 @@ export function useProgramAssignments(programId: string | undefined) {
 export function useAssignProgram(programId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (studentId: string) => {
+    mutationFn: async (input: string | { studentId: string; startDate: string }) => {
       const res = await apiClient.post<ProgramAssignment>(
         `/programs/${programId}/assign`,
-        { studentId },
+        typeof input === 'string' ? { studentId: input } : input,
       );
       return res.data;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['coaching'] });
       void queryClient.invalidateQueries({
         queryKey: programAssignmentsKeys.forProgram(programId),
       });
@@ -70,6 +71,7 @@ export function useUpdateProgramAssignmentStatus(programId: string) {
       return res.data;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['coaching'] });
       void queryClient.invalidateQueries({
         queryKey: programAssignmentsKeys.forProgram(programId),
       });

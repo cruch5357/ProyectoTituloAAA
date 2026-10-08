@@ -9,7 +9,7 @@ import { ApiError } from "../lib/apiClient";
 import { LoginPage } from "./LoginPage";
 
 // Pruebas de navegación crítica (PROMPT 17): el login debe redirigir según
-// el rol del usuario (Coach -> /dashboard, Alumno -> /my-programs), no
+// el rol del usuario (Coach -> /dashboard, Alumno -> /home), no
 // siempre al mismo lugar. Se usa un AuthContext.Provider "a mano" (en vez
 // de AuthProvider real) para no depender de la llamada de red a
 // /auth/refresh que AuthProvider dispara al montarse.
@@ -34,7 +34,7 @@ function renderLogin(authValue: AuthContextValue, route = "/login") {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/dashboard" element={<div>Panel del coach</div>} />
           <Route
-            path="/my-programs"
+            path="/home"
             element={<div>Mis programas asignados</div>}
           />
         </Routes>
@@ -66,7 +66,7 @@ describe("LoginPage", () => {
     expect(screen.getByText("Panel del coach")).toBeInTheDocument();
   });
 
-  it("redirige a /my-programs cuando ya hay sesión de un alumno", () => {
+  it("redirige a /home cuando ya hay sesión de un alumno", () => {
     renderLogin({
       status: "authenticated",
       user: buildUser({ role: "STUDENT" }),

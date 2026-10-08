@@ -36,3 +36,6 @@ Thumbs.db
 
 # Vite
 frontend/.vite/
+
+# Private chat media
+backend/storage/

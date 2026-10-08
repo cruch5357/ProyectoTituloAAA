@@ -1,3 +1,5 @@
+import { MessagesModule } from './messages/messages.module';
+import { CoachingModule } from './coaching/coaching.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -24,6 +26,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { ImportsModule } from './imports/imports.module';
 import { validateEnv } from './config/env.validation';
 import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
+import { AuthController } from './auth/auth.controller';
+import { StudentsController } from './students/students.controller';
 
 @Module({
   imports: [
@@ -45,12 +49,18 @@ import { AUTH_THROTTLER_NAME } from './auth/auth.constants';
         },
         {
           name: AUTH_THROTTLER_NAME,
+          // The stricter authentication quota must not throttle chat downloads
+          // or ordinary data reads. The general quota still applies everywhere.
+          skipIf: (context) => context.getClass() !== AuthController &&
+            !(context.getClass() === StudentsController && context.getHandler().name === 'invite'),
           ttl: config.get<number>('AUTH_THROTTLE_TTL_MS') ?? 60000,
           limit: config.get<number>('AUTH_THROTTLE_LIMIT') ?? 10,
         },
       ],
     }),
     PrismaModule,
+    CoachingModule,
+    MessagesModule,
     AuditModule,
     HealthModule,
     AuthModule,

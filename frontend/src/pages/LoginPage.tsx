@@ -6,7 +6,7 @@ import { getHomePathForRole } from "../auth/roleHome";
 import { ApiError } from "../lib/apiClient";
 
 interface LocationState {
-  from?: { pathname: string };
+  from?: { pathname: string; search?: string };
   registered?: boolean;
 }
 
@@ -27,7 +27,7 @@ export function LoginPage() {
 
   if (status === "authenticated" && user) {
     const redirectTo =
-      locationState?.from?.pathname ?? getHomePathForRole(user.role);
+      locationState?.from ? locationState.from.pathname + (locationState.from.search ?? '') : getHomePathForRole(user.role);
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -38,7 +38,7 @@ export function LoginPage() {
     try {
       const loggedInUser = await login({ email, password });
       const redirectTo =
-        locationState?.from?.pathname ?? getHomePathForRole(loggedInUser.role);
+        locationState?.from ? locationState.from.pathname + (locationState.from.search ?? '') : getHomePathForRole(loggedInUser.role);
       navigate(redirectTo, { replace: true });
     } catch (submitError) {
       setError(

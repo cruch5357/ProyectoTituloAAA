@@ -1,3 +1,4 @@
+import { useCalendar } from '../../api/coaching';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -28,6 +29,8 @@ export function StudentDashboardPage({
 }) {
   const params = useParams<{ studentId: string }>();
   const studentId = studentIdOverride ?? params.studentId;
+  const calendar = useCalendar(studentId);
+  const [blockName, setBlockName] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [exerciseId, setExerciseId] = useState('');
@@ -44,6 +47,7 @@ export function StudentDashboardPage({
   });
 
   const dashboardQuery = useStudentDashboard(studentId, {
+    blockId: blockName || undefined,
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     exerciseId: exerciseId || undefined,
@@ -119,6 +123,7 @@ export function StudentDashboardPage({
             )}
           </form>
 
+          <label className="field">Bloque<select value={blockName} onChange={(e) => setBlockName(e.target.value)}><option value="">Todos</option>{Array.from(new Map((calendar.data?.sessions ?? []).map((s) => [s.blockId, s.blockName])).entries()).map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
           <label className="field exercise-search">
             Buscar en el catálogo
             <input
@@ -246,7 +251,7 @@ export function StudentDashboardPage({
                           <th>Fecha</th>
                           <th>Carga máxima</th>
                           <th>Reps totales</th>
-                          <th>Series</th>
+                          <th>Series</th><th>Volumen (carga × reps)</th><th>RPE</th><th>RIR</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -257,7 +262,7 @@ export function StudentDashboardPage({
                             </td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
-                            <td>{point.setCount}</td>
+                            <td>{point.setCount}</td><td>{point.volume?.toFixed(1) ?? "—"}</td><td>{point.averageRpe?.toFixed(1) ?? "—"}</td><td>{point.averageRir?.toFixed(1) ?? "—"}</td>
                           </tr>
                         ))}
                       </tbody>

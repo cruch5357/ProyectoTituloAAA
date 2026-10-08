@@ -155,6 +155,9 @@ describe('DashboardStudentService.getStudentDashboard', () => {
       {
         workoutLogId: 'wl-1',
         performedAt: new Date('2026-01-05'),
+        volume: 640,
+        averageRpe: null,
+        averageRir: null,
         maxActualLoad: 80,
         totalActualReps: 8,
         setCount: 1,

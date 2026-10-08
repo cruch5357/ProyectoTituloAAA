@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConflictException,
   Injectable,
@@ -117,6 +118,7 @@ export class WorkoutLogsService {
     private readonly prisma: PrismaService,
     private readonly studentTrainingService: StudentTrainingService,
     private readonly auditService: AuditService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // WorkoutLog.studentId es un campo directo y confiable (se fija una sola
@@ -210,6 +212,9 @@ export class WorkoutLogsService {
         dateTo: parseDateTo(query.dateTo),
         completionStatus: query.completionStatus,
         programId: query.programId,
+        ...('blockId' in query
+          ? { blockId: (query as GetWorkoutEvolutionQueryDto).blockId }
+          : {}),
         sessionId: query.sessionId,
       }),
       ...(query.state === 'in-progress' ? { durationMinutes: null } : {}),
@@ -252,6 +257,9 @@ export class WorkoutLogsService {
         dateFrom: parseDateFrom(query.dateFrom),
         dateTo: parseDateTo(query.dateTo),
         programId: query.programId,
+        ...('blockId' in query
+          ? { blockId: (query as GetWorkoutEvolutionQueryDto).blockId }
+          : {}),
       }),
     };
 
@@ -370,17 +378,36 @@ export class WorkoutLogsService {
     );
     ensureWithinEditWindow(workoutLog.createdAt);
 
-    const updated = await this.prisma.workoutLog.update({
-      where: { id: workoutLogId },
-      data: {
-        completionStatus: dto.completionStatus,
-        durationMinutes: dto.durationMinutes,
-        overallRpe: dto.overallRpe ?? null,
-        fatigue: dto.fatigue ?? null,
-        comments: dto.comments ?? null,
-      },
-    });
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.workoutLog.update({
+        where: { id: workoutLogId },
+        data: {
+          completionStatus: dto.completionStatus,
+          durationMinutes: dto.durationMinutes,
+          overallRpe: dto.overallRpe ?? null,
+          fatigue: dto.fatigue ?? null,
+          comments: dto.comments ?? null,
+        },
+      });
 
+      if (workoutLog.durationMinutes === null) {
+        const student = await tx.user.findUnique({
+          where: { id: studentId },
+          select: { coachId: true, name: true },
+        });
+        if (student?.coachId)
+          await this.notifications.create(
+            tx,
+            student.coachId,
+            'WORKOUT_COMPLETED',
+            student.name + ' finalizó un entrenamiento',
+            'student',
+            studentId,
+            'workout:' + workoutLogId,
+          );
+      }
+      return result;
+    });
     await this.auditService.record({
       actorId: studentId,
       action: AUDIT_ACTIONS.WORKOUT_LOG_FINISHED,

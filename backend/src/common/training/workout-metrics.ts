@@ -26,6 +26,7 @@ export interface WorkoutLogFilters {
   dateTo?: Date;
   completionStatus?: WorkoutCompletionStatus;
   programId?: string;
+  blockId?: string;
   sessionId?: string;
 }
 
@@ -53,8 +54,17 @@ export function buildWorkoutLogFilterWhere(
       ? { completionStatus: filters.completionStatus }
       : {}),
     ...(filters.sessionId ? { sessionId: filters.sessionId } : {}),
-    ...(filters.programId
-      ? { session: { week: { block: { programId: filters.programId } } } }
+    ...(filters.programId || filters.blockId
+      ? {
+          session: {
+            week: {
+              block: {
+                ...(filters.programId ? { programId: filters.programId } : {}),
+                ...(filters.blockId ? { id: filters.blockId } : {}),
+              },
+            },
+          },
+        }
       : {}),
   };
 }
@@ -203,6 +213,9 @@ export async function computeWorkoutSummaryMetrics(
 }
 
 export interface ExerciseEvolutionPoint {
+  volume: number | null;
+  averageRpe: number | null;
+  averageRir: number | null;
   workoutLogId: string;
   performedAt: Date;
   maxActualLoad: number | null;
@@ -237,17 +250,31 @@ export async function computeExerciseEvolution(
       workoutLogId: true,
       actualLoad: true,
       actualReps: true,
+      actualRpe: true,
+      actualRir: true,
       workoutLog: { select: { performedAt: true } },
     },
     orderBy: { workoutLog: { performedAt: 'asc' } },
   });
 
   const byWorkout = new Map<string, ExerciseEvolutionPoint>();
+  const effort = new Map<string, { rpe: number[]; rir: number[] }>();
   for (const setLog of setLogs) {
+    const values = effort.get(setLog.workoutLogId) ?? { rpe: [], rir: [] };
+    if (setLog.actualRpe != null) values.rpe.push(Number(setLog.actualRpe));
+    if (setLog.actualRir != null) values.rir.push(setLog.actualRir);
+    effort.set(setLog.workoutLogId, values);
     const load = setLog.actualLoad !== null ? Number(setLog.actualLoad) : null;
+    const volume =
+      load !== null && setLog.actualReps !== null
+        ? load * setLog.actualReps
+        : null;
     const existing = byWorkout.get(setLog.workoutLogId);
     if (!existing) {
       byWorkout.set(setLog.workoutLogId, {
+        volume,
+        averageRpe: null,
+        averageRir: null,
         workoutLogId: setLog.workoutLogId,
         performedAt: setLog.workoutLog.performedAt,
         maxActualLoad: load,
@@ -257,6 +284,7 @@ export async function computeExerciseEvolution(
       continue;
     }
     existing.setCount += 1;
+    if (volume !== null) existing.volume = (existing.volume ?? 0) + volume;
     if (
       load !== null &&
       (existing.maxActualLoad === null || load > existing.maxActualLoad)
@@ -272,7 +300,18 @@ export async function computeExerciseEvolution(
   // El Map conserva el orden de inserción, que ya llega ordenado por
   // `performedAt asc` desde la consulta -- el resultado queda cronológico
   // sin necesidad de un segundo `sort`.
-  return Array.from(byWorkout.values());
+  return Array.from(byWorkout.values()).map((point) => {
+    const values = effort.get(point.workoutLogId)!;
+    return {
+      ...point,
+      averageRpe: values.rpe.length
+        ? values.rpe.reduce((a, b) => a + b, 0) / values.rpe.length
+        : null,
+      averageRir: values.rir.length
+        ? values.rir.reduce((a, b) => a + b, 0) / values.rir.length
+        : null,
+    };
+  });
 }
 
 // ---------------------------------------------------------------------------

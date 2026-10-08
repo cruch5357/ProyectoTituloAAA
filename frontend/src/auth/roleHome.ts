@@ -6,5 +6,5 @@ import type { UserRole } from '../types/user';
 // HomePage redirijan siempre de forma consistente (PROMPT 17: no se agregan
 // rutas nuevas, solo se corrige a dónde apunta cada una según el rol).
 export function getHomePathForRole(role: UserRole): string {
-  return role === 'COACH' ? '/dashboard' : '/my-programs';
+  return role === 'COACH' ? '/dashboard' : '/home';
 }

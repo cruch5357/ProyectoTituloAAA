@@ -16,7 +16,7 @@ const student = {
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(apiClient, 'get').mockImplementation(async (path) => ({
-      data: path.startsWith('/programs') ? [] : path.startsWith('/students/')
+      data: path.includes('/calendar') ? { today: '2026-10-07', assignments: [], sessions: [], nextSession: null, pendingSession: null, nextCompetition: null } : path.includes('/competitions') ? [] : path.startsWith('/programs') ? [] : path.startsWith('/students/')
       ? student
       : {
           student,
@@ -60,7 +60,7 @@ describe('Workspace del atleta', () => {
     await userEvent.click(
       within(nav).getByRole('link', { name: 'Calendario' }),
     );
-    expect(screen.getByText('Sin fechas de planificación')).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Mes siguiente' })).toBeInTheDocument();
   });
   it('no inventa una asignación del atleta y ofrece una acción válida', async () => {
     renderWithRoute(<AthleteWorkspace />, {

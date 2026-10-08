@@ -171,6 +171,12 @@ async function postFile<T, M = Record<string, unknown>>(
 }
 
 export const apiClient = {
+  blob: async (path: string): Promise<Blob> => {
+    const token = getAccessToken();
+    const response = await fetch(API_BASE_URL + path, { headers: token ? { Authorization: 'Bearer ' + token } : {}, credentials: 'include', cache: 'no-store' });
+    if (!response.ok) throw new ApiError(response.status, 'No se pudo cargar el archivo');
+    return response.blob();
+  },
   get: <T, M = Record<string, unknown>>(path: string, options?: RequestOptions) =>
     request<T, M>(path, 'GET', undefined, options),
   postFile,

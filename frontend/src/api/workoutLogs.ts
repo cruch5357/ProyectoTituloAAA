@@ -156,6 +156,7 @@ export function useStartWorkoutLog(sessionId: string) {
       return res.data;
     },
     onSuccess: (created) => {
+      void queryClient.invalidateQueries({ queryKey: ['coaching'] });
       void queryClient.invalidateQueries({
         queryKey: workoutLogsKeys.all,
       });
@@ -177,6 +178,7 @@ export function useAddSetLogs(workoutLogId: string) {
       return res.data;
     },
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['coaching'] });
       void queryClient.invalidateQueries({
         queryKey: workoutLogsKeys.detail(workoutLogId),
       });
@@ -199,6 +201,7 @@ export function useFinishWorkoutLog(workoutLogId: string) {
       return res.data;
     },
     onSuccess: (updated) => {
+      void queryClient.invalidateQueries({ queryKey: ['coaching'] });
       queryClient.setQueryData(workoutLogsKeys.detail(updated.id), updated);
       void queryClient.invalidateQueries({
         queryKey: workoutLogsKeys.all,

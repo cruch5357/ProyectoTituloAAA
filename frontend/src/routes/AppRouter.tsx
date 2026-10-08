@@ -1,3 +1,7 @@
+import { MessagesPage } from '../pages/coaching/MessagesPage';
+import { Calendar } from '../components/coaching/Planning';
+import { CompetitionsPage } from '../pages/coaching/CompetitionsPage';
+import { ProfilePage } from '../pages/coaching/ProfilePage';
 import {
   AccountLinkPage,
   ForgotPasswordPage,
@@ -74,6 +78,9 @@ const router = createBrowserRouter([
       {
         element: <RequireAuth allowedRoles={["STUDENT"]} />,
         children: [
+          { path: "home", element: <StudentHomePage /> },
+          { path: "calendar", element: <Calendar /> },
+          { path: "competitions", element: <CompetitionsPage /> },
           { path: "training", element: <StudentHomePage training /> },
           { path: "my-programs", element: <MyAssignedProgramsPage /> },
           { path: "student/programs/:id", element: <StudentProgramPage /> },
@@ -84,6 +91,7 @@ const router = createBrowserRouter([
           { path: "history", element: <HistoryPage /> },
         ],
       },
+      { element: <RequireAuth allowedRoles={["COACH", "STUDENT"]} />, children: [{ path: "profile", element: <ProfilePage /> }, { path: "messages", element: <MessagesPage /> }] },
       { path: "*", element: <NotFoundPage /> },
     ],
   },

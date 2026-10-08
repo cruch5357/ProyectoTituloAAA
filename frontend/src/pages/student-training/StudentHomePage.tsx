@@ -1,3 +1,5 @@
+import { useCalendar } from '../../api/coaching';
+import { MyCoach, NextCompetition, SessionContext } from '../../components/coaching/Planning';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -34,6 +36,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
     state: 'in-progress',
   });
   const pending = inProgress.data?.items[0];
+  const calendar = useCalendar();
   const [selected, setSelected] = useState('');
   const active =
     assignments.data?.filter(
@@ -92,7 +95,13 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           />
         </Card>
       )}
-      {program && !pending && inProgress.isSuccess && (
+      {!pending && calendar.data?.nextSession && <section className="hero-card">
+        <p className="eyebrow">{calendar.data.nextSession.date === calendar.data.today ? 'Entrenamiento de hoy' : 'Próximo entrenamiento'}</p>
+        <SessionContext session={calendar.data.nextSession} />
+        {calendar.data.nextSession.date === calendar.data.today ? <SessionPreview sessionId={calendar.data.nextSession.sessionId} /> : <Link to={`/student/sessions/${calendar.data.nextSession.sessionId}`}>Ver entrenamiento</Link>}
+      </section>}
+      {calendar.isError && <ErrorState retry={() => void calendar.refetch()} />}
+      {program && !pending && !calendar.data?.nextSession && inProgress.isSuccess && (
         <section className="hero-card">
           <p className="eyebrow">Entrenamiento disponible</p>
           <h2>{program.name}</h2>
@@ -117,6 +126,8 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           <AvailableBlock key={program.id} programId={program.id} />
         </section>
       )}
+      {!training && calendar.data && <NextCompetition competition={calendar.data.nextCompetition} today={calendar.data.today} />}
+      {calendar.data?.pendingSession && <Card><h3>Sesión pasada sin registro en su fecha</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
       {!training && (
         <>
           {evolution.isLoading && <Skeleton />}
@@ -130,6 +141,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
               registered={history.data?.meta.total}
             />
           )}
+          <MyCoach />
           <Card>
             <div className="page-header">
               <h2>Sesiones recientes</h2>

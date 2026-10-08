@@ -1,3 +1,4 @@
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConflictException,
   NotFoundException,
@@ -11,11 +12,13 @@ import { AuditService } from '../audit/audit.service';
 
 type MockPrisma = {
   user: Record<string, jest.Mock>;
+  $transaction: jest.Mock;
   programAssignment: Record<string, jest.Mock>;
 };
 
 function buildMockPrisma(): MockPrisma {
   return {
+    $transaction: jest.fn(),
     user: {
       findUnique: jest.fn(),
     },
@@ -75,6 +78,11 @@ function buildAssignment(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   prisma = buildMockPrisma();
+  prisma.$transaction = jest.fn((input: unknown) =>
+    typeof input === 'function'
+      ? input(prisma)
+      : Promise.all(input as Promise<unknown>[]),
+  );
   programsService = {
     findOwnedProgramOrThrow: jest.fn().mockResolvedValue({
       id: PROGRAM_ID,
@@ -89,6 +97,7 @@ beforeEach(() => {
     prisma as unknown as PrismaService,
     programsService,
     auditService,
+    { create: jest.fn() } as unknown as NotificationsService,
   );
 });
 
