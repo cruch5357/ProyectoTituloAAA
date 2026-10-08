@@ -113,3 +113,11 @@ Prioridad: **MVP** (obligatorio para el alcance de 18 semanas) o **Futuro** (fue
 - IA generativa como asistente.
 - Recuperación de contraseña por correo (deseable, no bloqueante).
 - Soporte offline-first de datos (solo se exige instalabilidad PWA básica).
+
+## Cierre de experiencia coaching (octubre 2026)
+
+Integrado: startDate/calendario real, Competition y coachGoal, Home Alumno independiente de Mis programas, Athlete Workspace, perfil propio, chat privado multimedia, campana con polling y lectura, Dashboard operativo y Landing pública. Los días con sesión tienen fondo del bloque; las competiciones usan borde/distintivo independiente, incluso cuando coinciden. Sin fechas no se inventa programación.
+
+Eventos de notificación: mensaje, adjunto, competición creada/actualizada, objetivo Coach, programa asignado y entrenamiento finalizado. Se conservan vacíos explícitos y métricas personales reales; sin promedios grupales de fatiga, frecuencia o duración en Dashboard.
+
+Fuera de alcance deliberado: Data Science, predicción, IA, estimated 1RM, Stress Index, WebSockets, Web Push, billing y formularios complejos. El cierre visual se limita al smoke test de las páginas críticas solicitado en el último prompt, con tres tamaños y dos temas.

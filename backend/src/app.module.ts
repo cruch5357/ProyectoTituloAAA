@@ -51,8 +51,12 @@ import { StudentsController } from './students/students.controller';
           name: AUTH_THROTTLER_NAME,
           // The stricter authentication quota must not throttle chat downloads
           // or ordinary data reads. The general quota still applies everywhere.
-          skipIf: (context) => context.getClass() !== AuthController &&
-            !(context.getClass() === StudentsController && context.getHandler().name === 'invite'),
+          skipIf: (context) =>
+            context.getClass() !== AuthController &&
+            !(
+              context.getClass() === StudentsController &&
+              context.getHandler().name === 'invite'
+            ),
           ttl: config.get<number>('AUTH_THROTTLE_TTL_MS') ?? 60000,
           limit: config.get<number>('AUTH_THROTTLE_LIMIT') ?? 10,
         },

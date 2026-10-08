@@ -418,3 +418,13 @@ El enunciado de PROMPT 13 permite explícitamente no introducir esa arquitectura
 ### Sin cambios en el resto del modelo de amenazas
 
 No se modificó ningún guard, ningún mecanismo de autenticación/sesión, ni ninguna otra superficie de seguridad ya documentada (PROMPT 03/04). La autorización de `ExcelImportBatch` sigue el mismo patrón 404-nunca-403 ya establecido en todo el proyecto (`ExcelImportsService.ensureOwnedBatch()`), y `coachId` nunca se acepta desde el cliente en ningún punto de este módulo (ni para crear el batch, ni para resolver ejercicios por nombre, ni para consultar la vista previa).
+
+## Cierre de sesión y multimedia (octubre 2026)
+
+Corrección detectada con navegador: `csrf_token` ahora tiene Path=/ para permitir su lectura desde las rutas SPA. El refresh conserva HttpOnly, SameSite=Strict, Path=/api/v1/auth y Secure en producción. Se limpia la cookie CSRF antigua para evitar duplicados. Refresh y logout siguen exigiendo doble envío; StrictMode comparte una renovación en curso para no rotar dos veces la misma cookie. Login/logout cancelan y vacían la caché de consultas al cambiar identidad.
+
+El límite reforzado auth se aplica a autenticación e invitaciones; el límite general continúa en todas las rutas y el envío de chat tiene límite propio. Ningún token se persiste en localStorage.
+
+Adjuntos en storage/chat (o CHAT_STORAGE_DIR), fuera del directorio público, con claves UUID generadas por servidor. JWT, participación y relación Coach↔Alumno vigente se comprueban antes de abrir el archivo. Respuesta private/no-store, nosniff y CSP restrictiva. Imágenes JPG/PNG/WebP máximo 8 MiB; video MP4/WebM máximo 50 MiB; se cotejan firma/contenedor, MIME y extensión. No hay transcodificación ni análisis antivirus. Un fallo de persistencia elimina el archivo recién creado. La URL blob del cliente sólo se obtiene tras lectura autenticada; se revoca al desmontar.
+
+Competiciones y notificaciones filtran propiedad en las consultas. Los objetivos del Coach no son editables por el Alumno. Las notificaciones se escriben con la operación en transacción; finalizar nuevamente un workout no duplica su aviso. No se registran cuerpos del chat ni archivos en auditoría.

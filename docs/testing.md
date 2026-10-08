@@ -76,3 +76,27 @@ Una funcionalidad se considera terminada cuando: pasa lint y build sin errores, 
 ## 5. Registro y seguimiento de errores
 
 Los defectos encontrados durante QA se registran como issues en el repositorio de GitHub, con severidad, pasos de reproducción y estado, permitiendo trazabilidad hasta el cierre del proyecto.
+
+## Verificación de cierre coaching
+
+- Backend: `npm test -- --runInBand`; E2E: `npm run test:e2e -- --runInBand`.
+- El flujo real `test/coaching-flow.e2e-spec.ts` requiere `COACHING_E2E_DATABASE_URL` apuntando a PostgreSQL local migrado. Sin esa variable se omite sólo esa suite. Crea cuentas únicas, sustituye envío de correo y elimina únicamente sus registros/archivos. Prueba fechas, ownership, notificaciones, video real, refresh/CSRF y logout de ambos roles.
+- Frontend: `npm test`, `npm run lint`, `npm run build`.
+- Backend: `npm run lint`, `npm run build`, `npx prisma generate`, `npx prisma migrate status`. En Windows conviene detener el servidor durante generate/build para liberar archivos. Para otra base vacía o desactualizada: `npx prisma migrate deploy`; nunca reset.
+- El fixture WebM de test es una animación sintética generada localmente, sin datos personales.
+
+### Demo opcional
+
+Desde backend, sólo en entorno local: definir `DEMO_SEED_CONFIRM=1` y `DEMO_PASSWORD` (10+ caracteres, letras y números), luego ejecutar explícitamente `npm run seed:demo`. No se ejecuta al iniciar la aplicación. Se rechaza NODE_ENV=production y las cuentas existentes con roles/relaciones incompatibles; los cambios son transaccionales y los IDs demo deterministas. No reemplaza contraseñas existentes salvo el placeholder inválido del seed antiguo.
+
+Cuentas: coach.demo@example.com y entre uno y tres alumnos (alumno.demo@example.com, alumno2.demo@example.com y alumno3.demo@example.com). `DEMO_STUDENT_COUNT=1` crea sólo el primer alumno; por defecto son tres. Incluye dos bloques, ocho semanas, 24 sesiones con días definidos, tres ejercicios, asignaciones fechadas, seis entrenamientos registrados por alumno, competiciones, mensajes y notificaciones. La contraseña la aporta quien ejecuta; no hay credenciales reales incorporadas.
+
+### Resultado del cierre — 8 de octubre de 2026
+
+- Backend: 443 tests en 50 suites; frontend: 126 tests en 28 suites; E2E HTTP: 74 tests en 12 suites, incluida la suite contra PostgreSQL real. Todos pasan.
+- Lint y build de ambos proyectos correctos. Prisma generate correcto; seis migraciones aplicadas y base actualizada, sin reset.
+- Smoke visual en navegador: diez páginas críticas, tres tamaños (390×844, 768×1024 y 1440×900), Light y Dark; 60 combinaciones revisadas sin overflow de página ni controles inaccesibles.
+- Login, recarga, renovación y logout comprobados para ambos roles; refresh HttpOnly y protección CSRF conservados. Chat de texto, imagen y video probado en ambos sentidos, incluida reproducción, acceso protegido, ownership y notificaciones.
+- Calendario probado con sesiones, competición, coincidencia de ambas y asignación sin startDate. Home, Dashboard, perfil, notificaciones y landing integrados y revisados.
+- Por solicitud explícita del usuario se ejecutó el seed con un Coach y un Alumno. Se añadieron por la API cuatro attachments sintéticos (imagen y video en ambos sentidos). La demo conserva seis mensajes, cuatro attachments, tres competiciones y 54 sets registrados. Se repitió el seed y los conteos permanecieron idénticos.
+- Las cuentas temporales de QA fueron eliminadas; se conservan las dos cuentas de presentación. Los accesos generados se guardan únicamente en storage local ignorado por Git, sin incorporarlos al repositorio.

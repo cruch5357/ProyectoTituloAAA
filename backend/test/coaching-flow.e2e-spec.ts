@@ -1,6 +1,8 @@
 import { Test } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import * as request from 'supertest';
+import * as cookieParser from 'cookie-parser';
+import { join } from 'path';
 import { randomUUID } from 'crypto';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -37,6 +39,7 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
       .useValue(mail)
       .compile();
     app = module.createNestApplication();
+    app.use(cookieParser());
     app.setGlobalPrefix('api/v1');
     app.useGlobalPipes(
       new ValidationPipe({
@@ -356,5 +359,103 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
       .auth(studentToken, { type: 'bearer' })
       .send({ userId: coachId })
       .expect(400);
+  });
+  it('video real en ambos sentidos: acceso privado y notificación al receptor', async () => {
+    for (const [senderToken, receiverToken, peerId] of [
+      [coachToken, studentToken, studentId],
+      [studentToken, coachToken, coachId],
+    ]) {
+      const sent = await api()
+        .post(`/api/v1/messages/${peerId}`)
+        .auth(senderToken, { type: 'bearer' })
+        .attach('file', join(__dirname, 'fixtures/chat-video.webm'))
+        .expect(201);
+      const attachment = sent.body.data.attachments[0];
+      expect(attachment.type).toBe('VIDEO');
+      await api()
+        .get(`/api/v1/messages/attachments/${attachment.id}`)
+        .auth(receiverToken, { type: 'bearer' })
+        .expect(200)
+        .expect('Content-Type', 'video/webm');
+      await api()
+        .get(`/api/v1/messages/attachments/${attachment.id}`)
+        .expect(401);
+      await api()
+        .get(`/api/v1/messages/attachments/${attachment.id}`)
+        .auth(otherStudentToken, { type: 'bearer' })
+        .expect(404);
+      const notices = await api()
+        .get('/api/v1/notifications')
+        .auth(receiverToken, { type: 'bearer' })
+        .expect(200);
+      expect(notices.body.data[0].type).toBe('NEW_MESSAGE_ATTACHMENT');
+    }
+  });
+  it('Coach y Alumno conservan sesión con refresh + CSRF y logout la revoca', async () => {
+    for (const userId of [coachId, studentId]) {
+      const user = await prisma.user.findUniqueOrThrow({
+        where: { id: userId },
+      });
+      const browser = request.agent(app.getHttpServer());
+      const login = await browser
+        .post('/api/v1/auth/login')
+        .send({ email: user.email, password })
+        .expect(200);
+      const cookies = login.headers['set-cookie'] as unknown as string[];
+      expect(cookies.find((c) => c.startsWith('refresh_token='))).toMatch(
+        /HttpOnly/,
+      );
+      expect(cookies.find((c) => c.startsWith('refresh_token='))).toMatch(
+        /Path=\/api\/v1\/auth/,
+      );
+      const csrfCookie = cookies.find(
+        (c) => c.startsWith('csrf_token=') && !c.startsWith('csrf_token=;'),
+      )!;
+      expect(csrfCookie).toMatch(/Path=\//);
+      expect(csrfCookie).not.toMatch(/HttpOnly/);
+      const csrf = csrfCookie.split(';')[0].slice('csrf_token='.length);
+      await browser.post('/api/v1/auth/refresh').expect(403);
+      await browser
+        .post('/api/v1/auth/refresh')
+        .set('X-CSRF-Token', 'wrong')
+        .expect(403);
+      const renewed = await browser
+        .post('/api/v1/auth/refresh')
+        .set('X-CSRF-Token', csrf)
+        .expect(200);
+      expect(renewed.body.data.user.id).toBe(userId);
+      expect(renewed.body.data.accessToken).toEqual(expect.any(String));
+      const nextCookies = renewed.headers['set-cookie'] as unknown as string[];
+      expect(
+        nextCookies.find((c) => c.startsWith('refresh_token=')),
+      ).not.toEqual(cookies.find((c) => c.startsWith('refresh_token=')));
+      const nextCsrf = nextCookies
+        .find(
+          (c) => c.startsWith('csrf_token=') && !c.startsWith('csrf_token=;'),
+        )!
+        .split(';')[0]
+        .slice('csrf_token='.length);
+      await browser
+        .get('/api/v1/profile/me')
+        .auth(renewed.body.data.accessToken, { type: 'bearer' })
+        .expect(200);
+      await browser
+        .post('/api/v1/auth/logout')
+        .auth(renewed.body.data.accessToken, { type: 'bearer' })
+        .set('X-CSRF-Token', nextCsrf)
+        .expect(200);
+      await browser
+        .post('/api/v1/auth/refresh')
+        .set('X-CSRF-Token', nextCsrf)
+        .expect(403);
+      const oldCookies = nextCookies
+        .filter((c) => !c.startsWith('csrf_token=;'))
+        .map((c) => c.split(';')[0]);
+      await api()
+        .post('/api/v1/auth/refresh')
+        .set('Cookie', oldCookies)
+        .set('X-CSRF-Token', nextCsrf)
+        .expect(401);
+    }
   });
 });

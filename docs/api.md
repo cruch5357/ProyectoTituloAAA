@@ -665,3 +665,25 @@ No se implementó offline-first, background sync, push notifications, WebSockets
 - **Duración:** media de `durationMinutes` de registros finalizados; no se infiere de timestamps de SetLog. `durationMinutes !== null` sigue siendo la señal de finalización. Los conteos registrados y última actividad incluyen también entrenamientos en curso dentro del historial consultado.
 - El Dashboard grupal conserva alumnos, asignaciones, conteos, distribución de `completionStatus` y actividad. Su campo `summary` anterior queda **deprecado por compatibilidad**; ningún componente del Dashboard grupal consume sus medias/frecuencia. Los datos originales e historial se conservan. Las medias personales están en Home, Historial y Athlete Workspace del alumno correspondiente.
 - No se deduce una sesión para “hoy”: `dayOfWeek` y el orden de semanas/bloques no establecen un calendario absoluto. El Home presenta entrenamiento en curso o entrenamiento disponible seleccionado en la programación real.
+
+## Integraciones coaching (octubre 2026)
+
+Prefijo `/api/v1`, JWT Bearer y envelope habitual. Los listados de competiciones/notificaciones paginan 20; mensajes 30.
+
+| Método | Ruta | Acceso |
+|---|---|---|
+| GET / POST | `/competitions/me` (GET), `/competitions` (POST) | Alumno propio |
+| GET | `/students/:id/competitions`, `/students/:id/calendar` | Coach del alumno |
+| GET / PATCH | `/competitions/:id` | Lectura propia/Coach; edición Alumno |
+| PATCH | `/competitions/:id/coach-goal` | Coach relacionado |
+| GET | `/calendar/me?month=YYYY-MM` | Alumno; programación real y competiciones |
+| PATCH | `/program-assignments/:id/start-date` | Coach propietario; `{startDate: YYYY-MM-DD}` |
+| GET | `/dashboard/operations` | Coach; atención determinista y próximos eventos |
+| GET / PATCH | `/profile/me` | Perfil propio; incluye Coach relacionado |
+| GET / POST | `/messages/:peerId` | Coach↔Alumno relacionado; POST multipart body y/o file |
+| PATCH | `/messages/:peerId/read` | Marca mensajes recibidos |
+| GET | `/messages/attachments/:id` | Binario privado, sólo participantes autorizados |
+| GET | `/notifications`, `/notifications/unread-count` | Destinatario autenticado |
+| PATCH | `/notifications/:id/read`, `/notifications/read-all` | Sólo destinatario |
+
+El calendario mensual limita competiciones a 200 e informa truncamiento. La próxima competición se calcula por fecha y estado UPCOMING. Las asignaciones admiten startDate al crearse y editarse; no se retrocompletan las existentes.
