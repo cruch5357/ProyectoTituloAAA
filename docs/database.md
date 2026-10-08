@@ -275,3 +275,9 @@ A diferencia de `SessionExercise` (PROMPT 08, sección 12), donde `session.week.
 ### 13.3 Limitación de entorno (sin cambios)
 
 Misma limitación persistente ya documentada desde PROMPT 01 (bloqueo de red hacia `binaries.prisma.sh`) y desde PROMPT 08 (el puente de ejecución hacia la máquina real del equipo tampoco puede correr pruebas e2e con base de datos real, ni `prisma generate`/`migrate`). Como este prompt no agrega ninguna migración, no hay nada nuevo que el equipo deba aplicar en `schema.prisma`/`prisma/migrations/` — solo se recuerda que el índice único parcial de la sección 13.1 sigue siendo la barrera autoritativa final, más allá de la validación en la capa de servicio.
+
+## Evolución coaching (octubre 2026)
+
+Migración aditiva `20261008000000_coaching_evolution`: `ProgramAssignment.startDate` nullable DATE; `Competition` (Alumno, fecha DATE, categoría, objetivos propios/Coach y estado); `UserProfile` 1:1; `MessageAttachment` dependiente de Message; `Notification` dependiente del destinatario. Se conservan prescripción y ejecución separadas. No requiere reset ni completar fechas históricas ficticias.
+
+Las semanas se recorren por orden de bloque y semana. Para índice de semana `w` desde cero, fecha de sesión = startDate + 7*w + ((dayOfWeek - díaISO(startDate) + 7) % 7). Cada semana es un intervalo de siete días desde startDate; `Week.number` es etiqueta, no desplazamiento. Falta startDate o dayOfWeek: fecha nula y navegación manual. Aritmética UTC sobre fechas DATE; “hoy” y fecha de ejecución usan America/Santiago.

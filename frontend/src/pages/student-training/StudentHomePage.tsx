@@ -95,7 +95,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           />
         </Card>
       )}
-      {!pending && calendar.data?.nextSession && <section className="hero-card">
+      {!pending && inProgress.isSuccess && calendar.data?.nextSession && <section className="hero-card">
         <p className="eyebrow">{calendar.data.nextSession.date === calendar.data.today ? 'Entrenamiento de hoy' : 'Próximo entrenamiento'}</p>
         <SessionContext session={calendar.data.nextSession} />
         {calendar.data.nextSession.date === calendar.data.today ? <SessionPreview sessionId={calendar.data.nextSession.sessionId} /> : <Link to={`/student/sessions/${calendar.data.nextSession.sessionId}`}>Ver entrenamiento</Link>}

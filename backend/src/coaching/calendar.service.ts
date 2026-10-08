@@ -62,8 +62,18 @@ export class CalendarService {
           where: {
             studentId,
             OR: [
-              { performedAt: { gte: new Date(dateOnly(today).getTime() - 56 * 86400000), lte: new Date() } },
-              { performedAt: { gte: new Date(monthStart.getTime() - 86400000), lt: new Date(monthEnd.getTime() + 86400000) } },
+              {
+                performedAt: {
+                  gte: new Date(dateOnly(today).getTime() - 56 * 86400000),
+                  lte: new Date(),
+                },
+              },
+              {
+                performedAt: {
+                  gte: new Date(monthStart.getTime() - 86400000),
+                  lt: new Date(monthEnd.getTime() + 86400000),
+                },
+              },
             ],
             durationMinutes: { not: null },
           },
@@ -76,7 +86,9 @@ export class CalendarService {
           take: 201,
         }),
       ]);
-    const completedDates = new Set(recentLogs.map((log) => `${log.sessionId}:${todayDate(log.performedAt)}`));
+    const completedDates = new Set(
+      recentLogs.map((log) => `${log.sessionId}:${todayDate(log.performedAt)}`),
+    );
     const sessions = assignments
       .flatMap((assignment) => {
         let weekIndex = 0;
@@ -101,8 +113,7 @@ export class CalendarService {
                 weekNumber: week.number,
                 date,
                 completed:
-                  date !== null &&
-                  completedDates.has(`${session.id}:${date}`),
+                  date !== null && completedDates.has(`${session.id}:${date}`),
               };
             });
           }),
@@ -135,66 +146,83 @@ export class CalendarService {
       competitions: competitions.slice(0, 200),
       competitionsTruncated: competitions.length > 200,
       assignments: assignments.map((a) => {
-        const index = a.startDate ? Math.floor((dateOnly(today).getTime() - a.startDate.getTime()) / (7 * 86400000)) : -1;
-        const weeks = a.program.blocks.flatMap((block) => block.weeks.map((week) => ({ blockName: block.name, weekNumber: week.number })));
+        const index = a.startDate
+          ? Math.floor(
+              (dateOnly(today).getTime() - a.startDate.getTime()) /
+                (7 * 86400000),
+            )
+          : -1;
+        const weeks = a.program.blocks.flatMap((block) =>
+          block.weeks.map((week) => ({
+            blockName: block.name,
+            weekNumber: week.number,
+          })),
+        );
         return {
-        id: a.id,
-        programId: a.programId,
-        name: a.program.name,
-        startDate: a.startDate,
-        currentWeek: weeks[index] ?? null,
-      }; }),
+          id: a.id,
+          programId: a.programId,
+          name: a.program.name,
+          startDate: a.startDate,
+          currentWeek: weeks[index] ?? null,
+        };
+      }),
     };
   }
   async coach(user: AuthenticatedUser) {
     const since = new Date(Date.now() - 7 * 86400000);
-    const [competitions, attention, workoutsThisWeek, assignedActivity] = await Promise.all([
-      this.prisma.competition.findMany({
-        where: this.competitions.upcomingWhere({ coachId: user.id }),
-        take: 20,
-        orderBy: { eventDate: 'asc' },
-        include: { student: { select: { id: true, name: true } } },
-      }),
-      this.prisma.user.findMany({
-        where: {
-          coachId: user.id,
-          role: 'STUDENT',
-          isActive: true,
-          OR: [
-            { assignmentsAsStudent: { none: { status: 'ACTIVE' } } },
-            {
-              workoutLogs: {
-                none: {
-                  durationMinutes: { not: null },
-                  performedAt: { gte: since },
+    const [competitions, attention, workoutsThisWeek, assignedActivity] =
+      await Promise.all([
+        this.prisma.competition.findMany({
+          where: this.competitions.upcomingWhere({ coachId: user.id }),
+          take: 20,
+          orderBy: { eventDate: 'asc' },
+          include: { student: { select: { id: true, name: true } } },
+        }),
+        this.prisma.user.findMany({
+          where: {
+            coachId: user.id,
+            role: 'STUDENT',
+            isActive: true,
+            OR: [
+              { assignmentsAsStudent: { none: { status: 'ACTIVE' } } },
+              {
+                workoutLogs: {
+                  none: {
+                    durationMinutes: { not: null },
+                    performedAt: { gte: since },
+                  },
                 },
               },
+            ],
+          },
+          take: 20,
+          orderBy: { name: 'asc' },
+          select: {
+            id: true,
+            name: true,
+            assignmentsAsStudent: {
+              where: { status: 'ACTIVE' },
+              select: { id: true },
+              take: 1,
             },
-          ],
-        },
-        take: 20,
-        orderBy: { name: 'asc' },
-        select: {
-          id: true,
-          name: true,
-          assignmentsAsStudent: {
-            where: { status: 'ACTIVE' },
-            select: { id: true },
-            take: 1,
+            workoutLogs: {
+              where: { durationMinutes: { not: null } },
+              orderBy: { performedAt: 'desc' },
+              take: 1,
+              select: { performedAt: true },
+            },
           },
-          workoutLogs: {
-            where: { durationMinutes: { not: null } },
-            orderBy: { performedAt: 'desc' },
-            take: 1,
-            select: { performedAt: true },
-          },
-        },
-      }),
-      this.prisma.workoutLog.count({
-        where: { student: { coachId: user.id }, performedAt: { gte: since } },
-      }),
-      this.prisma.auditLog.findMany({ where: { actorId: user.id, action: 'program_assignments.created' }, take: 20, orderBy: { createdAt: 'desc' }, select: { id: true, createdAt: true } }),
-    ]);
+        }),
+        this.prisma.workoutLog.count({
+          where: { student: { coachId: user.id }, performedAt: { gte: since } },
+        }),
+        this.prisma.auditLog.findMany({
+          where: { actorId: user.id, action: 'program_assignments.created' },
+          take: 20,
+          orderBy: { createdAt: 'desc' },
+          select: { id: true, createdAt: true },
+        }),
+      ]);
     return {
       competitions,
       attention: attention.map((s) => ({
@@ -208,7 +236,10 @@ export class CalendarService {
         ].filter(Boolean),
       })),
       workoutsThisWeek,
-      assignedActivity: assignedActivity.map((entry) => ({ ...entry, title: 'Asignaste un programa a un alumno' })),
+      assignedActivity: assignedActivity.map((entry) => ({
+        ...entry,
+        title: 'Asignaste un programa a un alumno',
+      })),
     };
   }
 }
