@@ -58,6 +58,18 @@ export class ProgramsController {
     };
   }
 
+  @Post(':id/duplicate')
+  async duplicate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: ProgramIdParamDto,
+  ) {
+    return {
+      data: await this.programsService.duplicate(user.id, params.id),
+      error: null,
+      meta: {},
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de un programa propio' })
   async detail(

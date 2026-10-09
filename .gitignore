@@ -39,3 +39,13 @@ frontend/.vite/
 
 # Private chat media
 backend/storage/
+
+# Local backups and disposable outputs
+backups/
+*.tmp
+*.temp
+.p0-*.cjs
+
+# Browser E2E artifacts (may contain test session traces)
+/test-results/
+/playwright-report/

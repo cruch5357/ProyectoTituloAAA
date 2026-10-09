@@ -52,7 +52,7 @@ describe('Workspace del atleta', () => {
       within(nav).getByRole('link', { name: 'Formularios' }),
     );
     expect(
-      screen.getByText('No hay formularios disponibles actualmente.'),
+      screen.getByText('Los formularios de seguimiento se incorporarán en una próxima etapa.'),
     ).toBeInTheDocument();
     expect(
       within(nav).getByRole('link', { name: 'Formularios' }),

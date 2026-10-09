@@ -1,3 +1,4 @@
+import { ScheduleService } from './schedule.service';
 import { Global, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CoachingController } from './coaching.controller';
@@ -12,6 +13,7 @@ import { NotificationsService } from '../notifications/notifications.service';
   controllers: [CoachingController],
   providers: [
     CalendarService,
+    ScheduleService,
     StudentAccessService,
     CompetitionsService,
     NotificationsService,

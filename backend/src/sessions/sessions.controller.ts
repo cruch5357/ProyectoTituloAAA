@@ -67,6 +67,18 @@ export class WeekSessionsController {
 export class SessionsController {
   constructor(private readonly sessionsService: SessionsService) {}
 
+  @Post(':id/duplicate')
+  async duplicate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: SessionIdParamDto,
+  ) {
+    return {
+      data: await this.sessionsService.duplicate(user.id, params.id),
+      error: null,
+      meta: {},
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de una sesión propia' })
   async detail(

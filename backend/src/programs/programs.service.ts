@@ -1,3 +1,4 @@
+import { duplicatePrescription } from '../common/training/duplicate-prescription';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Program, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -37,6 +38,10 @@ const GENERIC_PROGRAM_NOT_FOUND = 'Programa no encontrado';
 // ---------------------------------------------------------------------------
 @Injectable()
 export class ProgramsService {
+  duplicate(coachId: string, id: string) {
+    return duplicatePrescription(this.prisma, coachId, id, 'program');
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,

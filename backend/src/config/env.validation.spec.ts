@@ -5,7 +5,6 @@ describe('mail environment validation', () => {
     NODE_ENV: 'development',
     DATABASE_URL: 'postgresql://test',
     JWT_ACCESS_SECRET: 'test',
-    JWT_REFRESH_SECRET: 'test',
     SMTP_USER: 'smtp-login',
     SMTP_PASSWORD: 'private-test-key',
     EMAIL_FROM: 'sender@example.com',
@@ -24,6 +23,8 @@ describe('mail environment validation', () => {
     });
   });
   it.each([
+    { APP_TIMEZONE: 'invalid/timezone' },
+    { APP_TIMEZONE: '' },
     { SMTP_SECURE: 'true' },
     { SMTP_PORT: '465' },
     { SMTP_USER: '' },

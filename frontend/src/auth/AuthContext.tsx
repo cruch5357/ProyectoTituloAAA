@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { setAccessTokenGetter } from '../lib/apiClient';
+import { invalidatePendingAuthRequests, setAccessTokenGetter, setSessionRecovery } from '../lib/apiClient';
 import { login as apiLogin, logout as apiLogout, refreshSession } from '../api/auth';
 import type { LoginPayload } from '../api/auth';
 import type { PublicUser } from '../types/user';
@@ -25,13 +25,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<PublicUser | null>(null);
   const accessTokenRef = useRef<string | null>(null);
+  const sessionGeneration = useRef(0);
+  const recoveryRef = useRef<Promise<boolean> | null>(null);
 
   // Se registra una única vez: apiClient lee el token siempre a través de
   // esta función (nunca de un valor capturado), así siempre ve el valor
   // más reciente sin depender del ciclo de renders de React.
   useEffect(() => {
     setAccessTokenGetter(() => accessTokenRef.current);
-  }, []);
+    setSessionRecovery(() => {
+      if (!recoveryRef.current) {
+        const generation = sessionGeneration.current;
+        recoveryRef.current = refreshSession().then((result) => {
+          if (generation !== sessionGeneration.current) return false;
+          accessTokenRef.current = result.accessToken;
+          setUser(result.user);
+          return true;
+        }).catch(async () => {
+          if (generation !== sessionGeneration.current) return false;
+          accessTokenRef.current = null;
+          setUser(null);
+          setStatus('anonymous');
+          await queryClient.cancelQueries();
+          queryClient.clear();
+          return false;
+        }).finally(() => { recoveryRef.current = null; });
+      }
+      return recoveryRef.current;
+    });
+    return () => { setSessionRecovery(undefined); };
+  }, [queryClient]);
 
   useEffect(() => {
     let cancelled = false;
@@ -56,6 +79,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (payload: LoginPayload) => {
+    invalidatePendingAuthRequests();
+    sessionGeneration.current += 1;
     const result = await apiLogin(payload);
     await queryClient.cancelQueries();
     queryClient.clear();
@@ -67,8 +92,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
+      await recoveryRef.current;
       await apiLogout();
     } finally {
+      invalidatePendingAuthRequests();
+      sessionGeneration.current += 1;
       // Best-effort: aunque la llamada al backend falle (ej. red caída), la
       // sesión se limpia igual del lado del cliente.
       accessTokenRef.current = null;

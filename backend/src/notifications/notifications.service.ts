@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 @Injectable()
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
-  create(
+  async create(
     tx: Prisma.TransactionClient,
     userId: string,
     type: NotificationType,
@@ -14,6 +14,11 @@ export class NotificationsService {
     resourceId: string,
     dedupeKey?: string,
   ) {
+    const recipient = await tx.user.findUnique({
+      where: { id: userId },
+      select: { isActive: true },
+    });
+    if (!recipient?.isActive) return null;
     const data = {
       userId,
       type,

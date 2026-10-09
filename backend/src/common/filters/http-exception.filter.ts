@@ -30,7 +30,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Error interno del servidor';
 
-    this.logger.error(`${request.method} ${request.path} -> ${status}`);
+    this.logger.error(
+      `${response.locals.requestId ?? 'unknown'} ${request.method} ${request.path} -> ${status}`,
+    );
 
     response.status(status).json({
       data: null,
@@ -44,6 +46,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
           typeof message === 'object' ? (message as any).message : undefined,
       },
       meta: {
+        requestId: response.locals.requestId,
         timestamp: new Date().toISOString(),
         path: request.path,
       },

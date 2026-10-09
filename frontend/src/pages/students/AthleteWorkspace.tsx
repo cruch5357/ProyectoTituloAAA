@@ -77,7 +77,7 @@ export function AthleteWorkspace({
         <Card>
           <EmptyState
             title="Sin formularios"
-            description="No hay formularios disponibles actualmente."
+            description="Los formularios de seguimiento se incorporarán en una próxima etapa."
           />
         </Card>
       ) : (

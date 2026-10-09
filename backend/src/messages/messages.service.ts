@@ -27,11 +27,11 @@ export class MessagesService {
     private readonly storage: StorageService,
     private readonly audit: AuditService,
   ) {}
-  async peer(user: AuthenticatedUser, peerId: string) {
+  async peer(user: AuthenticatedUser, peerId: string, requireActive = true) {
     const peer = await this.prisma.user.findFirst({
       where: {
         id: peerId,
-        isActive: true,
+        ...(requireActive ? { isActive: true } : {}),
         ...(user.role === 'COACH'
           ? { role: 'STUDENT', coachId: user.id }
           : { role: 'COACH', students: { some: { id: user.id } } }),
@@ -42,7 +42,7 @@ export class MessagesService {
     return peer;
   }
   async list(user: AuthenticatedUser, peerId: string, page: number) {
-    await this.peer(user, peerId);
+    await this.peer(user, peerId, false);
     return this.prisma.message.findMany({
       where: {
         OR: [
@@ -128,6 +128,7 @@ export class MessagesService {
       attachment.message.senderId === user.id
         ? attachment.message.receiverId
         : attachment.message.senderId,
+      false,
     );
     return {
       stream: await this.storage.open(attachment.storageKey),
@@ -136,7 +137,7 @@ export class MessagesService {
     };
   }
   async read(user: AuthenticatedUser, peerId: string) {
-    await this.peer(user, peerId);
+    await this.peer(user, peerId, false);
     await this.prisma.message.updateMany({
       where: { senderId: peerId, receiverId: user.id, readAt: null },
       data: { readAt: new Date() },

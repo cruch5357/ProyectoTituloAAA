@@ -18,6 +18,7 @@ function buildStudentUser(): AuthenticatedUser {
 
 function buildSetLog(): PublicSetLog {
   return {
+    prescriptionSource: 'legacy-current',
     id: 'set-log-1',
     workoutLogId: 'workout-log-1',
     sessionExerciseId: 'session-exercise-1',

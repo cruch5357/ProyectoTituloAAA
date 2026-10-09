@@ -67,6 +67,18 @@ export class BlockWeeksController {
 export class WeeksController {
   constructor(private readonly weeksService: WeeksService) {}
 
+  @Post(':id/duplicate')
+  async duplicate(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: WeekIdParamDto,
+  ) {
+    return {
+      data: await this.weeksService.duplicate(user.id, params.id),
+      error: null,
+      meta: {},
+    };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de una semana propia' })
   async detail(

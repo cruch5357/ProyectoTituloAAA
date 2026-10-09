@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { getAppTimezone } from '../../config/timezone';
 
 /** Date-only arithmetic: UTC is a transport representation, never a local midnight. */
 export function dateOnly(value: string): Date {
@@ -14,7 +15,7 @@ export function dateOnly(value: string): Date {
 }
 export function todayDate(now = new Date()): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Santiago',
+    timeZone: getAppTimezone(),
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -34,4 +35,15 @@ export function sessionDate(
     date.getUTCDate() + weekIndex * 7 + ((day - startDay + 7) % 7),
   );
   return date.toISOString().slice(0, 10);
+}
+
+export function effectiveSessionDate(
+  start: Date | null,
+  weekIndex: number,
+  day: number | null,
+  override?: { scheduledDate: Date } | null,
+): string | null {
+  return override
+    ? override.scheduledDate.toISOString().slice(0, 10)
+    : sessionDate(start, weekIndex, day);
 }

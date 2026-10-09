@@ -1,3 +1,4 @@
+import { duplicatePrescription } from '../common/training/duplicate-prescription';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Session, Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -22,6 +23,10 @@ type SessionWithChain = Session & {
 // ---------------------------------------------------------------------------
 @Injectable()
 export class SessionsService {
+  duplicate(coachId: string, id: string) {
+    return duplicatePrescription(this.prisma, coachId, id, 'session');
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly weeksService: WeeksService,

@@ -1,0 +1,116 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run lint:check
+      - run: npm test -- --runInBand
+      - run: node --test ../scripts/storage-check.test.cjs
+      - run: npm run build
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint:check
+      - run: npm test
+      - run: npm run build
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: coaching_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d coaching_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test-only@localhost:5432/coaching_test?schema=public
+      COACHING_E2E_DATABASE_URL: postgresql://test:test-only@localhost:5432/coaching_test?schema=public
+      JWT_ACCESS_SECRET: ci-only-access-secret-never-use-in-real-environments
+      CHAT_STORAGE_DIR: storage/ci-chat
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npm run prisma:generate
+      - run: npm run prisma:migrate:deploy
+      - run: npm run test:e2e -- --runInBand
+  browser-e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: browser_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U test -d browser_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://test:test-only@localhost:5432/browser_test?schema=public
+      JWT_ACCESS_SECRET: ci-browser-only-access-secret-never-use-in-production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm run install:all
+      - run: npm run prisma:migrate:deploy --prefix backend
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e:browser
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: browser-failures
+          path: test-results/
+          retention-days: 3

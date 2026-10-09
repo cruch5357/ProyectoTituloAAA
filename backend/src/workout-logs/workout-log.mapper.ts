@@ -8,6 +8,7 @@ import {
   Week,
   WorkoutCompletionStatus,
   WorkoutLog,
+  WorkoutPrescription,
 } from '@prisma/client';
 import { EmbeddedExercise } from '../session-exercises/session-exercise.mapper';
 
@@ -23,6 +24,8 @@ export interface EmbeddedSessionExercise {
   targetRepsMax: number | null;
   targetRpe: number | null;
   targetRir: number | null;
+  restSeconds?: number | null;
+  notes?: string | null;
   exercise: EmbeddedExercise;
 }
 
@@ -39,14 +42,35 @@ export interface PublicSetLog {
   createdAt: Date;
   updatedAt: Date;
   sessionExercise?: EmbeddedSessionExercise;
+  prescriptionSource: 'snapshot' | 'legacy-current';
 }
 
 type SetLogWithExercise = SetLog & {
+  workoutLog?: { prescriptions?: WorkoutPrescription[] };
   sessionExercise?: SessionExercise & { exercise: Exercise };
 };
 
 export function toPublicSetLog(setLog: SetLogWithExercise): PublicSetLog {
+  const snapshot = setLog.workoutLog?.prescriptions?.find(
+    (item) => item.sessionExerciseId === setLog.sessionExerciseId,
+  );
+  if (snapshot && setLog.sessionExercise) {
+    setLog = {
+      ...setLog,
+      sessionExercise: {
+        ...setLog.sessionExercise,
+        ...snapshot,
+        id: snapshot.sessionExerciseId,
+        exercise: {
+          ...setLog.sessionExercise.exercise,
+          id: snapshot.exerciseId,
+          name: snapshot.exerciseName,
+        },
+      },
+    };
+  }
   return {
+    prescriptionSource: snapshot ? 'snapshot' : 'legacy-current',
     id: setLog.id,
     workoutLogId: setLog.workoutLogId,
     sessionExerciseId: setLog.sessionExerciseId,
@@ -73,6 +97,8 @@ export function toPublicSetLog(setLog: SetLogWithExercise): PublicSetLog {
                 ? Number(setLog.sessionExercise.targetRpe)
                 : null,
             targetRir: setLog.sessionExercise.targetRir,
+            restSeconds: setLog.sessionExercise.restSeconds,
+            notes: setLog.sessionExercise.notes,
             exercise: {
               id: setLog.sessionExercise.exercise.id,
               name: setLog.sessionExercise.exercise.name,
@@ -86,15 +112,8 @@ export function toPublicSetLog(setLog: SetLogWithExercise): PublicSetLog {
   };
 }
 
-// Contexto de prescripción embebido en un WorkoutLog (PROMPT 11, RF-25):
-// nombre de la sesión + semana/bloque/programa que la originaron. Es
-// SOLO LECTURA de la cadena de prescripción vigente al momento de la
-// consulta -- exactamente la misma decisión ya documentada en PROMPT 10
-// ("la prescripción mostrada corresponde a la vigente al momento de la
-// consulta, no una copia congelada"), que PROMPT 11 pide mantener sin
-// introducir versionado. Se agrega para que el historial y el detalle de
-// un entrenamiento puedan mostrar "qué programa/sesión fue" sin que el
-// frontend tenga que resolverlo con una consulta aparte.
+// Los nombres de sesión, semana, bloque y programa siguen siendo metadata vigente.
+// La prescripción de ejercicios se obtiene del snapshot en toPublicSetLog.
 export interface EmbeddedSessionContext {
   id: string;
   name: string;
@@ -126,6 +145,10 @@ export interface EmbeddedStudentSummary {
 }
 
 export interface PublicWorkoutLog {
+  prescriptionSource: 'snapshot' | 'legacy-current';
+  prescriptions?: Array<
+    Omit<WorkoutPrescription, 'targetRpe'> & { targetRpe: number | null }
+  >;
   id: string;
   sessionId: string;
   studentId: string;
@@ -156,7 +179,9 @@ type SessionWithChain = Session & {
   week: Week & { block: Block & { program: Program } };
 };
 
-type WorkoutLogWithExtras = WorkoutLog & {
+type WorkoutLogWithExtras = Omit<WorkoutLog, 'prescriptionCapturedAt'> & {
+  prescriptionCapturedAt?: Date | null;
+  prescriptions?: WorkoutPrescription[];
   setLogs?: SetLogWithExercise[];
   session?: SessionWithChain;
   _count?: { setLogs: number };
@@ -167,6 +192,17 @@ export function toPublicWorkoutLog(
   workoutLog: WorkoutLogWithExtras,
 ): PublicWorkoutLog {
   return {
+    prescriptionSource: workoutLog.prescriptionCapturedAt
+      ? 'snapshot'
+      : 'legacy-current',
+    ...(workoutLog.prescriptions
+      ? {
+          prescriptions: workoutLog.prescriptions.map((item) => ({
+            ...item,
+            targetRpe: item.targetRpe === null ? null : Number(item.targetRpe),
+          })),
+        }
+      : {}),
     id: workoutLog.id,
     sessionId: workoutLog.sessionId,
     studentId: workoutLog.studentId,

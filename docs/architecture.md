@@ -1,143 +1,45 @@
-## Actualización: correo transaccional
+# Arquitectura actual
 
-AuthModule y StudentsModule importan MailModule. MailService encapsula Nodemailer con un único transporter STARTTLS y plantillas HTML escapadas/texto plano. Los servicios de dominio solo llaman sendStudentInvitation/sendPasswordReset. SMTP ocurre fuera de transacciones de base de datos; los fallos se manejan según el contrato de [API](api.md). No hay colas ni cambios en JWT, CSRF, ownership o registro exclusivo de Coach. PasswordResetToken complementa los modelos existentes. Las páginas públicas reutilizan MainLayout, login-page, temas y apiClient.
+La aplicación es un monorepo con dos proyectos npm independientes. React 19 + Vite 8 consume la API NestJS 10 bajo `/api/v1`; Prisma 5 conecta con PostgreSQL. Node 24.21.0 es la versión fijada y verificada localmente. No hay microservicios, cloud storage ni despliegue automático.
 
-# Arquitectura del Sistema
+## Componentes
 
-> Documento de planificación técnica — PROMPT 00. Fuente de verdad arquitectónica para los prompts siguientes. Ninguna implementación posterior debe contradecir estas decisiones sin documentar y justificar el cambio aquí.
+- Frontend: React Router para navegación y control visual por rol, TanStack Query para datos remotos, TypeScript y vistas Coach/Student. La autorización efectiva siempre está en el backend.
+- Backend modular: auth/users, students, exercises, programs/blocks/weeks/sessions/session-exercises, assignments, student-training, workout-logs/set-logs, dashboard, imports, coaching/calendar, competitions, messages, notifications, mail, storage y audit.
+- PostgreSQL: identidad, prescripción normalizada, ejecución independiente, comunicación y auditoría. Los IDs son cuid; los nombres físicos usan snake_case. Los índices y restricciones SQL también forman parte de las migraciones.
+- Archivos: `MessagesService` depende de `StorageService`; `MessagesModule` inyecta `LocalStorageService`. `CHAT_STORAGE_DIR` configura el directorio privado (por defecto `backend/storage/chat` al iniciar desde backend). Cambiar proveedor en el futuro no requiere acoplar MessagesService a APIs de almacenamiento.
+- Email: Nodemailer con STARTTLS; invitaciones y recuperación usan tokens opacos con hash en BD. Los tests sustituyen MailService; no envían correo real.
 
-## 1. Principios de diseño
+## Prescripción y ejecución
 
-1. **Una sola aplicación, dos experiencias.** No se construyen dos apps separadas: una SPA/PWA responsiva con rutas y componentes adaptados por rol (`COACH` desktop-first, `STUDENT` mobile-first).
-2. **El backend es la única fuente de verdad de seguridad.** Ninguna regla de autorización se confía exclusivamente al frontend.
-3. **Separación estricta entre prescripción y ejecución.** Lo que el coach planifica y lo que el alumno realmente hizo son conceptos y tablas distintas, nunca fusionadas.
-4. **Monolito modular, no microservicios prematuros.** Con un equipo de 3 personas y 18 semanas, un backend monolítico bien modularizado es más simple de operar, testear y desplegar que una arquitectura distribuida. La única pieza que puede vivir separada es el componente de ciencia de datos, y solo si se llega a necesitar.
-5. **La ciencia de datos es una extensión, no una dependencia.** El sistema debe funcionar al 100% sin que exista ningún modelo predictivo.
-6. **Evitar sobreingeniería.** Cada decisión se evalúa contra el alcance de 18 semanas; funcionalidades "por si acaso" quedan documentadas en Futuro, no implementadas.
+`Program → Block → Week → Session → SessionExercise` representa lo planificado. `ProgramAssignment` conecta programa/alumno y fecha de inicio. `WorkoutLog → SetLog` guarda lo ejecutado. Al iniciar un workout, una transacción RepeatableRead crea también `WorkoutPrescription` con columnas de snapshot para todos sus ejercicios, incluidos los que aún no tienen series. No se vuelve a capturar al consultar o finalizar.
 
-## 2. Vista general
+El mapper de workout/set centraliza la respuesta histórica y el fallback legacy. Dashboard y estadísticas comparten cálculos de ejecución en `common/training/workout-metrics.ts`; no calculan una adherencia deportiva nueva. Los nombres de sesión/programa siguen siendo metadata vigente; el snapshot protege la prescripción de ejercicios y sus nombres.
 
-```
-                    ┌───────────────────────────┐
-                    │   CLIENTE (Navegador)     │
-                    │   React + TypeScript PWA  │
-                    │   Vista Coach / Vista Alumno │
-                    └─────────────┬─────────────┘
-                                  │ HTTPS / REST (JSON)
-                                  ▼
-                    ┌───────────────────────────┐
-                    │        API BACKEND        │
-                    │   Node.js + TypeScript    │
-                    │   (NestJS, arquitectura   │
-                    │    en capas + guards)     │
-                    └─────────────┬─────────────┘
-                                  │ SQL (ORM)
-                                  ▼
-                    ┌───────────────────────────┐
-                    │        PostgreSQL         │
-                    └─────────────┬─────────────┘
-                                  │ acceso de solo lectura
-                                  │ (futuro, opcional)
-                                  ▼
-                    ┌───────────────────────────┐
-                    │  Servicio de Ciencia de   │
-                    │  Datos (Python) — FUTURO  │
-                    │  Desacoplado, opcional    │
-                    └───────────────────────────┘
-```
+## PWA y comunicación
 
-El servicio de ciencia de datos se dibuja para dejar constancia de que existe un lugar preparado para él, no porque se construya en esta etapa.
+Workbox precachea el shell estático del build. No hay runtime cache de API, tokens o datos personales. El service worker no se registra en `vite dev`; se verifica instalación con build/preview. No hay sincronización offline de ejecuciones.
 
-## 3. Frontend
+Chat y notificaciones usan HTTP/polling, sin WebSockets ni Web Push. Los adjuntos se descargan autenticados desde backend; no existe carpeta pública de multimedia.
 
-- **Stack:** React + TypeScript, bundler Vite.
-- **Organización:** por features (`/features/programs`, `/features/exercises`, `/features/logs`, etc.), no por tipo de archivo, para que cada módulo de negocio sea autocontenible.
-- **Estado:** estado de servidor (datos remotos) gestionado con una librería de data-fetching con cache (ej. TanStack Query) para evitar duplicar lógica de sincronización manual; estado de UI local con hooks/context solo donde se necesite.
-- **Enrutamiento por rol:** guards de ruta que redirigen según `role` del usuario autenticado; un alumno nunca puede navegar a rutas de coach y viceversa a nivel de UI (esto es una ayuda de UX, **no** un control de seguridad — la autorización real vive en el backend).
-- **Responsive:** diseño mobile-first para las vistas de alumno, adaptado con breakpoints para las vistas de coach que requieren tablas/calendarios más densos en desktop.
-- **Patrones responsive/UI compartidos (PROMPT 17):** las tablas reutilizan una sola clase (`.students-table`) en toda la app, ahora siempre envuelta en `<div className="table-scroll">` para permitir scroll horizontal controlado en pantallas angostas en vez de desbordar o romper el layout; los `<dialog>` (formularios de ejercicio/programa, invitación de alumno) tienen `max-height`/`overflow-y` para no cortarse en pantallas bajas; `frontend/src/auth/roleHome.ts` centraliza a qué ruta pertenece el "inicio" de cada rol (`COACH` -> `/dashboard`, `STUDENT` -> `/my-programs`), usado por `LoginPage`, `RegisterPage` y `HomePage` para no duplicar ese mapeo.
-- **PWA (RF-30, implementado en PROMPT 16):** manifest (`vite-plugin-pwa`, estrategia `generateSW` de Workbox) + service worker registrado manualmente (`virtual:pwa-register`) para instalabilidad y precache únicamente de los assets estáticos del build (JS/CSS/HTML/íconos). El service worker nunca cachea respuestas de `/api/**` (sin `runtimeCaching` configurado + `navigateFallbackDenylist: [/^\/api\//]`), por lo que el offline-first de datos (cola de registros sin conexión) sigue quedando documentado como extensión futura (RF-31). Detalle completo en `docs/api.md`, sección 17.
+## Operación local
 
-## 4. Backend
+Los scripts raíz orquestan instalación reproducible, lint sin escritura, tests y builds. GitHub Actions valida backend, frontend y E2E con PostgreSQL aislado. Backup/restore cubre schema public y el directorio multimedia configurado, con la aplicación detenida. `/health` es un liveness básico: no comprueba PostgreSQL, SMTP o disco.
 
-- **Stack:** Node.js + TypeScript sobre **NestJS**. Se eligió NestJS (en vez de Express plano) porque ofrece estructura modular, inyección de dependencias, decoradores para *guards* de rol/recurso y validación declarativa (DTOs), lo cual reduce el riesgo de errores de autorización manuales en un proyecto con fuerte foco en seguridad. *(Decisión confirmada en PROMPT 01 al inicializar el backend; ver `## 10. Registro de decisiones` al final de este documento.)*
-- **Arquitectura en capas:** Controller (HTTP) → Service (reglas de negocio) → Repository/ORM (persistencia). Los controllers no acceden directamente a la base de datos.
-- **ORM:** Prisma, por su soporte de migraciones versionadas, tipado end-to-end con TypeScript y buena documentación del esquema como fuente de verdad (`schema.prisma`).
-- **Validación de entrada:** DTOs con `class-validator`/`class-transformer`; toda entrada de usuario se valida y sanea en el backend independientemente de la validación en el frontend.
-- **Guards de autorización:** un guard de rol (`CoachGuard`/`StudentGuard`) y un guard de propiedad de recurso (verifica que el alumno/programa/sesión solicitado pertenece al usuario autenticado) — ver detalle en `security.md`.
+[Demo](local-demo.md), [backup](backup-local.md), [datos](database.md) y [seguridad](security.md) contienen los contratos operativos. Las decisiones y requisitos anteriores se conservan en [archivo histórico](history/README.md).
 
-## 5. Comunicación frontend-backend
+## P2 — privacidad, ciclo y configuración
 
-- REST sobre HTTPS, payloads JSON, versionado bajo `/api/v1`.
-- Autenticación mediante JWT (access + refresh token) — detalle en `security.md` y `api.md`.
-- Contrato documentado con OpenAPI/Swagger generado desde el propio backend, para mantenerlo sincronizado con el código real.
+WorkoutLog identifica su ProgramAssignment al iniciar y conserva por separado el snapshot de prescripción. Los registros previos con vínculo NULL no se infieren. Las métricas específicas del ciclo excluyen registros ajenos; el historial general se conserva.
 
-## 6. Estructura de repositorio y monorepo vs. polirepo
+Desactivar alumno revoca refresh sessions e invalida JWT por tokenVersion; reactivarlo no revive sesiones anteriores. El Coach propietario conserva los accesos históricos existentes, incluido chat/adjuntos. Se impide nueva actividad del alumno, envío de mensajes al inactivo, asignación/reactivación de programas y notificaciones operacionales. No existe borrado automático de cuenta ni purga.
 
-**Decisión: monorepo.**
+Actualmente la plataforma opera con una única zona horaria configurada para el entorno. APP_TIMEZONE se valida con Intl, por defecto America/Santiago. La fuente compartida es backend/config/app-timezone.cjs: backend consulta esa configuración y Vite incorpora solamente APP_TIMEZONE del entorno/backend .env al iniciar o compilar. Cambiarla exige reiniciar API y Vite o reconstruir frontend. Las fechas DATE siguen siendo fechas de calendario, sin conversión de zona.
 
-Ventajas para este proyecto: un solo repositorio ya existente (`ProyectoTituloAAA`), equipo pequeño (3 personas) que necesita coordinar cambios de frontend/backend/documentación en conjunto, posibilidad de compartir tipos TypeScript entre frontend y backend (ej. tipos de DTOs), y un único pipeline de CI más simple de mantener durante 18 semanas.
+Los datos de entrenamiento permanecen en PostgreSQL local; los adjuntos, en storage local privado. RBAC y ownership protegen la API. Los backups locales incluyen información privada, deben custodiarse y no se versionan; .env, backend/storage y backups están ignorados por Git. Un CHAT_STORAGE_DIR externo también debe protegerse fuera del repositorio.
 
-Desventajas consideradas: un monorepo puede acoplar despliegues (se mitiga desplegando frontend y backend como artefactos independientes aunque vivan en el mismo repo) y puede crecer en tamaño (irrelevante a esta escala).
+storage:check informa archivos huérfanos, referencias sin archivo y entradas inesperadas sin borrar ni seguir directorios/enlaces internos. El backup existente incluye el storage configurado; no se repitió restore.
 
-Un polirepo (repos separados por frontend/backend/data-science) se descartó por añadir sobrecarga de coordinación (PRs cruzados, versiones de tipos compartidos) sin un beneficio real para un equipo de 3 personas en 18 semanas.
+## Limitaciones conocidas
 
-Estructura propuesta:
-
-```
-ProyectoTituloAAA/
-├── frontend/            # React + TypeScript (PWA)
-├── backend/             # Node.js + TypeScript (NestJS + Prisma)
-├── data-science/        # Placeholder — sin código hasta que exista variable a predecir y datos suficientes
-├── docs/                # Documentación técnica (este conjunto de documentos)
-├── tests/               # Pruebas E2E cross-cutting (Playwright) que ejercitan frontend+backend juntos
-├── .github/workflows/   # CI (lint, build, test)
-└── Fase 1/              # Evidencias académicas existentes (no se modifica)
-```
-
-`frontend/` y `backend/` mantienen sus propios `package.json`, tests unitarios y configuración de lint; `tests/` cubre únicamente flujos end-to-end que requieren ambos servicios corriendo.
-
-## 7. Modelo de datos
-
-Ver `database.md` para el detalle de entidades, relaciones y la separación entre prescripción y ejecución.
-
-## 8. Ciencia de datos como servicio desacoplado (futuro)
-
-Si en una etapa posterior existen datos suficientes y una variable de predicción justificada, se documenta aquí la arquitectura prevista para no bloquear esa opción:
-
-- Servicio independiente en Python (ej. FastAPI) que **no** forma parte del proceso de arranque de la aplicación principal.
-- Acceso a datos mediante un rol de base de datos de **solo lectura** y mínimo privilegio (ver `security.md`), evitando construir un pipeline de mensajería/ETL completo que sería sobreingeniería para el alcance de este proyecto.
-- El resultado del modelo (si existe) se expone como un endpoint propio que el backend principal puede consumir opcionalmente para mostrarlo en el dashboard del coach; si el servicio no está disponible, el dashboard funciona igual sin esa sección.
-- No se define aún qué se predice ni cómo: eso depende de los datos reales que la plataforma genere durante el desarrollo (ver `roadmap.md`, etapa de ciencia de datos).
-
-## 9. Riesgos técnicos y decisiones pendientes
-
-Ver la sección de cierre en la respuesta de este PROMPT 00 y `roadmap.md` para el detalle completo de decisiones pendientes y riesgos identificados.
-
-## 10. Registro de decisiones
-
-| Fecha/Etapa | Decisión | Estado |
-|---|---|---|
-| PROMPT 00 | Monorepo (frontend/backend/docs/tests/data-science) | Confirmado |
-| PROMPT 00 | Separación estricta prescripción vs. registro real | Confirmado |
-| PROMPT 01 | Backend con NestJS (sobre Express plano) | Confirmado al inicializar el scaffold del backend |
-| PROMPT 01 | ORM Prisma para PostgreSQL | Confirmado al inicializar el scaffold del backend |
-| PROMPT 01 | Frontend con Vite + React + TypeScript | Confirmado al inicializar el scaffold del frontend |
-| PROMPT 13 | Plantilla exacta de columnas del Excel de importación (19 columnas, ver `docs/api.md` sección 15) | Confirmado |
-| Pendiente | Ventana de edición de un registro ya enviado (propuesto 24h) | Abierto — se valida con el equipo |
-| Pendiente | Variable a predecir por ciencia de datos | Abierto por diseño — depende de datos reales suficientes |
-| Pendiente | Infraestructura de hosting para demo/producción final | Abierto |
-| PROMPT 02 | Modelo de datos definitivo implementado (14 entidades) en `backend/prisma/schema.prisma` | Confirmado |
-| PROMPT 02 | IDs como `String @default(cuid())` en vez de enteros autoincrementales (defensa en profundidad contra IDs adivinables) | Confirmado |
-| PROMPT 02 | `User.tokenVersion` como mecanismo de invalidación de refresh tokens (sin tabla `RefreshToken` separada) | Confirmado, se conecta en PROMPT 03 |
-| PROMPT 02 | Migración inicial de Prisma escrita a mano y verificada contra PostgreSQL real vía `pglite` (WASM), por bloqueo de red a `binaries.prisma.sh` en el entorno de preparación | Confirmado — pendiente de re-verificación del equipo con `prisma generate`/`migrate deploy` en un entorno con internet normal |
-| PROMPT 03 | Autenticación: access token JWT (header `Authorization`) + refresh token **opaco** (no JWT) en cookie httpOnly, con hash SHA-256 en tabla `refresh_sessions` | Confirmado — reemplaza para el refresh token el mecanismo de `tokenVersion` planteado en PROMPT 00/02 (ver `docs/security.md`/`docs/database.md`, secciones de PROMPT 03) |
-| PROMPT 03 | Hashing de contraseñas con Argon2id (`argon2`), no bcrypt | Confirmado |
-| PROMPT 03 | Guard de autenticación implementado a mano con `@nestjs/jwt` (sin Passport/`passport-jwt`) | Confirmado — menos dependencias, control total sobre el formato de error, suficientemente idiomático en NestJS |
-| PROMPT 03 | CSRF de doble envío de cookie aplicado a `/auth/refresh` **y** `/auth/logout` (no solo refresh como decía el punto 9 original) | Confirmado |
-| PROMPT 03 | Autorización por propiedad de recurso: abstracción (`assertOwnsResource`) preparada y probada, sin endpoints de negocio a los que aplicarla todavía | Confirmado — se conecta a partir de PROMPT 04 |
-| PROMPT 03 | `prisma@8` (rc) evaluado como alternativa al bloqueo de `binaries.prisma.sh` | Descartado — la CLI de v8 reestructura todo en torno a "Prisma Platform" y ya no tiene un comando `generate` clásico; se mantiene `prisma@^5.20.0` |
-| PROMPT 13 | Librería de parseo de Excel: `exceljs` (no `xlsx`/SheetJS) | Confirmado — mantenida activamente, nunca ejecuta fórmulas, historial de advisories más limpio (ver `docs/api.md` sección 15) |
-| PROMPT 16 | PWA instalable con `vite-plugin-pwa` (Workbox `generateSW`), no `next-pwa`/Workbox a mano | Confirmado — única dependencia nueva del frontend para PWA, compatible con Vite 8/React 19 sin downgrade, evita mantener una configuración manual de Workbox |
-| PROMPT 16 | Sin `runtimeCaching` de Workbox y `navigateFallbackDenylist: [/^\/api\//]` para que el service worker nunca cachee respuestas de la API | Confirmado — cumple el requisito de no almacenar tokens/datos privados vía service worker sin necesidad de lógica adicional |
-| PROMPT 16 | Registro manual del service worker (`injectRegister: false` + `virtual:pwa-register` en `main.tsx`, solo si `import.meta.env.PROD`) | Confirmado — evita registrar el service worker en `vite dev` |
+Logs legacy sin ciclo inequívoco; prescripción legacy sin snapshot; una zona horaria por entorno; almacenamiento y presentación locales; Formularios aún no implementado; sin despliegue cloud ni borrado integral de cuentas. Son límites explícitos de esta etapa. /health/live comprueba proceso y /health/ready consulta PostgreSQL; no certifican SMTP/disco.

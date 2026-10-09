@@ -21,6 +21,7 @@ function buildStudentUser(): AuthenticatedUser {
 
 function buildWorkoutLog(): PublicWorkoutLog {
   return {
+    prescriptionSource: 'legacy-current',
     id: 'workout-log-1',
     sessionId: 'session-1',
     studentId: 'student-123',

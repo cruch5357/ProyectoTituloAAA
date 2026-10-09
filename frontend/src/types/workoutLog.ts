@@ -71,7 +71,14 @@ export interface EmbeddedStudentSummary {
   email: string;
 }
 
+export interface WorkoutPrescription {
+  sessionExerciseId: string; exerciseId: string; exerciseName: string; order: number;
+  targetSets: number | null; targetRepsMin: number | null; targetRepsMax: number | null;
+  targetRpe: number | null; targetRir: number | null; restSeconds: number | null; notes: string | null;
+}
 export interface WorkoutLog {
+  prescriptionSource?: 'snapshot' | 'legacy-current';
+  prescriptions?: WorkoutPrescription[];
   id: string;
   sessionId: string;
   studentId: string;

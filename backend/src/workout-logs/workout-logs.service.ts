@@ -1,6 +1,8 @@
+import { capturePrescription } from '../common/training/workout-prescription';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConflictException,
+  UnauthorizedException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -44,6 +46,7 @@ const DUPLICATE_SET_LOG =
   'Ya existe un registro para ese ejercicio y número de serie en este entrenamiento';
 
 const SET_LOG_EXERCISE_INCLUDE = {
+  workoutLog: { include: { prescriptions: true } },
   sessionExercise: { include: { exercise: true } },
 } satisfies Prisma.SetLogInclude;
 
@@ -72,46 +75,8 @@ export interface WorkoutEvolutionResult {
   exerciseEvolution: ExerciseEvolutionPoint[] | null;
 }
 
-// ---------------------------------------------------------------------------
-// Registro de ejecución del Alumno (PROMPT 10) — usa EXCLUSIVAMENTE los
-// modelos WorkoutLog/SetLog ya existentes desde PROMPT 02, sin agregar
-// ningún campo (docs/database.md, sección "Ejecución"). Autorización:
-// `StudentTrainingService.findAssignedSessionOrThrow()` resuelve la cadena
-// completa Session -> Week -> Block -> Program -> ProgramAssignment del
-// alumno autenticado — el `studentId` con el que se filtra/crea SIEMPRE sale
-// de `CurrentUser()`, nunca de un id enviado por el cliente.
-//
-// Decisión de diseño documentada (docs/database.md/api.md, "Estado de
-// implementación (PROMPT 10)"): `WorkoutLog.completionStatus` es un campo NO
-// NULO del modelo (`COMPLETED | PARTIAL | SKIPPED`, sin un valor explícito
-// de "en progreso"). Se interpreta que ese enum representa el resultado
-// AUTOREPORTADO por el alumno al terminar (RF-23), no un estado técnico de
-// progreso, así que:
-// - `start()` crea el WorkoutLog con `completionStatus: PARTIAL` como valor
-//   provisional (el más neutral de los tres: "todavía no completado"),
-//   `durationMinutes` en null.
-// - `finish()` es la ÚNICA operación que fija el valor real elegido por el
-//   alumno, y SIEMPRE exige `durationMinutes` (ver FinishWorkoutLogDto):
-//   `durationMinutes !== null` es la señal — sin agregar ninguna columna
-//   nueva — de que ese entrenamiento ya fue cerrado al menos una vez.
-// - Mientras no esté cerrado, se pueden seguir agregando SetLog libremente;
-//   una vez cerrado, `addSetLogs()` rechaza con 409 (exactamente el
-//   escenario que PROMPT 10 pide impedir explícitamente: "operaciones
-//   incompatibles con el estado del entrenamiento").
-// - Tanto `finish()` (para corregir el resumen) como SetLogsService.update()
-//   (para corregir una serie ya cargada) respetan la ventana de 24 horas de
-//   RF-24, anclada siempre en `WorkoutLog.createdAt`
-//   (common/training/edit-window.ts).
-//
-// PROMPT 11 (RF-25) agrega, sobre esta misma base: `listHistory()` (el
-// historial paginado y filtrable de WorkoutLog propios) y `getEvolution()`
-// (métricas descriptivas simples calculadas por common/training/
-// workout-metrics.ts). Ninguno de los dos escribe nada -- son consultas de
-// solo lectura sobre datos que YA existían por el flujo de PROMPT 10, nunca
-// datos reconstruidos ni ficticios. No se cambió NADA de start()/
-// addSetLogs()/finish(): PROMPT 11 pidió explícitamente no rehacer esa
-// lógica ni la señal completionStatus/durationMinutes ya establecida.
-// ---------------------------------------------------------------------------
+// Ejecución del alumno: ownership, cierre por durationMinutes y edición durante 24h.
+// La prescripción se captura una sola vez, en la transacción de inicio.
 @Injectable()
 export class WorkoutLogsService {
   constructor(
@@ -131,6 +96,7 @@ export class WorkoutLogsService {
   ) {
     const workoutLog = await this.prisma.workoutLog.findUnique({
       where: { id: workoutLogId },
+      include: { prescriptions: true },
     });
     if (!workoutLog || workoutLog.studentId !== studentId) {
       throw new NotFoundException(GENERIC_WORKOUT_LOG_NOT_FOUND);
@@ -149,13 +115,49 @@ export class WorkoutLogsService {
       { requireActive: true },
     );
 
-    const created = await this.prisma.workoutLog.create({
-      data: {
-        sessionId,
-        studentId,
-        completionStatus: WorkoutCompletionStatus.PARTIAL,
+    const created = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM users WHERE id = ${studentId} FOR UPDATE`;
+        const actor = await tx.user.findUnique({
+          where: { id: studentId },
+          select: { isActive: true },
+        });
+        if (!actor?.isActive) throw new UnauthorizedException('No autenticado');
+        const assignment = await tx.programAssignment.findFirst({
+          where: {
+            studentId,
+            status: 'ACTIVE',
+            program: {
+              blocks: {
+                some: {
+                  weeks: { some: { sessions: { some: { id: sessionId } } } },
+                },
+              },
+            },
+          },
+          select: { id: true },
+        });
+        if (!assignment)
+          throw new NotFoundException('Asignación no encontrada');
+        const exercises = await tx.sessionExercise.findMany({
+          where: { sessionId },
+          include: { exercise: true },
+          orderBy: { order: 'asc' },
+        });
+        return tx.workoutLog.create({
+          data: {
+            sessionId,
+            studentId,
+            programAssignmentId: assignment.id,
+            completionStatus: WorkoutCompletionStatus.PARTIAL,
+            prescriptionCapturedAt: new Date(),
+            prescriptions: { create: exercises.map(capturePrescription) },
+          },
+          include: { prescriptions: true },
+        });
       },
-    });
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
 
     await this.auditService.record({
       actorId: studentId,
@@ -181,8 +183,28 @@ export class WorkoutLogsService {
       sessionId,
     );
 
+    const activeAssignment = await this.prisma.programAssignment.findFirst({
+      where: {
+        studentId,
+        status: 'ACTIVE',
+        program: {
+          blocks: {
+            some: {
+              weeks: { some: { sessions: { some: { id: sessionId } } } },
+            },
+          },
+        },
+      },
+      select: { id: true },
+    });
     const logs = await this.prisma.workoutLog.findMany({
-      where: { sessionId, studentId },
+      where: {
+        sessionId,
+        studentId,
+        ...(activeAssignment
+          ? { programAssignmentId: activeAssignment.id }
+          : {}),
+      },
       orderBy: { performedAt: 'desc' },
     });
     return logs.map(toPublicWorkoutLog);
@@ -287,6 +309,7 @@ export class WorkoutLogsService {
     const workoutLog = await this.prisma.workoutLog.findUnique({
       where: { id: workoutLogId },
       include: {
+        prescriptions: true,
         setLogs: {
           include: SET_LOG_EXERCISE_INCLUDE,
           orderBy: { createdAt: 'asc' },
@@ -323,13 +346,17 @@ export class WorkoutLogsService {
     const sessionExerciseIds = [
       ...new Set(dto.setLogs.map((item) => item.sessionExerciseId)),
     ];
-    const validExercises = await this.prisma.sessionExercise.findMany({
-      where: {
-        id: { in: sessionExerciseIds },
-        sessionId: workoutLog.sessionId,
-      },
-      select: { id: true },
-    });
+    const validExercises = workoutLog.prescriptionCapturedAt
+      ? workoutLog.prescriptions.filter((item) =>
+          sessionExerciseIds.includes(item.sessionExerciseId),
+        )
+      : await this.prisma.sessionExercise.findMany({
+          where: {
+            id: { in: sessionExerciseIds },
+            sessionId: workoutLog.sessionId,
+          },
+          select: { id: true },
+        });
     if (validExercises.length !== sessionExerciseIds.length) {
       throw new NotFoundException(GENERIC_SESSION_EXERCISE_NOT_FOUND);
     }

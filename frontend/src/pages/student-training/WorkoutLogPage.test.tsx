@@ -156,7 +156,7 @@ describe('WorkoutLogPage', () => {
     const table = await screen.findByRole('table');
     expect(within(table).getByText('Press de banca')).toBeInTheDocument();
     expect(
-      within(table).getByText('8-12 reps / RPE 8 / RIR 2'),
+      within(table).getByText('4 × 8-12 reps / RPE 8 / RIR 2'),
     ).toBeInTheDocument();
     expect(within(table).getByText('10')).toBeInTheDocument();
   });
@@ -367,4 +367,24 @@ describe('WorkoutLogPage', () => {
       '/history?exerciseId=exercise-1&exerciseName=Press%20de%20banca',
     );
   });
+});
+
+
+it('usa ejercicios congelados al reanudar y excluye cambios de plantilla', async () => {
+  mockGetByPath({
+    '/workout-logs/workout-log-1': buildWorkoutLog({ prescriptionSource: 'snapshot', prescriptions: [{
+      sessionExerciseId: 'original', exerciseId: 'exercise-original', exerciseName: 'Nombre histórico', order: 1,
+      targetSets: 3, targetRepsMin: 5, targetRepsMax: 5, targetRpe: 8, targetRir: null, restSeconds: null, notes: null,
+    }] }),
+    '/student/sessions/session-1': buildSessionDetail(),
+  });
+  renderWithRoute(<WorkoutLogPage />, { path: '/workout-logs/:id', route: '/workout-logs/workout-log-1' });
+  expect(await screen.findByRole('option', { name: '1. Nombre histórico' })).toHaveValue('original');
+  expect(screen.queryByRole('option', { name: /Press de banca/ })).not.toBeInTheDocument();
+});
+
+it('identifica explícitamente el fallback de registros anteriores', async () => {
+  mockGetByPath({ '/workout-logs/workout-log-1': buildWorkoutLog({ prescriptionSource: 'legacy-current', durationMinutes: 20 }) });
+  renderWithRoute(<WorkoutLogPage />, { path: '/workout-logs/:id', route: '/workout-logs/workout-log-1' });
+  expect(await screen.findByText(/Registro anterior sin snapshot/)).toBeInTheDocument();
 });
