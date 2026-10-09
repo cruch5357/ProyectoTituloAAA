@@ -97,6 +97,7 @@ model User {
   auditLogs           AuditLog[]          @relation("ActorAuditLogs")
   profile             UserProfile?
   competitions        Competition[]
+  scheduleChanges     SessionScheduleOverride[]
   notifications       Notification[]
 
   // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
@@ -215,6 +216,7 @@ model Session {
   // real no puede eliminarse (docs/database.md, seccion "Integridad y
   // constraints").
   workoutLogs      WorkoutLog[]
+  scheduleOverrides SessionScheduleOverride[]
   contextMessages  Message[]
 
   @@unique([weekId, order])
@@ -223,6 +225,7 @@ model Session {
 }
 
 model SessionExercise {
+  workoutPrescriptions WorkoutPrescription[]
   id         String   @id @default(cuid())
   sessionId  String   @map("session_id")
   session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -262,6 +265,8 @@ model SessionExercise {
 // ---------------------------------------------------------------------------
 
 model ProgramAssignment {
+  workoutLogs WorkoutLog[]
+  scheduleOverrides SessionScheduleOverride[]
   startDate  DateTime? @db.Date @map("start_date")
   id         String                  @id @default(cuid())
   programId  String                  @map("program_id")
@@ -287,6 +292,11 @@ model ProgramAssignment {
 // ---------------------------------------------------------------------------
 
 model WorkoutLog {
+  programAssignmentId String? @map("program_assignment_id")
+  programAssignment ProgramAssignment? @relation(fields: [programAssignmentId], references: [id], onDelete: SetNull)
+  @@index([programAssignmentId, sessionId])
+  prescriptionCapturedAt DateTime? @map("prescription_captured_at")
+  prescriptions WorkoutPrescription[]
   id        String  @id @default(cuid())
   sessionId String  @map("session_id")
   // Restrict: protege el principio central del modelo. Ver docs/database.md.
@@ -309,6 +319,28 @@ model WorkoutLog {
   @@index([studentId, performedAt])
   @@index([sessionId])
   @@map("workout_logs")
+}
+
+model WorkoutPrescription {
+  id String @id @default(cuid())
+  workoutLogId String @map("workout_log_id")
+  workoutLog WorkoutLog @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
+  sessionExerciseId String @map("session_exercise_id")
+  sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Restrict)
+  exerciseId String @map("exercise_id")
+  exerciseName String @map("exercise_name")
+  order Int
+  targetSets Int? @map("target_sets")
+  targetRepsMin Int? @map("target_reps_min")
+  targetRepsMax Int? @map("target_reps_max")
+  targetRpe Decimal? @db.Decimal(3, 1) @map("target_rpe")
+  targetRir Int? @map("target_rir")
+  restSeconds Int? @map("rest_seconds")
+  notes String?
+
+  @@unique([workoutLogId, sessionExerciseId])
+  @@index([sessionExerciseId])
+  @@map("workout_prescriptions")
 }
 
 model SetLog {
@@ -509,6 +541,7 @@ enum NotificationType {
   COMPETITION_UPDATED
   COMPETITION_GOAL_UPDATED
   PROGRAM_ASSIGNED
+  SESSION_RESCHEDULED
   WORKOUT_COMPLETED
 }
 
@@ -574,4 +607,23 @@ model Notification {
   createdAt DateTime @default(now()) @map("created_at")
   @@index([userId, readAt, createdAt])
   @@map("notifications")
+}
+
+model SessionScheduleOverride {
+  id String @id @default(cuid())
+  programAssignmentId String @map("program_assignment_id")
+  programAssignment ProgramAssignment @relation(fields: [programAssignmentId], references: [id], onDelete: Cascade)
+  sessionId String @map("session_id")
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  originalDate DateTime @db.Date @map("original_date")
+  scheduledDate DateTime @db.Date @map("scheduled_date")
+  reason String?
+  createdByUserId String @map("created_by_user_id")
+  createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  @@unique([programAssignmentId, sessionId])
+  @@index([sessionId])
+  @@index([createdByUserId])
+  @@map("session_schedule_overrides")
 }

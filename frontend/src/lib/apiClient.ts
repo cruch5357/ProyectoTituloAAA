@@ -45,6 +45,43 @@ interface ApiErrorBody {
 type AccessTokenGetter = () => string | null;
 
 let getAccessToken: AccessTokenGetter = () => null;
+let recoverSession: (() => Promise<boolean>) | undefined;
+let sessionGeneration = 0;
+
+export function invalidatePendingAuthRequests(): void {
+  sessionGeneration += 1;
+}
+
+export function setSessionRecovery(handler: (() => Promise<boolean>) | undefined): void {
+  recoverSession = handler;
+}
+
+// Retry once, only after authentication rejects the request. Never retry
+// public auth endpoints or replay a request under a different user's session.
+async function authenticatedFetch(url: string, init: RequestInit, skipAuth = false): Promise<Response> {
+  const generation = sessionGeneration;
+  const token = skipAuth ? null : getAccessToken();
+  const send = (value: string | null) => {
+    const headers = new Headers(init.headers);
+    if (headers.has(CSRF_HEADER_NAME)) {
+      const csrfToken = readCookie(CSRF_COOKIE_NAME);
+      if (csrfToken) headers.set(CSRF_HEADER_NAME, csrfToken);
+      else headers.delete(CSRF_HEADER_NAME);
+    }
+    if (!skipAuth) {
+      if (value) headers.set('Authorization', `Bearer ${value}`);
+      else headers.delete('Authorization');
+    }
+    return fetch(url, { ...init, headers });
+  };
+  const response = await send(token);
+  if (response.status !== 401 || skipAuth || !token || !recoverSession || generation !== sessionGeneration) return response;
+  // A late response can belong to a token already renewed by another request.
+  if (getAccessToken() === token && !(await recoverSession())) return response;
+  const renewedToken = getAccessToken();
+  if (!renewedToken || init.signal?.aborted || generation !== sessionGeneration) return response;
+  return send(renewedToken);
+}
 
 // Inyectado por AuthProvider al montar (ver src/auth/AuthContext.tsx). Antes
 // de que exista una sesión, simplemente no hay token que adjuntar.
@@ -95,13 +132,13 @@ async function request<T, M = Record<string, unknown>>(
     }
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}${path}`, {
     ...rest,
     method,
     headers: finalHeaders,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'include',
-  });
+  }, skipAuth);
 
   const parsed = await response.json().catch(() => null);
 
@@ -149,7 +186,7 @@ async function postFile<T, M = Record<string, unknown>>(
     finalHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await authenticatedFetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
     headers: finalHeaders,
     body: formData,
@@ -173,7 +210,7 @@ async function postFile<T, M = Record<string, unknown>>(
 export const apiClient = {
   blob: async (path: string): Promise<Blob> => {
     const token = getAccessToken();
-    const response = await fetch(API_BASE_URL + path, { headers: token ? { Authorization: 'Bearer ' + token } : {}, credentials: 'include', cache: 'no-store' });
+    const response = await authenticatedFetch(API_BASE_URL + path, { headers: token ? { Authorization: 'Bearer ' + token } : {}, credentials: 'include', cache: 'no-store' });
     if (!response.ok) throw new ApiError(response.status, 'No se pudo cargar el archivo');
     return response.blob();
   },

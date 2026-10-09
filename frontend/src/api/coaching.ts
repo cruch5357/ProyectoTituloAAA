@@ -1,3 +1,4 @@
+import { displayDateOnly } from '../lib/calendarDate';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 
@@ -8,13 +9,14 @@ export interface Competition {
 }
 export interface CalendarSession {
   id: string; sessionId: string; assignmentId: string; name: string; date: string | null;
+  rescheduled?: boolean; originalDate?: string | null;
   programName: string; blockId: string; blockName: string; weekNumber: number; blockIndex: number; completed: boolean;
 }
 export interface CalendarData {
   competitions: Competition[]; competitionsTruncated: boolean;
   today: string; nextSession: CalendarSession | null; pendingSession: CalendarSession | null;
   nextCompetition: Competition | null; sessions: CalendarSession[];
-  assignments: { id: string; programId: string; name: string; startDate: string | null; currentWeek?: { blockName: string; weekNumber: number } | null }[];
+  assignments: { adherence?: { insufficientReason?: 'legacy-history'; scheduledSessions: number; completedSessions: number; adherenceRate: number | null }; id: string; programId: string; name: string; startDate: string | null; currentWeek?: { blockName: string; weekNumber: number } | null }[];
 }
 export interface ProfileData {
   id: string; name: string; email: string; role: string;
@@ -38,4 +40,4 @@ export function useCoachingMutation() {
 }
 export const useCalendar = (studentId?: string, month?: string) => useCoachingQuery<CalendarData>((studentId ? `/students/${studentId}/calendar` : '/calendar/me') + (month ? `?month=${month}` : ''));
 export const useProfile = () => useCoachingQuery<ProfileData>('/profile/me');
-export const displayDate = (date: string) => new Date(`${date.slice(0, 10)}T12:00:00`).toLocaleDateString('es-CL');
+export const displayDate = displayDateOnly;

@@ -1,3 +1,4 @@
+import { computeAdherence } from '../common/training/adherence';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
@@ -5,7 +6,7 @@ import { StudentAccessService } from './student-access.service';
 import { CompetitionsService } from '../competitions/competitions.service';
 import {
   dateOnly,
-  sessionDate,
+  effectiveSessionDate,
   todayDate,
 } from '../common/training/calendar-date';
 
@@ -28,6 +29,7 @@ export class CalendarService {
           where: { studentId, status: 'ACTIVE', program: { isActive: true } },
           orderBy: { assignedAt: 'desc' },
           include: {
+            scheduleOverrides: true,
             program: {
               select: {
                 id: true,
@@ -58,27 +60,22 @@ export class CalendarService {
           where: this.competitions.upcomingWhere({ id: studentId }),
           orderBy: [{ eventDate: 'asc' }, { id: 'asc' }],
         }),
-        this.prisma.workoutLog.findMany({
+        this.prisma.workoutLog.groupBy({
+          by: ['programAssignmentId', 'sessionId'],
           where: {
             studentId,
-            OR: [
-              {
-                performedAt: {
-                  gte: new Date(dateOnly(today).getTime() - 56 * 86400000),
-                  lte: new Date(),
+            session: {
+              week: {
+                block: {
+                  program: {
+                    isActive: true,
+                    assignments: { some: { studentId, status: 'ACTIVE' } },
+                  },
                 },
               },
-              {
-                performedAt: {
-                  gte: new Date(monthStart.getTime() - 86400000),
-                  lt: new Date(monthEnd.getTime() + 86400000),
-                },
-              },
-            ],
-            durationMinutes: { not: null },
+            },
           },
-          select: { sessionId: true, performedAt: true },
-          orderBy: { performedAt: 'desc' },
+          _max: { durationMinutes: true },
         }),
         this.prisma.competition.findMany({
           where: { studentId, eventDate: { gte: monthStart, lt: monthEnd } },
@@ -86,8 +83,10 @@ export class CalendarService {
           take: 201,
         }),
       ]);
-    const completedDates = new Set(
-      recentLogs.map((log) => `${log.sessionId}:${todayDate(log.performedAt)}`),
+    const completedSessions = new Set(
+      recentLogs
+        .filter((log) => log._max.durationMinutes !== null)
+        .map((log) => `${log.programAssignmentId}:${log.sessionId}`),
     );
     const sessions = assignments
       .flatMap((assignment) => {
@@ -96,10 +95,14 @@ export class CalendarService {
           block.weeks.flatMap((week) => {
             const index = weekIndex++;
             return week.sessions.map((session) => {
-              const date = sessionDate(
+              const override = assignment.scheduleOverrides.find(
+                (o) => o.sessionId === session.id,
+              );
+              const date = effectiveSessionDate(
                 assignment.startDate,
                 index,
                 session.dayOfWeek,
+                override,
               );
               return {
                 id: `${assignment.id}:${session.id}`,
@@ -112,8 +115,13 @@ export class CalendarService {
                 blockIndex,
                 weekNumber: week.number,
                 date,
-                completed:
-                  date !== null && completedDates.has(`${session.id}:${date}`),
+                rescheduled: Boolean(override),
+                originalDate:
+                  override?.originalDate.toISOString().slice(0, 10) ?? null,
+                completed: completedSessions.has(
+                  `${assignment.id}:${session.id}`,
+                ),
+                historyAmbiguous: completedSessions.has(`null:${session.id}`),
               };
             });
           }),
@@ -164,6 +172,11 @@ export class CalendarService {
           name: a.program.name,
           startDate: a.startDate,
           currentWeek: weeks[index] ?? null,
+          adherence: computeAdherence(
+            a.startDate,
+            sessions.filter((s) => s.assignmentId === a.id),
+            today,
+          ),
         };
       }),
     };

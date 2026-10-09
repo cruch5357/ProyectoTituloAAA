@@ -11,6 +11,7 @@ import { ensureWithinEditWindow } from '../common/training/edit-window';
 const GENERIC_SET_LOG_NOT_FOUND = 'Serie registrada no encontrada';
 
 const SET_LOG_EXERCISE_INCLUDE = {
+  workoutLog: { include: { prescriptions: true } },
   sessionExercise: { include: { exercise: true } },
 } satisfies Prisma.SetLogInclude;
 
@@ -38,7 +39,6 @@ export class SetLogsService {
     const setLog = await this.prisma.setLog.findUnique({
       where: { id: setLogId },
       include: {
-        workoutLog: { select: { studentId: true, createdAt: true } },
         ...SET_LOG_EXERCISE_INCLUDE,
       },
     });

@@ -1,6 +1,7 @@
+import { RequestLoggingMiddleware } from './common/request-logging.middleware';
 import { MessagesModule } from './messages/messages.module';
 import { CoachingModule } from './coaching/coaching.module';
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
@@ -86,4 +87,8 @@ import { StudentsController } from './students/students.controller';
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RequestLoggingMiddleware).forRoutes('*');
+  }
+}

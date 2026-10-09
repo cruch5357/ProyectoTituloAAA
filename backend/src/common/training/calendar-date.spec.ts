@@ -1,5 +1,17 @@
 import { dateOnly, sessionDate, todayDate } from './calendar-date';
 describe('Calendario: fechas reales', () => {
+  const previousTimezone = process.env.APP_TIMEZONE;
+  beforeEach(() => {
+    delete process.env.APP_TIMEZONE;
+  });
+  afterEach(() => {
+    if (previousTimezone === undefined) delete process.env.APP_TIMEZONE;
+    else process.env.APP_TIMEZONE = previousTimezone;
+  });
+  it('honors the configured timezone at a day boundary', () => {
+    process.env.APP_TIMEZONE = 'UTC';
+    expect(todayDate(new Date('2026-10-08T01:00:00Z'))).toBe('2026-10-08');
+  });
   it('rechaza fechas imposibles, horas y formatos ambiguos', () => {
     for (const value of ['2026-02-30', '07/10/2026', '2026-10-07T00:00:00Z'])
       expect(() => dateOnly(value)).toThrow();

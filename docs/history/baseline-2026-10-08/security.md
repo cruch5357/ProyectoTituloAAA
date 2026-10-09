@@ -1,0 +1,430 @@
+## Actualización: email y recuperación de contraseña
+
+La entrega manual de activationToken descrita en secciones históricas fue reemplazada por SMTP. Ningún token plano se devuelve en la API. Se conservan 32 bytes aleatorios y SHA-256 para tokens opacos; contraseñas con Argon2id y política existente (10–128 caracteres, letra y número). PasswordResetToken tiene hash único, expiración y usedAt. Un bloqueo de fila de usuario serializa recuperaciones simultáneas; el consumo condicional protege contra reuso. La activación también reclama la invitación condicionalmente dentro de la transacción.
+
+STARTTLS obligatorio en 587, verificación TLS habilitada, un transporter reutilizable y errores SMTP sanitizados. Secretos solo en backend/.env ignorado por Git. Validación de entorno no imprime valores. El filtro de excepciones registra método, ruta sin query y estado, sin stack ni payload sensible; auditoría tampoco imprime excepciones crudas. Eventos: STUDENT_INVITATION_SENT, STUDENT_INVITATION_RESENT, PASSWORD_RESET_REQUESTED, PASSWORD_RESET_COMPLETED y PASSWORD_RESET_EMAIL_FAILED.
+
+La UI retira tokens de la URL mediante replace al montar y los mantiene solo en memoria; recargar requiere volver a abrir el correo. Referrer-Policy no-referrer mediante meta. Workbox continúa precacheando únicamente el shell estático, sin runtimeCaching ni almacenamiento de enlaces/token/requests API. Publicar con HTTPS y configurar el servidor SPA para servir index.html y no registrar query strings de estos enlaces.
+
+Ver [guía de prueba](email-setup.md).
+
+# Seguridad
+
+> Documento de planificación técnica — PROMPT 00. Define cómo deberán implementarse los controles de seguridad en etapas posteriores. Nada de esto se implementa todavía. El backend es siempre la barrera de seguridad autoritativa; el frontend nunca es la única validación.
+
+## 1. Autenticación
+JWT de dos tokens: **access token** de vida corta (propuesto 15 min) enviado en el header `Authorization`, y **refresh token** de vida más larga (propuesto 7 días) almacenado en una cookie `httpOnly`, `Secure`, `SameSite=Strict`. El refresh token se puede revocar (logout, cambio de contraseña) mediante una lista de invalidación o versión de token en la tabla `User`.
+
+## 2. Autorización basada en roles
+Guard de rol a nivel de endpoint (`COACH` vs `STUDENT`) implementado con decoradores/guards del framework backend, evaluado en el servidor antes de ejecutar cualquier lógica de negocio.
+
+## 3. Autorización sobre recursos/objetos
+Guard adicional de propiedad: el `coach_id`/`student_id` del recurso solicitado se compara siempre contra el id del usuario autenticado (extraído del token, nunca del payload del cliente). Aplica a alumnos, programas, ejercicios, sesiones y registros.
+
+## 4. Protección alumno-alumno
+Todo endpoint que retorna datos de un alumno filtra explícitamente por `student_id = req.user.id` (o, si lo consulta el coach, por pertenencia al `coach_id`). Se documenta como caso de prueba obligatorio: alumno A no puede leer ni escribir registros de alumno B, incluso conociendo su id.
+
+## 5. Protección coach-coach
+Análogamente, un coach no puede acceder a alumnos, programas o ejercicios de otro coach, incluso conociendo su id.
+
+## 6. Validación de entrada
+Toda entrada llega a través de DTOs validados en el backend (tipos, rangos, longitud, formato), independientemente de cualquier validación ya realizada en el frontend. Entradas no reconocidas se descartan (whitelist), no se ignoran silenciosamente ni se persisten.
+
+## 7. SQL Injection
+Uso exclusivo del ORM con consultas parametrizadas; cualquier consulta SQL cruda (si llegara a ser necesaria) debe usar parámetros bindados, nunca concatenación de strings.
+
+## 8. XSS
+El framework de frontend escapa por defecto el contenido renderizado. Cualquier campo que permita texto libre (comentarios, mensajes) se trata como texto plano, no como HTML. Se añade un header `Content-Security-Policy` restrictivo en el backend.
+
+## 9. CSRF
+Como el access token viaja en el header `Authorization` (no en una cookie), la mayoría de los endpoints no son susceptibles a CSRF clásico. El único endpoint que usa una cookie (`/auth/refresh`) se protege con un patrón de doble envío de token (double-submit cookie) o un header custom validado en el servidor.
+
+## 10. CORS
+Lista blanca explícita de orígenes permitidos (dominio del frontend en cada ambiente); `credentials: true` solo para el origen exacto del frontend, nunca con wildcard `*`.
+
+## 11. Rate limiting
+Throttling agresivo en endpoints de autenticación (ej. 5 intentos/minuto/IP) y throttling general más permisivo en el resto de la API, por usuario autenticado y por IP.
+
+## 12. Manejo seguro de sesiones/tokens
+Rotación del refresh token en cada uso (refresh token rotation) para detectar reutilización de tokens robados; invalidación inmediata de todos los tokens de un usuario en cambio de contraseña.
+
+## 13. Contraseñas
+Hashing con `bcrypt` (costo ≥ 12) o `argon2id`; nunca se almacena ni se loguea la contraseña en texto plano.
+
+## 14. Variables de entorno y secretos
+Archivos `.env` excluidos del control de versiones (`.gitignore`); secretos distintos por ambiente (desarrollo/demo); ningún secreto se hardcodea en el código fuente.
+
+## 15. Headers de seguridad
+Middleware tipo Helmet: `Strict-Transport-Security`, `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Content-Security-Policy`, deshabilitación de headers que exponen tecnología (`X-Powered-By`).
+
+## 16. Manejo seguro de errores
+Respuestas de error genéricas hacia el cliente (sin stack traces, nombres de tabla o consultas); el detalle completo se registra únicamente en logs del servidor.
+
+## 17. Logging sin exponer información sensible
+Nunca se loguean contraseñas, tokens completos ni datos de tarjetas/pagos (no aplica en este proyecto). Los logs de error incluyen contexto técnico (endpoint, id de request) sin datos personales sensibles.
+
+## 18. Auditoría de acciones críticas
+Tabla `AuditLog` (ver `database.md`) que registra creación/edición/eliminación de programas, cambios sobre datos de otro usuario e intentos de login fallidos, sin almacenar datos sensibles en el campo de metadata.
+
+## 19. Principio de mínimo privilegio
+El usuario de base de datos que usa el backend principal tiene solo los permisos que necesita (sin `DROP`/`ALTER` en producción). El futuro servicio de ciencia de datos, si existe, usa un rol de base de datos **de solo lectura** y acotado a las tablas que realmente necesita.
+
+## 20. Seguridad de PostgreSQL
+Conexión con SSL/TLS habilitado; usuario de aplicación sin privilegios de superusuario; contraseñas de base de datos gestionadas como secretos, no en el código.
+
+## 21. Migraciones
+Toda migración se revisa en pull request antes de aplicarse; ninguna migración destructiva se ejecuta en el ambiente de demo/producción sin un backup previo confirmado.
+
+## 22. Backups
+`pg_dump` periódico documentado como práctica obligatoria; al menos una prueba de restauración antes de la entrega final del proyecto.
+
+## 23. Seguridad del proceso de importación de Excel
+El archivo se valida por extensión **y** por contenido real (magic bytes), se rechaza cualquier formato con macros (`.xlsm`), se limita el tamaño máximo (propuesto 5 MB) y el número máximo de filas procesadas por importación, y el parseo se realiza con una librería mantenida y actualizada, nunca ejecutando contenido del archivo.
+
+## 24. Validación de archivos y tamaño máximo
+Límite de tamaño aplicado tanto en el cliente (UX) como, de forma autoritativa, en el backend antes de procesar el archivo.
+
+## 25. Protección ante archivos maliciosos o inesperados
+El parseo de Excel corre de forma aislada de la lógica crítica del proceso principal (por ejemplo, en un *worker*/proceso hijo con límites de tiempo y memoria), de modo que un archivo malformado o diseñado para agotar recursos no pueda afectar la disponibilidad del resto del sistema.
+
+## 26. Dependencias vulnerables
+Auditoría periódica de dependencias (`npm audit` o equivalente) y actualización de librerías con vulnerabilidades conocidas antes de cada entrega relevante del proyecto.
+
+## 27. Pruebas de seguridad
+Casos de prueba específicos para autorización cruzada (alumno-alumno, coach-coach), validación de entrada en los formularios críticos, y revisión manual orientada a los riesgos más relevantes del OWASP Top 10 para el alcance de esta aplicación (ver `testing.md`).
+
+---
+
+## Estado de implementación (PROMPT 03)
+
+Las secciones 1 a 27 de este documento son la planificación técnica original (PROMPT 00). Esta sección describe lo que **realmente se implementó** en PROMPT 03 (autenticación + primera capa de autorización) y prevalece ante cualquier diferencia de detalle con las secciones anteriores.
+
+### Autenticación (punto 1)
+
+- **Access token:** JWT firmado (HS256, `@nestjs/jwt`), vida corta configurable (`JWT_ACCESS_EXPIRES_IN`, por defecto `15m`), enviado en el header `Authorization: Bearer`. Claims mínimos: `sub` (id de usuario), `role`, `tokenVersion`, `iat`, `exp` — nunca password ni datos innecesarios. Se verifica solo por firma/expiración (sin consulta a la base de datos en cada request); ver `src/auth/tokens/token.service.ts`.
+- **Refresh token:** **decisión revisada respecto a lo planificado en PROMPT 00/02.** En vez de un JWT de refresh, se implementó como un valor aleatorio opaco de 256 bits (`crypto.randomBytes(32)`), del que solo se almacena su hash SHA-256 en la nueva tabla `refresh_sessions` (nunca el valor en texto plano). Motivo: la validez real de un refresh token siempre depende de una fila en la base de datos para poder revocar/rotar/detectar reuso (ver más abajo); un JWT de refresh agregaría una segunda fuente de verdad sin aportar nada. El token viaja únicamente en una cookie `httpOnly`, `Secure` (en producción), `SameSite=Strict`, con `Path` restringido a `/api/v1/auth`.
+- **`User.tokenVersion`:** se mantiene en el modelo (ver `docs/database.md`), pero **no es el mecanismo principal de invalidación de refresh tokens** como se planteó originalmente — se reemplazó por revocación por sesión individual en `refresh_sessions` (ver abajo), que permite invalidar una sesión puntual sin cerrar todas las demás. `tokenVersion` queda disponible como claim del access token para un futuro mecanismo de invalidación global gruesa (ej. "cerrar sesión en todos los dispositivos"), no implementado todavía.
+
+### Autorización basada en roles (punto 2)
+
+`JwtAuthGuard` (autenticación) + `RolesGuard` + `@Roles(Role.COACH | Role.STUDENT)` (`src/auth/guards/`, `src/auth/decorators/roles.decorator.ts`). Se usan siempre en ese orden (`@UseGuards(JwtAuthGuard, RolesGuard)`). Un endpoint sin `@Roles(...)` solo exige autenticación.
+
+### Autorización sobre recursos/objetos (puntos 3, 4, 5)
+
+**Preparada, no implementada sobre recursos concretos todavía** (PROMPT 03 no agrega endpoints de negocio). Se dejó la abstracción reutilizable `assertOwnsResource()` en `src/auth/authorization/resource-ownership.ts`, documentada con los casos de prueba obligatorios (alumno-alumno, coach-coach) que los prompts futuros deben implementar junto con cada recurso real, con pruebas unitarias ya cubriendo la función genérica (`resource-ownership.spec.ts`).
+
+### CSRF (punto 9)
+
+Patrón de doble envío de token, extendido deliberadamente a **dos** endpoints (no solo `/auth/refresh` como decía el punto 9 original): `/auth/refresh` y `/auth/logout`, porque ambos actúan sobre la cookie de refresh. Mecanismo: al hacer login/refresh exitoso se setea, además de la cookie de refresh, una cookie NO `httpOnly` (`csrf_token`) con un valor aleatorio independiente; el frontend debe repetir su valor en el header `X-CSRF-Token`. `CsrfGuard` (`src/auth/guards/csrf.guard.ts`) compara ambos valores con `crypto.timingSafeEqual`. No se removió por tener `SameSite=Strict` (instrucción explícita de PROMPT 03): es defensa en profundidad adicional.
+
+### Rate limiting (punto 11)
+
+Throttler nombrado `"auth"` (`@nestjs/throttler`, named throttlers) aplicado a `register`, `students/invite`, `activate` y `login`, configurable vía `AUTH_THROTTLE_TTL_MS`/`AUTH_THROTTLE_LIMIT` (`.env`), independiente del throttler `"default"` general. Ver `src/app.module.ts`.
+
+### Manejo de sesiones/tokens (punto 12)
+
+Nueva tabla `refresh_sessions` (ver `docs/database.md`, sección "Estado de implementación (PROMPT 03)"): cada login/refresh crea una fila con `tokenHash`, `expiresAt`, `revokedAt`. Rotación: cada `POST /auth/refresh` válido marca la sesión usada como `revokedAt = now()` y crea una nueva. **Detección de reuso:** si se presenta un token cuya sesión ya tiene `revokedAt` distinto de `null`, se asume compromiso y se revocan **todas** las sesiones activas del usuario (defensivo), y se registra `auth.refresh_reuse_detected` en `AuditLog`. Ver `AuthService.refresh()`.
+
+### Contraseñas (punto 13)
+
+**Argon2id** (paquete `argon2`, bindings nativos), no bcrypt. Justificación: es la opción preferida explícitamente por este mismo documento, resiste mejor ataques por GPU/ASIC que bcrypt, y se verificó que la librería funciona en el entorno de desarrollo sin depender de binarios descargados en la instalación (a diferencia de los motores de Prisma — ver limitación de entorno más abajo). Funciones separadas `hashPassword`/`verifyPassword` en `src/auth/password/password.service.ts`; ningún llamador conoce el algoritmo ni sus parámetros.
+
+### Manejo seguro de errores / no enumeración (puntos 16, 17)
+
+- `login()` devuelve exactamente el mismo mensaje genérico (`"Credenciales inválidas"`) para: usuario inexistente, usuario inactivo y contraseña incorrecta — verificado con una prueba unitaria explícita que compara los tres mensajes. Además, siempre ejecuta un `argon2.verify()` (contra un hash de relleno si el usuario no existe) para mitigar enumeración de usuarios por temporización.
+- `activate()` devuelve el mismo mensaje genérico para token inexistente, expirado o ya usado.
+- Ningún log ni metadata de `AuditLog` incluye contraseñas, tokens completos ni el contenido de las cookies — verificado explícitamente en pruebas unitarias.
+
+### Auditoría (punto 18)
+
+Nuevo `AuditService` (`src/audit/`), global, usado por `AuthService` para registrar: registro de coach, invitación de alumno, activación, login exitoso/fallido, logout, rotación de refresh y reuso de refresh detectado. Un fallo al escribir el audit log nunca interrumpe el flujo principal (se captura y se loguea aparte).
+
+### Documentación (Swagger/OpenAPI)
+
+`@nestjs/swagger` configurado en `src/main.ts`, expuesto en `/api/v1/docs`. Documenta únicamente los endpoints de `/auth/*` y `/users/me` que existen hoy.
+
+### Frontend
+
+No se construyó ninguna UI de login en PROMPT 03 (instrucción explícita: la lógica de auth es responsabilidad del backend). No se modificó `frontend/`.
+
+### Limitación de entorno persistente (Prisma)
+
+`prisma generate`/`migrate` siguen sin poder ejecutarse en el entorno de preparación por el bloqueo de red hacia `binaries.prisma.sh` ya reportado en PROMPT 01/02. En PROMPT 03 se evaluó explícitamente actualizar a `prisma@8` (rc) como posible salida: se descartó porque esa versión reestructura la CLI en torno a "Prisma Platform" (comandos `deploy`/`project`/`postgres`/etc.) y **ya no tiene un comando `generate` clásico equivalente**, por lo que no es compatible con el flujo de PostgreSQL autoalojado de este proyecto. El detalle de cómo se verificó el código igualmente (shim local de tipos, no versionado) está en el informe de cierre de PROMPT 03.
+
+---
+
+## Estado de implementación (PROMPT 04)
+
+Esta sección documenta la **primera autorización real sobre un recurso de negocio** (`Student`, en `backend/src/students/`), y prevalece sobre la sección 3 del documento en caso de diferencia de detalle.
+
+### Autorización sobre recursos/objetos (puntos 3, 4, 5) — primer caso real
+
+Los cuatro endpoints de `StudentsController` (`GET /students`, `GET /students/:id`, `PATCH /students/:id/status`, `POST /students/invite`) aplican las dos capas de autorización descritas en `docs/api.md`, sección 3:
+
+1. **Guard de rol:** `@UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.COACH)` a nivel de clase — un alumno (`STUDENT`) autenticado recibe `403` en cualquiera de los cuatro endpoints.
+2. **Guard de propiedad de recurso:** resuelto en `StudentsService`, nunca en un guard genérico, porque requiere cargar el alumno desde la base de datos antes de poder comparar su `coachId` — un guard no tiene forma de hacer esto sin acoplarse al servicio de negocio. El `coachId` contra el que se compara sale siempre de `CurrentUser()` (JWT ya verificado), nunca de un parámetro de ruta, query o body.
+
+**Desviación documentada respecto a `assertOwnsResource()`:** `resource-ownership.ts` (preparado en PROMPT 03) lanza `ForbiddenException` (403) cuando el recurso no pertenece al usuario. Para `Student` específicamente, `StudentsService` **no usa esa función**: implementa su propio chequeo (`ensureOwnedStudent()`) que lanza `NotFoundException` (404) tanto si el alumno no existe como si existe pero pertenece a otro coach, sin distinguir los dos casos con el mismo mensaje genérico. Motivo (ya establecido en `docs/api.md`, sección 5): un `403` en este caso confirmaría al coach que consulta que *existe* un alumno con ese id (perteneciente a otro coach), lo cual ya es una fuga de información que un id es válido y está en uso. `assertOwnsResource()` sigue disponible sin cambios para recursos futuros donde esa fuga no aplique.
+
+### Prevención de IDOR/BOLA (punto 21)
+
+- El `:id` de ruta se valida contra el formato de cuid (`StudentIdParamDto`, `/^c[a-z0-9]{24}$/`) **antes** de tocar la base de datos: un id con forma inválida responde `400`, nunca dispara una consulta con un valor arbitrario del cliente.
+- `GET /students` nunca acepta un `coachId` de query como mecanismo de autorización: `ListStudentsQueryDto` no declara ese campo, así que la configuración global de ValidationPipe (`whitelist`/`forbidNonWhitelisted`) lo rechaza con `400` automáticamente si el cliente lo envía.
+- El filtro `coachId` se aplica siempre en la cláusula `where` de la consulta Prisma (`role: STUDENT, coachId`), nunca cargando todos los alumnos y filtrando en memoria.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+`PATCH /students/:id/status` usa `UpdateStudentStatusDto`, que declara **únicamente** `isActive: boolean`. `StudentsService.updateStatus()` además construye su propio objeto `data` explícito para Prisma (`{ isActive: dto.isActive }`), nunca reenvía el DTO completo ni el body crudo — así que aunque `whitelist`/`forbidNonWhitelisted` fallaran por algún motivo, el servicio seguiría sin poder escribir `role`, `coachId`, `email` ni `passwordHash` por este endpoint. Verificado con una prueba unitaria explícita (`students.service.spec.ts`) que inspecciona las claves del objeto `data` enviado a `prisma.user.update()`.
+
+### Exposición de información (punto 21)
+
+Las respuestas de los cuatro endpoints reutilizan `toPublicUser()` (`src/common/mappers/public-user.mapper.ts`, ya usado desde PROMPT 03 en login/register/activate/me): nunca se creó una forma de respuesta nueva ni distinta para "alumno" que pudiera, por descuido, exponer `passwordHash` o `tokenVersion`.
+
+### Auditoría (punto 18)
+
+Nueva acción `students.status_changed` en `AUDIT_ACTIONS` (`auth.constants.ts`), registrada por `StudentsService.updateStatus()` con metadata `{ isActive }` únicamente (nunca el estado anterior completo del usuario ni ningún campo sensible). La invitación (`students.invite`, acción `auth.student_invited` sin cambios) se reubicó junto con el resto de `StudentsService.invite()`, sin alterar qué se audita.
+
+### Rate limiting (punto 11)
+
+`POST /students/invite` mantiene el throttler nombrado `"auth"`, igual que cuando vivía bajo `/auth`. Los endpoints de solo lectura/gestión (`GET /students`, `GET /students/:id`, `PATCH /students/:id/status`) usan el throttler `"default"` general: no son endpoints de autenticación ni de alto riesgo de fuerza bruta (requieren ya estar autenticado como Coach).
+
+### Base de datos (sin cambios de esquema)
+
+No se modificó `prisma/schema.prisma` ni se agregó ninguna migración para PROMPT 04. El estado "activo/inactivo" de un alumno ya existía como `User.isActive` (agregado en PROMPT 02, ver `docs/database.md`): `PATCH /students/:id/status` simplemente expone, de forma controlada y auditada, una operación de escritura sobre una columna que ya estaba modelada. Antes de escribir cualquier código se verificó explícitamente que el modelo actual ya soportaba esta funcionalidad (`requirements.md` RF-06/RF-07 no piden ningún campo adicional para el MVP de este prompt).
+
+### Frontend
+
+Ver `docs/api.md` para el contrato de los endpoints. La UI "Mis alumnos" (React Router + TanStack Query) consume estos cuatro endpoints; la protección de rutas en el frontend (ocultar el link de navegación, redirigir si no hay sesión) es exclusivamente una mejora de UX — la única barrera de seguridad real son los guards del backend documentados arriba, verificable llamando a la API directamente sin pasar por la UI.
+
+---
+
+## Estado de implementación (PROMPT 06)
+
+Este prompt pedía implementar autenticación segura completa (registro, login, refresh, logout, roles, CSRF, rate limiting). La inspección previa a cualquier cambio (obligatoria según las reglas del prompt) confirmó que **todo el alcance de backend ya estaba implementado correctamente desde PROMPT 03**, con cobertura de pruebas que ya satisface el punto 16 del prompt en su totalidad. Por eso esta sección documenta principalmente una **verificación**, no una reimplementación, más el único gap real encontrado (frontend).
+
+### Verificación de lo ya implementado (sin duplicar nada)
+
+Se releyeron íntegramente, antes de tocar cualquier archivo:
+
+- `token.service.spec.ts`: cubre firma/verificación válida con el set exacto de claims, rechazo de firma alterada, **rechazo de token expirado** (con `JWT_ACCESS_EXPIRES_IN: '1ms'`), rechazo de secreto incorrecto, hash SHA-256 de refresh tokens.
+- `jwt-auth.guard.spec.ts`: sin header → 401, header no-Bearer → 401, token inválido/alterado → 401, **token expirado → 401**, usuario borrado → 401, usuario inactivo → 401, éxito con `request.user` verificado explícitamente sin `passwordHash`.
+- `roles.guard.spec.ts`: passthrough sin `@Roles`, rechazo cruzado COACH/STUDENT en ambos sentidos, éxito con rol correcto, rechazo sin usuario en el request.
+- `auth.service.spec.ts`: cobertura exhaustiva de `register` (3 pruebas), `login` (6, incluyendo paridad de mensaje genérico y que `argon2.verify` siempre se ejecuta), `refresh` (5, incluyendo rotación, detección de reuso que revoca todas las sesiones, y que el token viejo falla tras rotar), `logout` (2, incluyendo idempotencia), `activate` (2).
+
+**Conclusión:** el diseño de refresh token opaco con hash-only en DB (no JWT), Argon2id, cookies `httpOnly`/`Secure`/`SameSite`, CSRF de doble envío, rate limiting nombrado `"auth"`, guards de rol y la separación autenticación/autorización ya cumplen exactamente lo que este prompt pedía preservar explícitamente ("si el proyecto ya tiene una implementación basada en token opaco... CONSÉRVALA y no la reemplaces por JWT"). No se modificó ningún archivo de `backend/src/auth/` ni sus pruebas: no había nada que corregir.
+
+### Único gap real encontrado: UI de registro (frontend)
+
+`docs/security.md` (sección PROMPT 03) ya dejaba constancia de que no se había construido ninguna UI de login en ese prompt; PROMPT 04 luego agregó login pero no registro. Al inspeccionar `frontend/src/pages/` y `frontend/src/routes/AppRouter.tsx` se confirmó que efectivamente no existía `RegisterPage` ni ruta `/register` — el único punto del alcance de PROMPT 06 (punto 14: "UI mínima funcional... registro de Coach") que faltaba.
+
+Se agregó:
+
+- `register()` / `RegisterPayload` en `frontend/src/api/auth.ts`, siguiendo el mismo patrón que `login`/`refreshSession`/`logout` (función simple, no hook de TanStack Query, ya que es una acción imperativa). Llama a `POST /auth/register` con `skipAuth: true`. **Importante:** a diferencia de login, el backend no retorna token ni setea cookie en el registro (`AuthController.register` solo crea la cuenta) — por eso el flujo de UI redirige a `/login` en vez de autenticar automáticamente.
+- `frontend/src/pages/RegisterPage.tsx`: formulario (nombre, correo, contraseña, confirmación de contraseña — esta última es únicamente una ayuda de UX que el backend ni siquiera conoce). Redirige a `/login` con un mensaje de éxito tras registrarse. Misma estructura y clases CSS (`.login-page`, `.field`, `.field-error`) que `LoginPage.tsx`, reutilizadas sin cambios.
+- Ruta `/register` en `AppRouter.tsx`.
+- Links cruzados: "¿No tienes cuenta? Regístrate" en `LoginPage`, "¿Ya tienes cuenta? Inicia sesión" en `RegisterPage`, y un link "Registrarme" agregado junto a "Iniciar sesión" en la navegación anónima de `MainLayout.tsx`.
+
+Como en PROMPT 04, la validación real (formato de contraseña, unicidad de email, longitud) la hace siempre el backend (`RegisterDto`); la UI no duplica esas reglas más allá de atributos HTML básicos (`minLength`/`maxLength`/`type="email"`) que son solo una ayuda de UX.
+
+### Documentación (punto 18)
+
+No se encontró ninguna divergencia entre `docs/security.md`/`docs/api.md` y el código de autenticación real — por lo tanto no se modificó el contrato documentado de ningún endpoint (`docs/api.md` no cambió). Esta sección es la única actualización de documentación necesaria para PROMPT 06.
+
+### Pruebas, lint y build
+
+- Backend: 78 pruebas unitarias (13 suites) y 14 pruebas e2e (3 suites) — el mismo número que antes de este prompt, sin cambios porque no se modificó código de backend. `nest build` y `eslint --fix` sin errores.
+- Frontend: `tsc -b`, `oxlint` (0 advertencias/errores) y `npm run build` (`vite build`) sin errores, verificados en el directorio de trabajo temporal habitual (ver limitación de entorno abajo) antes de sincronizar los cambios al repositorio real.
+
+### Limitación de entorno persistente (sin cambios)
+
+Sigue vigente el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) y la imposibilidad de conectar al Postgres real del usuario desde este entorno de preparación (documentado en PROMPT 05, sección 10.2). Ninguna de las dos afecta el alcance de este prompt: no se tocó `schema.prisma` ni se requirió una conexión real a la base de datos para verificar nada de lo anterior.
+
+---
+
+## Estado de implementación (PROMPT 07)
+
+Documenta la autorización del catálogo de ejercicios (`backend/src/exercises/`), el segundo recurso de negocio real del proyecto después de `Student` (PROMPT 04), y el primero que sigue exactamente el mismo patrón sin ninguna desviación nueva.
+
+### Autorización sobre recursos/objetos
+
+Los cinco endpoints de `ExercisesController` (`GET /exercises`, `GET /exercises/:id`, `POST /exercises`, `PATCH /exercises/:id`, `PATCH /exercises/:id/status`) aplican las mismas dos capas que `StudentsController`:
+
+1. **Guard de rol:** `@UseGuards(JwtAuthGuard, RolesGuard) @Roles(Role.COACH)` a nivel de clase. El modelo actual no contempla ejercicios globales/compartidos entre coaches (`Exercise.coachId` es obligatorio y sin default — ver `docs/database.md`), así que no se implementó ningún sistema multi-coach ni ejercicios "de sistema": se respetó exactamente la decisión de modelo ya existente, tal como pedía explícitamente el prompt.
+2. **Guard de propiedad de recurso:** resuelto en `ExercisesService` (`ensureOwnedExercise()`), calcado de `ensureOwnedStudent()`: `404` (nunca `403`) tanto si el ejercicio no existe como si pertenece a otro coach, sin distinguir los dos casos. Mismo motivo ya documentado en PROMPT 04: un `403` confirmaría que el id pertenece a un ejercicio existente de otro coach.
+
+### Prevención de IDOR/BOLA
+
+`:id` validado contra el formato de cuid (`ExerciseIdParamDto`) antes de tocar la base de datos. `GET /exercises` no declara `coachId` en `ListExercisesQueryDto`: un `?coachId=...` es rechazado con `400` por la configuración global de `ValidationPipe`, igual que en `/students`.
+
+### Prevención de mass assignment
+
+`PATCH /exercises/:id/status` usa `UpdateExerciseStatusDto`, que declara únicamente `isActive`. `PATCH /exercises/:id` usa `UpdateExerciseDto` (todos los campos opcionales, pero declarados uno por uno — nunca un `Partial<>` genérico ni el body crudo); además, `ExercisesService.update()` construye su objeto `data` explícitamente campo por campo en vez de hacer spread del DTO, la misma defensa en profundidad que `StudentsService.updateStatus()`. Ninguno de los dos endpoints puede escribir `coachId` ni `isActive` desde el otro (edición de datos y cambio de estado están deliberadamente separados en dos endpoints, igual que en `/students`).
+
+### Sin borrado físico (preservación de historial)
+
+`ExercisesController` no expone `DELETE /exercises/:id`. La única forma de "eliminar" un ejercicio es `PATCH /exercises/:id/status` con `{ isActive: false }` (reversible), mismo criterio ya establecido para `Student` en PROMPT 04. Esto satisface por diseño el requisito explícito de PROMPT 07 de nunca poder romper una prescripción que ya use el ejercicio: la restricción `RESTRICT` de `session_exercises.exercise_id → exercises.id` (ya existente desde PROMPT 02) protege además a nivel de base de datos, pero como ningún endpoint intenta un borrado físico, esa protección nunca necesita evaluarse desde este flujo.
+
+### Exposición de información
+
+Igual que `toPublicUser()`, se agregó `toPublicExercise()` (`src/exercises/exercise.mapper.ts`) para que ninguna respuesta HTTP dependa de serializar el objeto de Prisma "tal cual" — hoy `Exercise` no tiene ningún campo sensible, pero se mantiene el mismo patrón por consistencia y para no tener que introducirlo más tarde si el modelo crece.
+
+### Auditoría
+
+Se agregó una única acción nueva, `exercises.status_changed` (`AUDIT_ACTIONS.EXERCISE_STATUS_CHANGED`), registrada por `ExercisesService.updateStatus()` con metadata `{ isActive }` únicamente. **Decisión documentada:** no se audita la creación ni la edición de datos de un ejercicio (a diferencia de `students.status_changed`, que sí se audita) — mismo criterio de "auditar acciones críticas" del prompt: crear/editar un ejercicio propio es una operación de bajo riesgo sobre un recurso del propio coach, sin el peso de seguridad de desactivar algo que puede estar en uso en una prescripción real.
+
+### Rate limiting
+
+Todos los endpoints de `/exercises` usan el throttler `"default"` general (no `"auth"`): no son endpoints de autenticación ni de alto riesgo de fuerza bruta, mismo criterio que los endpoints de solo lectura/gestión de `/students`.
+
+### Base de datos
+
+Único cambio de esquema: `Exercise.isActive` (ver `docs/database.md`, sección 11). No se tocó ningún otro modelo, guard o mecanismo de autenticación existente.
+
+### Frontend
+
+Primera versión funcional del "Catálogo de ejercicios" (React Router + TanStack Query, mismo patrón que "Mis alumnos"): listar con búsqueda y paginación, crear (diálogo nativo `<dialog>`, igual que `InviteStudentDialog`), editar (formulario en la página de detalle — a diferencia de `Student`, donde la edición de perfil quedó fuera de alcance, acá sí se implementa porque RF-08 exige CRUD completo) y activar/desactivar. La protección de rutas en el frontend (`RequireAuth`) es únicamente una ayuda de UX; la única barrera de seguridad real son los guards de backend documentados arriba.
+
+### Testing de frontend (primera infraestructura del proyecto)
+
+PROMPT 07 fue el primero en pedir explícitamente pruebas de frontend (renderizado del catálogo, carga, creación, edición, manejo de errores). Como el proyecto no tenía ningún framework de testing de frontend configurado hasta ahora (ver `docs/testing.md`, que ya lo planteaba desde PROMPT 00 sin haberse implementado en PROMPT 03/04/06), se agregó **Vitest** + **@testing-library/react** — la integración estándar para un proyecto Vite, reutilizando `vite.config.ts` en vez de introducir un segundo bundler/config (ej. Jest) para el frontend. Se agregaron 3 archivos de prueba (`ExercisesListPage.test.tsx`, `ExerciseFormDialog.test.tsx`, `ExerciseDetailPage.test.tsx`, 7 casos en total) que mockean `apiClient` directamente (mismo espíritu que mockear `PrismaService` en el backend) en vez de hacer llamadas de red reales. Esta infraestructura queda disponible para que prompts futuros agreguen pruebas de sus propios componentes sin volver a configurarla.
+
+---
+
+## Estado de implementación (PROMPT 08)
+
+Documenta la autorización de la jerarquía de prescripción (`Program -> Block -> Week -> Session -> SessionExercise`, `backend/src/programs/`, `blocks/`, `weeks/`, `sessions/`, `session-exercises/`), el primer caso del proyecto donde la propiedad de un recurso se resuelve a través de **múltiples relaciones indirectas** en vez de un `coachId`/`studentId` directo en la propia fila.
+
+### Autorización por cadena de propiedad multi-nivel (puntos 3, 5)
+
+`Program` mantiene el mismo patrón directo ya usado por `Student`/`Exercise` (`ensureOwnedProgram()`, 404 genérico). Los cuatro niveles siguientes NO tienen `coachId` propio — pertenecen a un coach únicamente a través de su cadena de relaciones (`Block.program.coachId`, `Week.block.program.coachId`, `Session.week.block.program.coachId`, `SessionExercise.session.week.block.program.coachId`). Cada servicio (`BlocksService`, `WeeksService`, `SessionsService`, `SessionExercisesService`) resuelve su cadena completa con una única consulta Prisma anidada (`include` en cascada hasta `Program`) y compara el `coachId` resultante contra `CurrentUser().id` — nunca se confía en que el id del padre recibido en la URL (`:programId`, `:blockId`, `:weekId`, `:sessionId`) coincida con el hijo que realmente se está creando/consultando sin verificarlo contra la base de datos en cada request.
+
+Los cuatro niveles indirectos, igual que `Program`/`Student`/`Exercise`, responden **404** (nunca 403) tanto si el recurso no existe como si pertenece (por cualquier eslabón de su cadena) a otro coach, con el mismo mensaje genérico por nivel ("Bloque no encontrado", "Semana no encontrada", "Sesión no encontrada", "Ejercicio de la sesión no encontrado") — mismo motivo ya documentado: informar cuál de los dos casos ocurrió ya sería una fuga de información.
+
+### Segunda verificación de propiedad independiente: `SessionExercise.exerciseId`
+
+`SessionExercisesService` es el único servicio del proyecto que autoriza sobre **dos cadenas de propiedad distintas en la misma operación**: la de la `Session` (arriba) y la del `Exercise` referenciado (`Exercise.coachId`, catálogo de PROMPT 07). Un coach no puede prescribir en su propia sesión un ejercicio del catálogo de otro coach, ni al revés — ambas direcciones quedan bloqueadas por (1) la cadena de la `Session` y (2) esta segunda verificación explícita, independiente, sobre `exerciseId`. Se decidió no depender solo de (1): aunque hoy el modelo no permite catálogos compartidos entre coaches (igual que en PROMPT 07), verificar (2) de forma explícita documenta la intención y protege ante un futuro cambio de modelo hacia ejercicios compartidos.
+
+### Prevención de IDOR/BOLA (punto 21)
+
+Todo `:id` de ruta (`ProgramIdParamDto`, `BlockIdParamDto`, `WeekIdParamDto`, `SessionIdParamDto`, `SessionExerciseIdParamDto`) y todo id de padre en una ruta anidada (`ProgramIdRouteParamDto`, `BlockIdRouteParamDto`, `WeekIdRouteParamDto`, `SessionIdRouteParamDto`) se valida contra el formato de cuid **antes** de tocar la base de datos, mismo criterio que `/students`/`/exercises`. Ningún DTO de query (`ListProgramsQueryDto`) declara `coachId`: un `?coachId=...` es rechazado con `400` por `whitelist`/`forbidNonWhitelisted`, igual que en `/students` y `/exercises`.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+Todos los DTO de edición (`UpdateProgramDto`, `UpdateBlockDto`, `UpdateWeekDto`, `UpdateSessionDto`, `UpdateSessionExerciseDto`) declaran cada campo explícitamente — nunca un `Partial<>` genérico ni el body crudo. Cada servicio construye su objeto `data` de Prisma campo por campo a partir de lo presente en el DTO, nunca con spread directo, verificado con pruebas unitarias que inspeccionan las claves del objeto `data` enviado (mismo patrón que `students.service.spec.ts`/`exercises.service.spec.ts`). `isActive` de `Program` solo es escribible desde `PATCH /programs/:id/status` (`UpdateProgramStatusDto`), nunca desde `PATCH /programs/:id`.
+
+### Sin borrado físico en ningún nivel (preservación de historial)
+
+Ninguno de los cinco recursos de esta jerarquía expone `DELETE`. `Program` sigue el patrón ya establecido (`isActive`, reversible). `Block`/`Week`/`Session`/`SessionExercise` no tienen ningún mecanismo de baja — ni lógica ni física — porque el prompt no lo pidió (ver `docs/api.md`, "Alcance explícitamente fuera de PROMPT 08"); esto además evita tener que decidir ahora cómo tratar una eliminación una vez que `WorkoutLog`/`SetLog` (fuera de alcance) empiecen a depender de `Session`/`SessionExercise` vía `RESTRICT` (ver `docs/database.md`, sección 8).
+
+### Integridad transaccional (`Prisma.$transaction`)
+
+Primer uso de transacciones explícitas del proyecto. Toda operación que reordena hermanos (inserción en una posición ocupada, o mover el `order` de un ítem existente) se ejecuta dentro de `prisma.$transaction()`, para que la base de datos nunca quede en un estado intermedio con dos hermanos compartiendo el mismo `order` (violaría el índice único compuesto) ni con un `order` a medio correr si una escritura intermedia fallara. Ver `docs/database.md`, sección 12.3, para el algoritmo exacto.
+
+### Auditoría (punto 18)
+
+Se agregó una única acción nueva, `programs.status_changed` (`AUDIT_ACTIONS.PROGRAM_STATUS_CHANGED`), registrada por `ProgramsService.updateStatus()` con metadata `{ isActive }` únicamente — mismo criterio ya aplicado a `exercises.status_changed` (PROMPT 07). **Decisión documentada:** no se audita la creación ni edición de `Program`, ni ninguna operación sobre `Block`/`Week`/`Session`/`SessionExercise` (crear, editar, reordenar, agregar/quitar un ejercicio de una sesión) — mismo criterio ya establecido: operaciones de bajo riesgo sobre recursos propios del coach, sin el peso de seguridad de archivar algo que puede estar en uso.
+
+### Rate limiting (punto 11)
+
+Todos los endpoints de esta jerarquía usan el throttler `"default"` general, mismo criterio que `/students` y `/exercises` (no son endpoints de autenticación ni de alto riesgo de fuerza bruta).
+
+### Base de datos
+
+Único cambio de esquema: `Program.isActive` (ver `docs/database.md`, sección 12.1). No se tocó ningún guard, decorador o mecanismo de autenticación existente.
+
+### Frontend
+
+Primera versión funcional de "Mis programas" (React Router + TanStack Query, mismo patrón que "Mis alumnos"/"Catálogo de ejercicios"): listar/crear/archivar programas; entrar a un programa y crear/editar sus bloques; entrar a un bloque y crear/editar sus semanas; entrar a una semana y crear/editar sus sesiones; entrar a una sesión, agregar ejercicios existentes del catálogo y configurar/editar su prescripción. La creación de bloques/semanas/sesiones/ítems de prescripción se resolvió con formularios embebidos en la propia página de detalle del padre (en vez de un diálogo `<dialog>` separado, como en "Mis alumnos"/"Catálogo de ejercicios") porque son creaciones "dentro de un contexto" (construir un programa) y no un alta de nivel superior — decisión de UX, sin implicancia de seguridad: la protección de rutas del frontend (`RequireAuth`) sigue siendo únicamente una ayuda de UX, nunca la barrera real.
+
+### Limitación de entorno: nueva, específica de este prompt
+
+Se confirmó que el bloqueo de red hacia `binaries.prisma.sh` (documentado desde PROMPT 01) **también** aplica al puente de ejecución de comandos hacia la máquina real del equipo (no solo al entorno de preparación en la nube): `npx prisma migrate status` fue intentado directamente desde ese puente y devolvió el mismo error `403 Forbidden`. En consecuencia, ninguna migración de este proyecto puede aplicarse ni verificarse contra una base de datos real desde ningún entorno accesible por el asistente — siempre debe ejecutarla el equipo, en su propia terminal, fuera de este puente. Adicionalmente, se descubrió que ese mismo puente **no puede ejecutar las pruebas e2e** (`test/*.e2e-spec.ts`) de ningún módulo, incluyendo los ya existentes de PROMPT 04/07: el cliente Prisma real allí instalado fue generado para el motor nativo de Windows (`query_engine-windows.dll.node`), pero el puente corre sobre una VM Linux, que requiere el motor `debian-openssl-3.0.x` (no incluido en `binaryTargets`, y no descargable por el bloqueo de red anterior). Se verificó que esto no es una regresión de este prompt reproduciendo el mismo error contra `test/exercises.e2e-spec.ts` (ya existente, sin cambios) antes de asumir que era un problema del código nuevo. El resto de la verificación (pruebas unitarias con Prisma mockeado, `tsc`, `eslint`, `nest build`, `vitest`, `vite build`) no depende de un motor real y se ejecutó sin problema — ver el informe de cierre de este prompt para el detalle completo.
+
+## Estado de implementación (PROMPT 09)
+
+Documenta la autorización de `ProgramAssignment` (`backend/src/program-assignments/`), el primer recurso del proyecto que conecta dos entidades propiedad de un mismo coach (`Program` y `User`/Student) **sin que exista una relación directa entre ambas** fuera de la propia tabla puente, y el primer conjunto de endpoints que combina dos roles (`COACH` y `STUDENT`) bajo un criterio de autorización distinto por método.
+
+### Doble verificación de propiedad, independiente (puntos 3, 5)
+
+A diferencia de `SessionExercise` (PROMPT 08), donde una única cadena de relaciones (`session.week.block.program.coachId`) resuelve la propiedad completa, aquí no existe ninguna cadena que conecte `Program` con `User`/Student: son dos ramas separadas del modelo (`docs/database.md`, sección 2) que solo se tocan a través de `ProgramAssignment` mismo. `ProgramAssignmentsService.assign()` por lo tanto verifica **dos propiedades de forma explícita e independiente**, en este orden:
+
+1. El `Program` pertenece al coach autenticado — reutilizando `ProgramsService.findOwnedProgramOrThrow()` sin ninguna modificación (mismo método que ya usa `BlocksService` desde PROMPT 08).
+2. El `studentId` referenciado es un `User` con `role = STUDENT` y `coachId` igual al coach autenticado — consultado directamente contra `User`, mismo patrón que `SessionExercisesService` verificando `Exercise.coachId` de forma independiente a la cadena de `Session` (PROMPT 08, "Segunda verificación de propiedad independiente").
+
+Ambas verificaciones responden **404** (nunca 403) tanto si el recurso no existe como si pertenece a otro coach, sin distinguir los dos casos — mismo criterio ya establecido en todo el proyecto desde PROMPT 04.
+
+### `404` vs. `422`: cuándo informar SÍ es aceptable
+
+Este prompt introduce el primer caso del proyecto donde, tras pasar la verificación de propiedad, se rechaza la operación con **`422`** en vez de **`404`**: un alumno propio pero **inactivo** (`ensureOwnedActiveStudent()`). La distinción es deliberada: un `404` genérico existe para no confirmarle a un coach que un id ajeno corresponde a un recurso real (fuga de información entre coaches); pero el coach que intenta esta asignación **ya sabe** que ese alumno es suyo — lo ve listado en `GET /students` con su propio `isActive`. Informar "está inactivo" en este caso no revela nada que el coach no supiera ya, y es exactamente el tipo de regla de negocio para la que `docs/api.md` (sección 5) reserva el código `422` ("entidad válida en forma pero inválida en reglas de negocio").
+
+### Prevención de duplicados: chequeo proactivo + barrera autoritativa (punto 21)
+
+`ensureNoActiveDuplicate()` consulta explícitamente si ya existe una asignación `ACTIVE` del mismo programa/alumno antes de intentar el `INSERT`/`UPDATE`, dando un mensaje de error específico. Como esa consulta y la escritura no son atómicas entre sí, el código además captura el error `P2002` de Prisma (violación del índice único parcial `program_assignments_active_unique`, `docs/database.md` sección 13.1) como respaldo ante una condición de carrera — mismo patrón exacto ya usado en `AuthService.activate()` para el email único de `User` (ver el `try/catch` de esa función). Este es el primer módulo del proyecto que se apoya en un índice único **parcial** (no uno simple) como barrera autoritativa final.
+
+### Prevención de mass assignment (puntos 7, 8, 21)
+
+`AssignProgramDto` declara únicamente `studentId`; `UpdateProgramAssignmentStatusDto` declara únicamente `status`. `ProgramAssignmentsService` construye su objeto `data` de Prisma campo por campo en ambos casos (`{ programId, studentId }` en `create()`, `{ status: dto.status }` en `updateStatus()`) — nunca con spread del DTO — verificado con una prueba unitaria explícita que inspecciona las claves de `data`. `status` nace siempre `ACTIVE` (default del schema) y `assignedAt` siempre `now()` (default del schema): ninguno de los dos es elegible por el cliente en `POST /programs/:programId/assign`.
+
+### Autorización por rol combinada en un mismo controller
+
+`ProgramAssignmentsController` (`/program-assignments/:id`, `/program-assignments/:id/status`, `/program-assignments/me`) es el primer controller del proyecto que **no** aplica `@Roles(...)` a nivel de clase: `listOwn()` (vista Alumno) exige `Role.STUDENT` y `detail()`/`updateStatus()` (vista Coach) exigen `Role.COACH`, cada uno declarado a nivel de método. Esto es seguro porque `RolesGuard` usa `Reflector.getAllAndOverride()` (`context.getHandler()` antes que `context.getClass()`), así que el metadato del método siempre prevalece sobre el de la clase — que, al no declarar `@Roles(...)`, no restringe por rol por sí sola — verificado con pruebas unitarias que leen el metadato de cada método por separado.
+
+**Orden de declaración de rutas, no solo de guards:** `listOwn()` (`GET /program-assignments/me`) está declarado **antes** que `detail()` (`GET /program-assignments/:id`) en el código fuente del controller. NestJS registra las rutas de un controller en el orden en que se declaran sus métodos, y el router hace matching en ese mismo orden: si `:id` se registrara primero, una request a `/program-assignments/me` coincidiría con `id = "me"` antes de que el método `listOwn()` tuviera oportunidad de ejecutarse (el id inválido recién se rechazaría con `400` dentro de esa rama equivocada, nunca llegando a `listOwn()`). Mismo problema clásico ya resuelto en frameworks REST para `/users/me` vs. `/users/:id`.
+
+### Auditoría — desviación deliberada del criterio de PROMPT 07/08 (punto 18)
+
+Todos los recursos anteriores de la jerarquía de prescripción (`Program`, `Block`, `Week`, `Session`, `SessionExercise`) y el catálogo de `Exercise` auditan **únicamente** su cambio de estado, nunca su creación (criterio establecido en PROMPT 07 y reafirmado en PROMPT 08: crear/editar un recurso propio del coach es una operación de bajo riesgo). `ProgramAssignment` **rompe ese criterio deliberadamente**: se audita tanto `program_assignments.created` como `program_assignments.status_changed`. Motivo: a diferencia de crear un `Program`/`Block`/`Week`/`Session` (que sigue siendo un recurso privado del coach hasta que se asigna), crear una `ProgramAssignment` es la acción que efectivamente **le da a un ALUMNO acceso a una programación** — tiene una consecuencia cruzada entre usuarios desde el instante en que ocurre, lo que la vuelve una acción crítica según RNF-10 (`docs/requirements.md`), a diferencia de las operaciones puramente internas del coach que PROMPT 07/08 decidieron no auditar.
+
+### Sin borrado físico (preservación de historial)
+
+`ProgramAssignmentsController` no expone `DELETE`. La única forma de "desactivar/finalizar" una asignación es `PATCH /program-assignments/:id/status` con `{ status: 'FINISHED' }` — reversible (se puede volver a `ACTIVE` si no viola la restricción de duplicados), mismo criterio de no-borrado-físico ya establecido en todo el proyecto desde PROMPT 04.
+
+### Rate limiting (punto 11)
+
+Todos los endpoints de `program-assignments` usan el throttler `"default"` general, mismo criterio que `/programs`, `/blocks`, `/weeks`, `/sessions`, `/session-exercises` (no son endpoints de autenticación ni de alto riesgo de fuerza bruta).
+
+### Base de datos
+
+Sin ningún cambio de esquema ni migración nueva — ver `docs/database.md`, sección 13.1.
+
+### Frontend
+
+Se integró la asignación dentro del flujo existente de "Mis programas" (vista Coach, en `ProgramDetailPage`) en vez de crear una pantalla separada: seleccionar un alumno propio **activo** de un `<select>` (mismo patrón que el selector de ejercicios del catálogo en `SessionDetailPage`, PROMPT 08) y ver la tabla de asignaciones con su estado. Filtrar el `<select>` a solo alumnos activos es únicamente una ayuda de UX — el backend vuelve a validar `isActive` de forma autoritativa (`422` si se intentara igual). Se agregó además una pantalla mínima nueva para el Alumno (`MyAssignedProgramsPage`, ruta `/my-programs`, protegida por `RequireAuth allowedRoles={['STUDENT']}`) que solo lista sus asignaciones — sin ningún link hacia `Block`/`Week`/`Session`, porque esos endpoints siguen siendo exclusivos de `COACH` en el backend (ver `docs/api.md`, sección 11). Como siempre, la protección de rutas del frontend es únicamente una ayuda de UX; la única barrera de seguridad real son los guards de backend documentados arriba.
+
+### Limitación de entorno (sin cambios)
+
+Misma limitación persistente ya documentada desde PROMPT 01/08 (bloqueo de red hacia `binaries.prisma.sh`; el puente de ejecución hacia la máquina real del equipo tampoco puede correr pruebas e2e con base de datos real ni `prisma generate`/`migrate`). Como este prompt no agrega ninguna migración, no hay ningún paso adicional de `prisma migrate` pendiente más allá de los ya reportados en prompts anteriores.
+
+## Estado de implementación (PROMPT 13)
+
+Documenta la implementación real de las secciones 23-25 (ya esbozadas conceptualmente desde PROMPT 00) al construir la importación de Excel (`backend/src/imports/`, `backend/src/common/imports/`).
+
+### Validación de archivo, en capas
+
+`common/imports/excel-file-validation.ts` nunca confía en un único dato declarado por el cliente: valida tamaño (backend autoritativo, 5 MB — sección 24), extensión (`.xlsm` rechazado explícitamente, cualquier otra distinta de `.xlsx` también), Content-Type declarado (señal adicional, nunca suficiente por sí sola) y, sobre todo, el contenido real del buffer: firma binaria ZIP (`50 4B 03 04`) y una heurística de defensa en profundidad (búsqueda del marcador interno `vbaProject.bin`) para detectar un `.xlsm` renombrado a `.xlsx` — un caso que la extensión sola nunca puede distinguir, porque ambos formatos son, por dentro, el mismo contenedor ZIP/OOXML. Todos los errores detectables se acumulan en una sola pasada en vez de cortar en el primero.
+
+### El archivo nunca se persiste a disco
+
+`ExcelImportBatch` (schema.prisma) no tiene ninguna columna de ruta/blob de almacenamiento a propósito: el archivo se procesa enteramente en memoria (`multer.memoryStorage()`, sin escritura a disco) y se descarta al terminar el request. Por lo tanto la regla "nunca usar el nombre de archivo del usuario para construir una ruta" se cumple por diseño (no existe ninguna ruta que construir); igual se sanitiza el nombre antes de guardarlo como metadata (`sanitizeOriginalFilename()`: descarta componentes de ruta, reemplaza caracteres fuera de un conjunto seguro, acota longitud).
+
+### Ninguna fórmula ni macro se ejecuta jamás
+
+`exceljs` (librería elegida, ver `docs/api.md` sección 15 para la comparación con `xlsx`/SheetJS) solo lee el árbol OOXML y los valores/resultados ya calculados por Excel — nunca evalúa una fórmula. Un `.xlsm` (con macros) se rechaza en dos capas independientes: por extensión declarada, y por el contenido real (heurística `vbaProject.bin`) para el caso de un archivo renombrado.
+
+### Desviación consciente de la sección 25 (aislamiento en worker/proceso hijo)
+
+El enunciado de PROMPT 13 permite explícitamente no introducir esa arquitectura para el MVP. Se implementaron en su lugar cuatro mitigaciones equivalentes y proporcionales al alcance actual: límite de tamaño (5 MB), límite de filas de datos por importación (2000 — el archivo se rechaza completo si se excede, nunca se trunca en silencio), un presupuesto de tiempo de procesamiento chequeado entre filas (10s, aborta con un error controlado si se excede) y manejo seguro de excepciones (`loadWorkbook()` traduce cualquier fallo de `exceljs` — archivo corrupto o con estructura interna inválida — a un `400` genérico, nunca a un `500` con detalle interno). Se documenta como una decisión consciente, no como un descuido: si el volumen de importaciones creciera al punto de que esto deje de ser suficiente, aislar el parseo en un *worker thread* sigue siendo la vía prevista originalmente en esta misma sección.
+
+### Sin cambios en el resto del modelo de amenazas
+
+No se modificó ningún guard, ningún mecanismo de autenticación/sesión, ni ninguna otra superficie de seguridad ya documentada (PROMPT 03/04). La autorización de `ExcelImportBatch` sigue el mismo patrón 404-nunca-403 ya establecido en todo el proyecto (`ExcelImportsService.ensureOwnedBatch()`), y `coachId` nunca se acepta desde el cliente en ningún punto de este módulo (ni para crear el batch, ni para resolver ejercicios por nombre, ni para consultar la vista previa).
+
+## Cierre de sesión y multimedia (octubre 2026)
+
+Corrección detectada con navegador: `csrf_token` ahora tiene Path=/ para permitir su lectura desde las rutas SPA. El refresh conserva HttpOnly, SameSite=Strict, Path=/api/v1/auth y Secure en producción. Se limpia la cookie CSRF antigua para evitar duplicados. Refresh y logout siguen exigiendo doble envío; StrictMode comparte una renovación en curso para no rotar dos veces la misma cookie. Login/logout cancelan y vacían la caché de consultas al cambiar identidad.
+
+El límite reforzado auth se aplica a autenticación e invitaciones; el límite general continúa en todas las rutas y el envío de chat tiene límite propio. Ningún token se persiste en localStorage.
+
+Adjuntos en storage/chat (o CHAT_STORAGE_DIR), fuera del directorio público, con claves UUID generadas por servidor. JWT, participación y relación Coach↔Alumno vigente se comprueban antes de abrir el archivo. Respuesta private/no-store, nosniff y CSP restrictiva. Imágenes JPG/PNG/WebP máximo 8 MiB; video MP4/WebM máximo 50 MiB; se cotejan firma/contenedor, MIME y extensión. No hay transcodificación ni análisis antivirus. Un fallo de persistencia elimina el archivo recién creado. La URL blob del cliente sólo se obtiene tras lectura autenticada; se revoca al desmontar.
+
+Competiciones y notificaciones filtran propiedad en las consultas. Los objetivos del Coach no son editables por el Alumno. Las notificaciones se escriben con la operación en transacción; finalizar nuevamente un workout no duplica su aviso. No se registran cuerpos del chat ni archivos en auditoría.

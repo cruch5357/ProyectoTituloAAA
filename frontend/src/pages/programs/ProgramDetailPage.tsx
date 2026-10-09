@@ -1,3 +1,5 @@
+import { todayDate } from '../../lib/calendarDate';
+import { DuplicateButton } from '../../components/program/DuplicateButton';
 import { AssignmentDate } from '../../components/coaching/Planning';
 import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
@@ -97,6 +99,7 @@ function ProgramEditForm({ program }: { program: Program }) {
         <ProgramStatusBadge isActive={program.isActive} />
       </div>
 
+      <DuplicateButton kind="programs" id={program.id} />
       <ProgramBoard programId={program.id} />
       <h2>Configuración del programa</h2>
       <form onSubmit={handleSubmit}>
@@ -259,7 +262,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
   const updateStatusMutation = useUpdateProgramAssignmentStatus(programId);
 
   const [studentId, setStudentId] = useState('');
-  const [startDate, setStartDate] = useState(() => new Date().toLocaleDateString('en-CA')); 
+  const [startDate, setStartDate] = useState(() => todayDate());
 
   const activeStudents =
     studentsQuery.data?.items.filter((student) => student.isActive) ?? [];

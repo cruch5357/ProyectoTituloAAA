@@ -1,3 +1,4 @@
+import { DuplicateButton } from './DuplicateButton';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useBlocks } from '../../api/blocks';
@@ -117,6 +118,7 @@ function WeekColumn({ id, number }: { id: string; number: number }) {
   return (
     <article className="week-column">
       <p className="eyebrow">Semana {number}</p>
+      <DuplicateButton kind="weeks" id={id} />
       <Link to={`/weeks/${id}`}>Editar semana y sesiones →</Link>
       <button
         className="week-toggle"
@@ -162,6 +164,7 @@ function SessionCard({
     <article className="session-card">
       <p className="eyebrow">Sesión {order}</p>
       <h3>{name}</h3>
+      <DuplicateButton kind="sessions" id={id} />
       <Link to={`/sessions/${id}`}>Editar sesión / prescripción →</Link>
       <button
         className="week-toggle"

@@ -8,7 +8,9 @@ import { AuditService } from '../audit/audit.service';
 
 type MockPrisma = {
   user: Record<string, jest.Mock>;
+  programAssignment: Record<string, jest.Mock>;
   $transaction: jest.Mock;
+  $queryRaw: jest.Mock;
   workoutLog: Record<string, jest.Mock>;
   sessionExercise: Record<string, jest.Mock>;
   setLog: Record<string, jest.Mock>;
@@ -16,7 +18,11 @@ type MockPrisma = {
 
 function buildMockPrisma(): MockPrisma {
   return {
-    user: { findUnique: jest.fn().mockResolvedValue(null) },
+    $queryRaw: jest.fn(),
+    programAssignment: {
+      findFirst: jest.fn().mockResolvedValue({ id: 'assignment-1' }),
+    },
+    user: { findUnique: jest.fn().mockResolvedValue({ isActive: true }) },
     workoutLog: {
       findUnique: jest.fn(),
       create: jest.fn(),
@@ -25,7 +31,7 @@ function buildMockPrisma(): MockPrisma {
       count: jest.fn(),
       aggregate: jest.fn(),
     },
-    sessionExercise: { findMany: jest.fn() },
+    sessionExercise: { findMany: jest.fn().mockResolvedValue([]) },
     setLog: { create: jest.fn(), count: jest.fn(), findMany: jest.fn() },
     // WorkoutLogsService.addSetLogs usa la forma "arreglo de operaciones"
     // de $transaction (no la forma callback ya usada en Block/Week/Session):
@@ -105,8 +111,12 @@ describe('WorkoutLogsService.start', () => {
       data: {
         sessionId: SESSION_ID,
         studentId: STUDENT_ID,
+        programAssignmentId: 'assignment-1',
         completionStatus: WorkoutCompletionStatus.PARTIAL,
+        prescriptionCapturedAt: expect.any(Date),
+        prescriptions: { create: [] },
       },
+      include: { prescriptions: true },
     });
     expect(result.completionStatus).toBe(WorkoutCompletionStatus.PARTIAL);
     expect(result.durationMinutes).toBeNull();
@@ -148,7 +158,11 @@ describe('WorkoutLogsService.listForSession', () => {
 
     expect(prisma.workoutLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { sessionId: SESSION_ID, studentId: STUDENT_ID },
+        where: {
+          sessionId: SESSION_ID,
+          studentId: STUDENT_ID,
+          programAssignmentId: 'assignment-1',
+        },
       }),
     );
   });
@@ -603,5 +617,23 @@ describe('WorkoutLogsService.getEvolution', () => {
 
     const call = prisma.workoutLog.aggregate.mock.calls[0][0];
     expect(call.where.studentId).toBe(OTHER_STUDENT_ID);
+  });
+});
+
+describe('snapshot membership', () => {
+  it('rejects exercises added to the template after an empty workout started', async () => {
+    prisma.workoutLog.findUnique.mockResolvedValue(
+      buildWorkoutLog({
+        prescriptionCapturedAt: new Date(),
+        prescriptions: [],
+      }),
+    );
+    await expect(
+      service.addSetLogs(STUDENT_ID, WORKOUT_LOG_ID, {
+        setLogs: [{ sessionExerciseId: 'late', setNumber: 1 }],
+      }),
+    ).rejects.toThrow(NotFoundException);
+    expect(prisma.sessionExercise.findMany).not.toHaveBeenCalled();
+    expect(prisma.setLog.create).not.toHaveBeenCalled();
   });
 });

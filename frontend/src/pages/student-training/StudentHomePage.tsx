@@ -1,3 +1,5 @@
+import { displayTimestampDate } from '../../lib/calendarDate';
+import { Adherence } from '../../components/coaching/Adherence';
 import { useCalendar } from '../../api/coaching';
 import { MyCoach, NextCompetition, SessionContext } from '../../components/coaching/Planning';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
@@ -100,6 +102,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         <SessionContext session={calendar.data.nextSession} />
         {calendar.data.nextSession.date === calendar.data.today ? <SessionPreview sessionId={calendar.data.nextSession.sessionId} /> : <Link to={`/student/sessions/${calendar.data.nextSession.sessionId}`}>Ver entrenamiento</Link>}
       </section>}
+      {calendar.data && <Card><Adherence assignments={calendar.data.assignments} /></Card>}
       {calendar.isError && <ErrorState retry={() => void calendar.refetch()} />}
       {program && !pending && !calendar.data?.nextSession && inProgress.isSuccess && (
         <section className="hero-card">
@@ -127,7 +130,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         </section>
       )}
       {!training && calendar.data && <NextCompetition competition={calendar.data.nextCompetition} today={calendar.data.today} />}
-      {calendar.data?.pendingSession && <Card><h3>Sesión pasada sin registro en su fecha</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
+      {calendar.data?.pendingSession && <Card><h3>Sesión pasada sin finalizar</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
       {!training && (
         <>
           {evolution.isLoading && <Skeleton />}
@@ -164,7 +167,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
                     {log.session?.name ?? 'Entrenamiento'}
                   </Link>
                   <p className="muted">
-                    {new Date(log.performedAt).toLocaleDateString()} ·{' '}
+                    {displayTimestampDate(log.performedAt)} ·{' '}
                     {log.session?.week.block.program.name} ·{' '}
                     {log.durationMinutes === null
                       ? 'En curso'

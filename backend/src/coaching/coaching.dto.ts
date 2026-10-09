@@ -59,3 +59,8 @@ export class MessageDto {
   @MaxLength(4000)
   body?: string;
 }
+
+export class RescheduleDto {
+  @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) scheduledDate: string;
+  @IsOptional() @IsString() @MaxLength(500) reason?: string;
+}

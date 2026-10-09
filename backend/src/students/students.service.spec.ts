@@ -7,12 +7,18 @@ import { AuditService } from '../audit/audit.service';
 import { TokenService } from '../auth/tokens/token.service';
 
 type MockPrisma = {
+  $transaction: jest.Mock;
+  $queryRaw: jest.Mock;
+  refreshSession: { updateMany: jest.Mock };
   user: Record<string, jest.Mock>;
   studentInvitation: Record<string, jest.Mock>;
 };
 
 function buildMockPrisma(): MockPrisma {
   return {
+    $transaction: jest.fn(),
+    $queryRaw: jest.fn(),
+    refreshSession: { updateMany: jest.fn() },
     user: {
       findUnique: jest.fn(),
       findMany: jest.fn(),
@@ -53,6 +59,7 @@ function buildStudent(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   prisma = buildMockPrisma();
+  prisma.$transaction.mockImplementation((fn) => fn(prisma));
   tokenService = {
     generateInvitationToken: jest
       .fn()
@@ -201,7 +208,7 @@ describe('StudentsService.updateStatus', () => {
 
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'student-1' },
-      data: { isActive: false },
+      data: { isActive: false, tokenVersion: { increment: 1 } },
     });
     expect(result.isActive).toBe(false);
   });
@@ -219,7 +226,7 @@ describe('StudentsService.updateStatus', () => {
     });
 
     const dataArg = prisma.user.update.mock.calls[0][0].data;
-    expect(Object.keys(dataArg)).toEqual(['isActive']);
+    expect(Object.keys(dataArg)).toEqual(['isActive', 'tokenVersion']);
   });
 
   it('rechaza (404) intentar modificar un alumno de otro coach', async () => {

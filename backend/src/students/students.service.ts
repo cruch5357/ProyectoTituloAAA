@@ -166,11 +166,21 @@ export class StudentsService {
     });
     this.ensureOwnedStudent(coachId, student);
 
-    const updated = await this.prisma.user.update({
-      where: { id: studentId },
-      // Objeto `data` explícito y angosto: nunca se reenvía el DTO completo
-      // ni el body crudo de la request (prevención de mass assignment).
-      data: { isActive: dto.isActive },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${studentId} FOR UPDATE`;
+      const result = await tx.user.update({
+        where: { id: studentId },
+        data: {
+          isActive: dto.isActive,
+          ...(!dto.isActive ? { tokenVersion: { increment: 1 } } : {}),
+        },
+      });
+      if (!dto.isActive)
+        await tx.refreshSession.updateMany({
+          where: { userId: studentId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      return result;
     });
 
     await this.auditService.record({

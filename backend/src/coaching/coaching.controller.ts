@@ -1,3 +1,4 @@
+import { ScheduleService } from './schedule.service';
 import {
   Body,
   Controller,
@@ -14,7 +15,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
-import { AuditService } from '../audit/audit.service';
 import { CompetitionsService } from '../competitions/competitions.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CalendarService } from './calendar.service';
@@ -23,12 +23,13 @@ import {
   CoachGoalDto,
   CompetitionDto,
   DateDto,
+  RescheduleDto,
   PageDto,
   ProfileDto,
   UpdateCompetitionDto,
 } from './coaching.dto';
 import { dateOnly } from '../common/training/calendar-date';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException } from '@nestjs/common';
 
 const envelope = <T>(data: T) => ({ data, error: null, meta: {} });
 @Controller()
@@ -38,8 +39,8 @@ export class CoachingController {
     private readonly competitions: CompetitionsService,
     private readonly notifications: NotificationsService,
     private readonly calendar: CalendarService,
+    private readonly schedule: ScheduleService,
     private readonly prisma: PrismaService,
-    private readonly audit: AuditService,
   ) {}
   @Get('competitions/me')
   @Roles(Role.STUDENT)
@@ -111,20 +112,26 @@ export class CoachingController {
     @Param('id') id: string,
     @Body() dto: DateDto,
   ) {
-    const startDate = dateOnly(dto.startDate);
-    const result = await this.prisma.programAssignment.updateMany({
-      where: { id, program: { coachId: u.id }, student: { coachId: u.id } },
-      data: { startDate },
-    });
-    if (!result.count) throw new NotFoundException('Asignación no encontrada');
-    await this.audit.record({
-      actorId: u.id,
-      action: 'PROGRAM_ASSIGNMENT_START_DATE_CHANGED',
-      entityType: 'ProgramAssignment',
-      entityId: id,
-      metadata: { startDate: dto.startDate },
-    });
-    return envelope({ id, startDate });
+    return envelope(await this.schedule.changeStart(u.id, id, dto.startDate));
+  }
+  @Patch('program-assignments/:id/sessions/:sessionId/schedule')
+  @Roles(Role.COACH)
+  async reschedule(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+    @Body() dto: RescheduleDto,
+  ) {
+    return envelope(await this.schedule.change(u.id, id, sessionId, dto));
+  }
+  @Post('program-assignments/:id/sessions/:sessionId/schedule/reset')
+  @Roles(Role.COACH)
+  async resetSchedule(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Param('sessionId') sessionId: string,
+  ) {
+    return envelope(await this.schedule.change(u.id, id, sessionId, null));
   }
   @Get('profile/me')
   async profile(@CurrentUser() u: AuthenticatedUser) {

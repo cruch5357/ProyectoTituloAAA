@@ -1,14 +1,5 @@
-# Tests end-to-end (cross-cutting)
+# Pruebas entre componentes
 
-Esta carpeta está preparada para las pruebas E2E que ejercitan frontend y
-backend en conjunto (ver `docs/testing.md`), por ejemplo con Playwright:
-login, creación de un programa, registro de una sesión, importación de
-Excel.
+Los E2E HTTP existentes viven en `backend/test/` (Supertest); coaching-flow prueba PostgreSQL real, ownership, sesiones, multimedia e integridad histórica. Las pruebas de interfaz viven en `frontend/src/` (Vitest/Testing Library).
 
-**Estado actual (PROMPT 01):** carpeta preparada, sin herramienta instalada
-todavía. Se incorpora Playwright (u otra herramienta equivalente) cuando
-exista al menos un flujo de negocio completo que probar de extremo a
-extremo (a partir de la etapa de autenticación, según `docs/roadmap.md`).
-
-Las pruebas unitarias y de integración de cada aplicación viven junto a su
-código: `frontend/src/**` y `backend/src/**` / `backend/test/**`.
+Esta carpeta no contiene una suite de navegador; Playwright continúa como evaluación futura. Consultar [testing y CI](../docs/testing.md) para comandos y aislamiento de datos.

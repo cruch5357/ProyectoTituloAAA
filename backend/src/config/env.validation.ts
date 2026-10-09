@@ -1,3 +1,4 @@
+import { DEFAULT_APP_TIMEZONE, getAppTimezone } from './timezone';
 import { plainToInstance } from 'class-transformer';
 import {
   IsEnum,
@@ -16,6 +17,9 @@ enum Environment {
 }
 
 class EnvironmentVariables {
+  @IsString()
+  APP_TIMEZONE: string = DEFAULT_APP_TIMEZONE;
+
   @IsEnum(Environment)
   @IsOptional()
   NODE_ENV: Environment = Environment.Development;
@@ -54,9 +58,6 @@ class EnvironmentVariables {
   // tokens (para unit tests), nunca dependen de un valor por defecto aquí.
   @IsString()
   JWT_ACCESS_SECRET: string;
-
-  @IsString()
-  JWT_REFRESH_SECRET: string;
 
   // Formato aceptado por `@nestjs/jwt` / `ms` (ej. "15m", "7d").
   @IsString()
@@ -135,6 +136,7 @@ export function validateEnv(config: Record<string, unknown>) {
       `Configuración de entorno inválida: ${errors.map((error) => error.property).join(', ')}`,
     );
   }
+  validatedConfig.APP_TIMEZONE = getAppTimezone(validatedConfig.APP_TIMEZONE);
   if (validatedConfig.SMTP_SECURE !== 'false')
     throw new Error('SMTP_SECURE debe ser false para STARTTLS en puerto 587');
   let frontend: URL;

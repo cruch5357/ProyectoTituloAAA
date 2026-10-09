@@ -1,3 +1,6 @@
+import { createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
+import { loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -7,7 +10,9 @@ import { VitePWA } from 'vite-plugin-pwa'
 // mismo defineConfig de Vite por debajo (vitest/config lo re-exporta
 // extendido), así que `vite`/`vite build` no cambian de comportamiento.
 // https://vite.dev/config/
-export default defineConfig({
+const { getAppTimezone } = createRequire(import.meta.url)('../backend/config/app-timezone.cjs')
+export default defineConfig(({ mode }) => ({
+  define: { __APP_TIMEZONE__: JSON.stringify(getAppTimezone(process.env.APP_TIMEZONE ?? loadEnv(mode, fileURLToPath(new URL('../backend', import.meta.url)), 'APP_TIMEZONE').APP_TIMEZONE)) },
   plugins: [
     react(),
     // PROMPT 16: PWA instalable (RF-30). Estrategia conservadora:
@@ -77,4 +82,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
   },
-})
+}))

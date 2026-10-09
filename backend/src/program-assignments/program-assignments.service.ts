@@ -284,6 +284,7 @@ export class ProgramAssignmentsService {
       dto.status === ProgramAssignmentStatus.ACTIVE &&
       assignment.status !== ProgramAssignmentStatus.ACTIVE
     ) {
+      await this.ensureOwnedActiveStudent(coachId, assignment.studentId);
       await this.ensureNoActiveDuplicate(
         assignment.programId,
         assignment.studentId,

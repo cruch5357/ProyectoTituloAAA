@@ -26,6 +26,7 @@ async function bootstrap() {
   app.enableCors({
     origin: configService.get<string>('ALLOWED_ORIGIN'),
     credentials: true,
+    exposedHeaders: ['X-Request-Id'],
   });
 
   // Toda la API vive bajo /api/v1 (docs/api.md).
@@ -50,8 +51,7 @@ async function bootstrap() {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Plataforma de Gestión y Seguimiento de Entrenamiento — API')
     .setDescription(
-      'Documentación de la API. Endpoints de autenticación (PROMPT 03); ' +
-        'el resto de los dominios se agrega en prompts posteriores.',
+      'API de planificación, ejecución, seguimiento y comunicación Coach–Alumno.',
     )
     .setVersion('0.1.0')
     .addBearerAuth()

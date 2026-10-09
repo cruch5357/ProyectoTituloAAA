@@ -75,6 +75,7 @@ export function WorkoutLogPage() {
         <Link to="/history">Ver mi historial completo →</Link>
       </p>
 
+      {workoutLog.prescriptionSource === 'legacy-current' && <p>Registro anterior sin snapshot: la prescripción mostrada es la actual.</p>}
       <h2>Series registradas</h2>
 
       {(!workoutLog.setLogs || workoutLog.setLogs.length === 0) && (
@@ -93,7 +94,7 @@ export function WorkoutLogPage() {
               <tr>
                 <th>Ejercicio</th>
                 <th>Serie</th>
-                <th>Prescrito (reps / RPE / RIR)</th>
+                <th>Prescrito (series × reps / RPE / RIR)</th>
                 <th>Reps</th>
                 <th>Carga</th>
                 <th>RPE</th>
@@ -147,7 +148,7 @@ function formatPrescribed(setLog: SetLog): string {
         ? String(se.targetRepsMin)
         : `${se.targetRepsMin}-${se.targetRepsMax}`
       : '—';
-  return `${reps} reps / RPE ${se.targetRpe ?? '—'} / RIR ${se.targetRir ?? '—'}`;
+  return `${se.targetSets ?? '—'} × ${reps} reps / RPE ${se.targetRpe ?? '—'} / RIR ${se.targetRir ?? '—'}`;
 }
 
 function SetLogRow({
@@ -313,6 +314,12 @@ function AddSetLogForm({
   const sessionQuery = useStudentSessionDetail(sessionId);
   const workoutLogQuery = useWorkoutLog(workoutLogId);
   const addMutation = useAddSetLogs(workoutLogId);
+  const exercises = workoutLogQuery.data?.prescriptionSource === 'snapshot'
+    ? (workoutLogQuery.data.prescriptions ?? []).map((item) => ({
+        ...item, id: item.sessionExerciseId,
+        exercise: { id: item.exerciseId, name: item.exerciseName, videoUrl: sessionQuery.data?.exercises.find((current) => current.exerciseId === item.exerciseId)?.exercise.videoUrl ?? null },
+      }))
+    : sessionQuery.data?.exercises ?? [];
 
   const [sessionExerciseId, setSessionExerciseId] = useState('');
   const [setNumber, setSetNumber] = useState('1');
@@ -382,7 +389,7 @@ function AddSetLogForm({
             disabled={sessionQuery.isLoading || addMutation.isPending}
           >
             <option value="">Selecciona un ejercicio…</option>
-            {sessionQuery.data?.exercises.map((exercise) => (
+            {exercises.map((exercise) => (
               <option key={exercise.id} value={exercise.id}>
                 {exercise.order}. {exercise.exercise.name}
                 {exercise.exercise.videoUrl ? ' · Video disponible' : ''}
@@ -391,7 +398,7 @@ function AddSetLogForm({
           </select>
         </label>
 
-        {sessionQuery.data?.exercises
+        {exercises
           .filter((item) => item.id === sessionExerciseId)
           .map((item) => (
             <ExerciseVideo

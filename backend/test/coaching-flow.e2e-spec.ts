@@ -164,10 +164,42 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
         (n: { type: string }) => n.type === 'PROGRAM_ASSIGNED',
       ),
     ).toBe(true);
+    const exercise = await prisma.exercise.create({
+      data: { coachId, name: 'Bench original' },
+    });
+    const prescription = await prisma.sessionExercise.create({
+      data: {
+        sessionId: session.body.data.id,
+        exerciseId: exercise.id,
+        order: 1,
+        targetSets: 3,
+        targetRepsMin: 5,
+        targetRepsMax: 5,
+        targetRpe: 8,
+        targetRir: 2,
+        restSeconds: 120,
+        notes: 'Prescripción A',
+      },
+    });
     const workout = await api()
       .post(`/api/v1/sessions/${session.body.data.id}/workout-logs`)
       .auth(studentToken, { type: 'bearer' })
       .send({})
+      .expect(201);
+    expect(workout.body.data.prescriptionSource).toBe('snapshot');
+    await api()
+      .post(`/api/v1/workout-logs/${workout.body.data.id}/set-logs`)
+      .auth(studentToken, { type: 'bearer' })
+      .send({
+        setLogs: [
+          {
+            sessionExerciseId: prescription.id,
+            setNumber: 1,
+            actualReps: 5,
+            actualLoad: 100,
+          },
+        ],
+      })
       .expect(201);
     await api()
       .patch(`/api/v1/workout-logs/${workout.body.data.id}/finish`)
@@ -179,6 +211,67 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
       .auth(studentToken, { type: 'bearer' })
       .send({ completionStatus: 'COMPLETED', durationMinutes: 31 })
       .expect(200);
+    await prisma.sessionExercise.update({
+      where: { id: prescription.id },
+      data: {
+        targetSets: 4,
+        targetRepsMin: 4,
+        targetRepsMax: 4,
+        targetRpe: 9,
+        notes: 'Prescripción B',
+      },
+    });
+    const history = await api()
+      .get(`/api/v1/workout-logs/${workout.body.data.id}`)
+      .auth(studentToken, { type: 'bearer' })
+      .expect(200);
+    expect(history.body.data.setLogs[0].sessionExercise).toMatchObject({
+      targetSets: 3,
+      targetRepsMin: 5,
+      targetRepsMax: 5,
+      targetRpe: 8,
+      notes: 'Prescripción A',
+      exercise: { name: 'Bench original' },
+    });
+    await prisma.exercise.update({
+      where: { id: exercise.id },
+      data: { name: 'Bench renombrado' },
+    });
+    const renamed = await api()
+      .get(`/api/v1/workout-logs/${workout.body.data.id}`)
+      .auth(studentToken, { type: 'bearer' })
+      .expect(200);
+    expect(renamed.body.data.setLogs[0].sessionExercise.exercise.name).toBe(
+      'Bench original',
+    );
+    expect(renamed.body.data.setLogs[0].actualLoad).toBe(100);
+    expect(renamed.body.data.prescriptions).toHaveLength(1);
+    const legacy = await prisma.workoutLog.create({
+      data: {
+        sessionId: session.body.data.id,
+        studentId,
+        completionStatus: 'COMPLETED',
+        durationMinutes: 20,
+        setLogs: {
+          create: {
+            sessionExerciseId: prescription.id,
+            setNumber: 1,
+            actualReps: 5,
+          },
+        },
+      },
+    });
+    const legacyHistory = await api()
+      .get(`/api/v1/workout-logs/${legacy.id}`)
+      .auth(studentToken, { type: 'bearer' })
+      .expect(200);
+    expect(legacyHistory.body.data.prescriptionSource).toBe('legacy-current');
+    expect(legacyHistory.body.data.setLogs[0].sessionExercise.targetSets).toBe(
+      4,
+    );
+    expect(
+      legacyHistory.body.data.setLogs[0].sessionExercise.exercise.name,
+    ).toBe('Bench renombrado');
     expect(
       await prisma.notification.count({
         where: { userId: coachId, type: 'WORKOUT_COMPLETED' },

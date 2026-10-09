@@ -78,6 +78,7 @@ function buildAssignment(overrides: Partial<Record<string, unknown>> = {}) {
 
 beforeEach(() => {
   prisma = buildMockPrisma();
+  prisma.user.findUnique.mockResolvedValue(buildStudent());
   prisma.$transaction = jest.fn((input: unknown) =>
     typeof input === 'function'
       ? input(prisma)
