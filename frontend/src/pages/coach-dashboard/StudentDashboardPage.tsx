@@ -8,6 +8,7 @@ import { useExercises } from '../../api/exercises';
 import { ApiError } from '../../lib/apiClient';
 import { EvolutionChart } from '../../components/ui/EvolutionChart';
 import { Skeleton } from '../../components/ui/Primitives';
+import { SuggestedLoadCard } from '../../components/coaching/SuggestedLoadCard';
 
 function formatNumber(value: number | null, digits = 1): string {
   return value !== null ? value.toFixed(digits) : '—';
@@ -195,6 +196,9 @@ export function StudentDashboardPage({
             <EvolutionChart
               points={dashboardQuery.data.exerciseEvolution ?? []}
             />
+          )}
+          {exerciseId && studentId && (
+            <SuggestedLoadCard studentId={studentId} exerciseId={exerciseId} />
           )}
           {dashboardQuery.data.workoutsRegistered === 0 && (
             <p>

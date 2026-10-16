@@ -12,6 +12,8 @@ function buildExercise(overrides: Partial<Exercise> = {}): Exercise {
     coachId: 'coach-1',
     name: 'Sentadilla trasera',
     muscleGroup: 'Piernas',
+    muscleGroups: [],
+    sports: [],
     instructions: null,
     videoUrl: null,
     isActive: true,

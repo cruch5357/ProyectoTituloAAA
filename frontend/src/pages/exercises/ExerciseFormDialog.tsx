@@ -1,9 +1,15 @@
 import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { parseExerciseVideo } from '../../lib/exerciseVideo';
 import { useRef, useState } from 'react';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import type { FormEvent } from 'react';
 import { useCreateExercise } from '../../api/exercises';
 import { ApiError } from '../../lib/apiClient';
+import {
+  MuscleGroupPicker,
+  MuscleGroupPreview,
+  SportPicker,
+} from '../../components/exercises/MuscleGroupPicker';
 
 // Formulario de creación de ejercicio (PROMPT 07, "crear ejercicio"). Mismo
 // patrón exacto que InviteStudentDialog.tsx (PROMPT 04): elemento nativo
@@ -14,15 +20,21 @@ import { ApiError } from '../../lib/apiClient';
 // ya existente se edita en su propia página, no en este diálogo).
 export function ExerciseFormDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(dialogRef);
   const [name, setName] = useState('');
-  const [muscleGroup, setMuscleGroup] = useState('');
+  const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
+  const [sports, setSports] = useState<string[]>([]);
+  // Cambia en cada apertura para remontar el selector con sus filas vacías.
+  const [formKey, setFormKey] = useState(0);
   const [instructions, setInstructions] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const createMutation = useCreateExercise();
 
   function resetForm() {
     setName('');
-    setMuscleGroup('');
+    setMuscleGroups([]);
+    setSports([]);
+    setFormKey((key) => key + 1);
     setInstructions('');
     setVideoUrl('');
   }
@@ -43,7 +55,8 @@ export function ExerciseFormDialog() {
     try {
       await createMutation.mutateAsync({
         name,
-        muscleGroup: muscleGroup.trim() || undefined,
+        muscleGroups,
+        sports,
         instructions: instructions.trim() || undefined,
         videoUrl: videoUrl.trim() || undefined,
       });
@@ -62,67 +75,78 @@ export function ExerciseFormDialog() {
 
       <dialog
         ref={dialogRef}
-        className="invite-dialog"
+        {...backdropClose}
+        className="invite-dialog exercise-dialog"
         aria-label="Nuevo ejercicio"
       >
         <form onSubmit={handleSubmit}>
           <h2>Nuevo ejercicio</h2>
 
-          <label className="field">
-            <span>Nombre</span>
-            <input
-              type="text"
-              required
-              minLength={2}
-              maxLength={160}
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              disabled={createMutation.isPending}
-            />
-          </label>
+          <div className="exercise-form-layout">
+            <div className="exercise-form-layout__fields">
+              <label className="field">
+                <span>Nombre</span>
+                <input
+                  type="text"
+                  required
+                  minLength={2}
+                  maxLength={160}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  disabled={createMutation.isPending}
+                />
+              </label>
 
-          <label className="field">
-            <span>Grupo muscular (opcional)</span>
-            <input
-              type="text"
-              maxLength={60}
-              value={muscleGroup}
-              onChange={(event) => setMuscleGroup(event.target.value)}
-              disabled={createMutation.isPending}
-            />
-          </label>
+              <MuscleGroupPicker
+                key={formKey}
+                initialValue={[]}
+                onChange={setMuscleGroups}
+                disabled={createMutation.isPending}
+              />
 
-          <label className="field">
-            <span>Indicaciones (opcional)</span>
-            <textarea
-              maxLength={2000}
-              rows={3}
-              value={instructions}
-              onChange={(event) => setInstructions(event.target.value)}
-              disabled={createMutation.isPending}
-            />
-          </label>
+              <SportPicker
+                value={sports}
+                onChange={setSports}
+                disabled={createMutation.isPending}
+              />
 
-          <label className="field">
-            <span>Video demostrativo (opcional)</span>
-            <input
-              type="url"
-              maxLength={500}
-              placeholder="https://www.youtube.com/watch?v=..."
-              value={videoUrl}
-              onChange={(event) => setVideoUrl(event.target.value)}
-              disabled={createMutation.isPending}
-            />
-          </label>
+              <label className="field">
+                <span>Indicaciones (opcional)</span>
+                <textarea
+                  maxLength={2000}
+                  rows={3}
+                  value={instructions}
+                  onChange={(event) => setInstructions(event.target.value)}
+                  disabled={createMutation.isPending}
+                />
+              </label>
 
-          <ExerciseVideo
-            videoUrl={videoUrl.trim()}
-            name={name || 'Ejercicio'}
-            label="Vista previa"
-          />
-          <p className="muted">
-            YouTube público o no listado, con reproducción embebida habilitada.
-          </p>
+              <label className="field">
+                <span>Video demostrativo (opcional)</span>
+                <input
+                  type="url"
+                  maxLength={500}
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={videoUrl}
+                  onChange={(event) => setVideoUrl(event.target.value)}
+                  disabled={createMutation.isPending}
+                />
+              </label>
+
+              <ExerciseVideo
+                videoUrl={videoUrl.trim()}
+                name={name || 'Ejercicio'}
+                label="Vista previa"
+              />
+              <p className="muted">
+                YouTube público o no listado, con reproducción embebida
+                habilitada.
+              </p>
+            </div>
+            <aside className="exercise-form-layout__preview">
+              <MuscleGroupPreview keys={muscleGroups} />
+            </aside>
+          </div>
           {createMutation.isError && (
             <p role="alert" className="field-error">
               {createMutation.error instanceof ApiError

@@ -1,8 +1,10 @@
 import { useRef, useState } from 'react';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import { displayDate, useCoachingMutation, type CalendarSession } from '../../api/coaching';
 
 export function RescheduleSession({ session }: { session: CalendarSession }) {
   const dialog = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(dialog);
   const [date, setDate] = useState(session.date ?? '');
   const [reason, setReason] = useState('');
   const mutation = useCoachingMutation();
@@ -16,7 +18,7 @@ export function RescheduleSession({ session }: { session: CalendarSession }) {
   return <>
     <button type="button" aria-label={`Reprogramar ${session.name}`} onClick={() => { setDate(session.date ?? ''); setReason(''); mutation.reset(); dialog.current?.showModal(); }}>Reprogramar</button>
     {mutation.isSuccess && <p role="status">Programación actualizada.</p>}
-    <dialog ref={dialog} className="invite-dialog" aria-label={`Reprogramar ${session.name}`}>
+    <dialog ref={dialog} {...backdropClose} className="invite-dialog" aria-label={`Reprogramar ${session.name}`}>
       <form onSubmit={(event) => { event.preventDefault(); void save(); }}>
         <h2>Reprogramar {session.name}</h2>
         <p>Fecha actual: {session.date && displayDate(session.date)}</p>

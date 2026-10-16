@@ -33,10 +33,18 @@ describe('ExerciseFormDialog', () => {
 
     await user.click(screen.getByRole('button', { name: 'Nuevo ejercicio' }));
     await user.type(screen.getByLabelText('Nombre'), 'Sentadilla trasera');
-    await user.type(
-      screen.getByLabelText('Grupo muscular (opcional)'),
-      'Piernas',
+    await user.selectOptions(
+      screen.getByLabelText('Grupo muscular 1'),
+      'quadriceps',
     );
+    await user.click(
+      screen.getByRole('button', { name: '+ Agregar grupo muscular' }),
+    );
+    await user.selectOptions(
+      screen.getByLabelText('Grupo muscular 2'),
+      'glutes',
+    );
+    await user.click(screen.getByRole('button', { name: 'Powerlifting' }));
     await user.type(
       screen.getByLabelText('Video demostrativo (opcional)'),
       'https://youtu.be/dQw4w9WgXcQ',
@@ -51,12 +59,13 @@ describe('ExerciseFormDialog', () => {
         '/exercises',
         expect.objectContaining({
           name: 'Sentadilla trasera',
-          muscleGroup: 'Piernas',
+          muscleGroups: ['quadriceps', 'glutes'],
+          sports: ['powerlifting'],
           videoUrl: 'https://youtu.be/dQw4w9WgXcQ',
         }),
       );
     });
-  });
+  }, 15_000);
 
   // PROMPT 07 — "manejo básico de errores".
   it('muestra un mensaje de error si la creación falla', async () => {
@@ -73,6 +82,63 @@ describe('ExerciseFormDialog', () => {
 
     expect(
       await screen.findByText('El nombre es obligatorio'),
+    ).toBeInTheDocument();
+  });
+
+  it('muestra solo la imagen de los grupos elegidos y las reacomoda', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ExerciseFormDialog />);
+    await user.click(screen.getByRole('button', { name: 'Nuevo ejercicio' }));
+
+    expect(
+      screen.queryAllByRole('img', { name: /Zona muscular/ }),
+    ).toHaveLength(0);
+
+    await user.selectOptions(
+      screen.getByLabelText('Grupo muscular 1'),
+      'chest',
+    );
+    expect(screen.getAllByRole('img', { name: /Zona muscular/ })).toHaveLength(
+      1,
+    );
+    expect(
+      screen.getByRole('img', { name: 'Zona muscular: Pecho' }),
+    ).toBeInTheDocument();
+
+    const addButton = screen.getByRole('button', {
+      name: '+ Agregar grupo muscular',
+    });
+    await user.click(addButton);
+    // Mientras haya una fila vacía no se puede agregar otra.
+    expect(addButton).toBeDisabled();
+    // Un grupo ya elegido no se ofrece de nuevo en otra fila.
+    expect(
+      screen
+        .getByLabelText('Grupo muscular 2')
+        .querySelector('option[value="chest"]'),
+    ).toBeNull();
+
+    await user.selectOptions(
+      screen.getByLabelText('Grupo muscular 2'),
+      'triceps',
+    );
+    const preview = screen.getByLabelText('Zonas musculares trabajadas');
+    expect(preview).toHaveAttribute('data-count', '2');
+    expect(preview.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))');
+
+    // Con 3 se mantienen 2 columnas: la tercera baja a una nueva fila.
+    await user.click(addButton);
+    await user.selectOptions(screen.getByLabelText('Grupo muscular 3'), 'abs');
+    expect(preview).toHaveAttribute('data-count', '3');
+    expect(preview.style.gridTemplateColumns).toBe('repeat(2, minmax(0, 1fr))');
+    await user.click(screen.getByRole('button', { name: 'Quitar Abdomen' }));
+
+    await user.click(screen.getByRole('button', { name: 'Quitar Pecho' }));
+    expect(screen.getAllByRole('img', { name: /Zona muscular/ })).toHaveLength(
+      1,
+    );
+    expect(
+      screen.getByRole('img', { name: 'Zona muscular: Tríceps' }),
     ).toBeInTheDocument();
   });
 });

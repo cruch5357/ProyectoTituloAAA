@@ -1,5 +1,6 @@
 import {
   Injectable,
+  Logger,
   OnModuleDestroy,
   ServiceUnavailableException,
 } from '@nestjs/common';
@@ -18,6 +19,7 @@ const escapeHtml = (value: string) =>
 @Injectable()
 export class MailService implements OnModuleDestroy {
   private readonly transport: Transporter;
+  private readonly logger = new Logger(MailService.name);
 
   constructor(private readonly config: ConfigService) {
     this.transport = createTransport({
@@ -95,7 +97,12 @@ export class MailService implements OnModuleDestroy {
         html: `<p>${escapeHtml(message)}</p><p><a href="${escapeHtml(url.href)}">${label}</a></p><p>${expiry}</p>`,
       });
       if (!result.accepted?.length) throw new Error('Rejected');
-    } catch {
+    } catch (error) {
+      // Solo se registra el mensaje (p. ej. "Invalid login: 535 ..."), nunca
+      // credenciales ni el token de la invitación.
+      this.logger.error(
+        `Fallo al enviar correo: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw new ServiceUnavailableException(
         'No se pudo enviar el correo. Intenta nuevamente.',
       );

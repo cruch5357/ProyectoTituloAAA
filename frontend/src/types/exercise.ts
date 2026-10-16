@@ -6,7 +6,11 @@ export interface Exercise {
   id: string;
   coachId: string;
   name: string;
+  // Texto legible (derivado de muscleGroups, o texto libre heredado).
   muscleGroup: string | null;
+  // Claves de lib/exerciseTaxonomy.ts.
+  muscleGroups: string[];
+  sports: string[];
   instructions: string | null;
   videoUrl: string | null;
   isActive: boolean;

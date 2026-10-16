@@ -175,6 +175,8 @@ describe('ExercisesService.create', () => {
         coachId: COACH_ID,
         name: 'Sentadilla trasera',
         muscleGroup: 'Piernas',
+        muscleGroups: [],
+        sports: [],
         instructions: undefined,
         videoUrl: undefined,
       },
@@ -284,6 +286,77 @@ describe('ExercisesService.updateStatus', () => {
         actorId: COACH_ID,
         entityId: 'exercise-1',
         metadata: { isActive: false },
+      }),
+    );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grupos musculares y deportes (catálogo cerrado de claves).
+// ---------------------------------------------------------------------------
+describe('ExercisesService - grupos musculares y deportes', () => {
+  it('al crear, guarda las claves y deriva muscleGroup legible en el orden elegido', async () => {
+    prisma.exercise.create.mockResolvedValue(buildExercise());
+
+    await service.create(COACH_ID, {
+      name: 'Hip thrust',
+      muscleGroups: ['glutes', 'hamstrings'],
+      sports: ['powerlifting'],
+    });
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        muscleGroups: ['glutes', 'hamstrings'],
+        muscleGroup: 'Glúteos, Isquiotibiales',
+        sports: ['powerlifting'],
+      }),
+    });
+  });
+
+  it('al crear sin claves conserva el texto libre heredado y listas vacías', async () => {
+    prisma.exercise.create.mockResolvedValue(buildExercise());
+
+    await service.create(COACH_ID, { name: 'Sentadilla', muscleGroup: 'Piernas' });
+
+    expect(prisma.exercise.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        muscleGroup: 'Piernas',
+        muscleGroups: [],
+        sports: [],
+      }),
+    });
+  });
+
+  it('al editar con una lista vacía limpia también el texto legible', async () => {
+    prisma.exercise.findUnique.mockResolvedValue(buildExercise());
+    prisma.exercise.update.mockResolvedValue(buildExercise());
+
+    await service.update(COACH_ID, 'exercise-1', { muscleGroups: [] });
+
+    expect(prisma.exercise.update).toHaveBeenCalledWith({
+      where: { id: 'exercise-1' },
+      data: { muscleGroups: [], muscleGroup: null },
+    });
+  });
+
+  it('filtra el catálogo por grupo muscular y deporte', async () => {
+    prisma.exercise.findMany.mockResolvedValue([]);
+    prisma.exercise.count.mockResolvedValue(0);
+
+    await service.listForCoach(COACH_ID, {
+      page: 1,
+      limit: 20,
+      muscleGroup: 'chest',
+      sport: 'crossfit',
+    });
+
+    expect(prisma.exercise.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          coachId: COACH_ID,
+          muscleGroups: { has: 'chest' },
+          sports: { has: 'crossfit' },
+        }),
       }),
     );
   });

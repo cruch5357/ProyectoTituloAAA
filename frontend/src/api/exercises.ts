@@ -11,6 +11,8 @@ export interface ListExercisesParams {
   page: number;
   limit: number;
   search?: string;
+  muscleGroup?: string;
+  sport?: string;
 }
 
 export interface PaginationMeta {
@@ -23,6 +25,8 @@ export interface PaginationMeta {
 export interface CreateExercisePayload {
   name: string;
   muscleGroup?: string;
+  muscleGroups?: string[];
+  sports?: string[];
   instructions?: string;
   videoUrl?: string | null;
 }
@@ -46,6 +50,12 @@ function buildListQuery(params: ListExercisesParams): string {
   query.set('limit', String(params.limit));
   if (params.search) {
     query.set('search', params.search);
+  }
+  if (params.muscleGroup) {
+    query.set('muscleGroup', params.muscleGroup);
+  }
+  if (params.sport) {
+    query.set('sport', params.sport);
   }
   return `?${query.toString()}`;
 }

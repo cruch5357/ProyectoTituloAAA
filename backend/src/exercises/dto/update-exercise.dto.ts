@@ -1,11 +1,16 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayUnique,
+  IsArray,
+  IsIn,
   IsOptional,
   IsString,
   IsUrl,
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { MUSCLE_GROUP_KEYS, SPORT_KEYS } from '../exercise-taxonomy';
 
 // DTO de edicion (PATCH /exercises/:id). Todos los campos son opcionales
 // (edicion parcial), pero se declaran explicitamente uno por uno — nunca se
@@ -28,6 +33,32 @@ export class UpdateExerciseDto {
   @IsString()
   @MaxLength(60)
   muscleGroup?: string;
+
+  // Claves del catalogo cerrado (exercise-taxonomy.ts). Si se envia, el
+  // backend deriva `muscleGroup` (texto legible) a partir de estas claves.
+  @ApiPropertyOptional({
+    example: ['quadriceps', 'glutes'],
+    enum: MUSCLE_GROUP_KEYS,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MUSCLE_GROUP_KEYS.length)
+  @ArrayUnique()
+  @IsIn(MUSCLE_GROUP_KEYS, { each: true })
+  muscleGroups?: string[];
+
+  @ApiPropertyOptional({
+    example: ['powerlifting'],
+    enum: SPORT_KEYS,
+    isArray: true,
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(SPORT_KEYS.length)
+  @ArrayUnique()
+  @IsIn(SPORT_KEYS, { each: true })
+  sports?: string[];
 
   @ApiPropertyOptional({
     example: 'Barra sobre trapecio, pies al ancho de hombros.',

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -25,6 +26,7 @@ const ALLOWED_EXTENSION = '.xlsx';
 // era un estado visual deshabilitado, "disponible próximamente").
 export function ImportExcelPage() {
   const rejectDialog = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(rejectDialog);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const uploadMutation = useUploadExcelImport();
@@ -88,6 +90,7 @@ export function ImportExcelPage() {
     <section>
       <dialog
         ref={rejectDialog}
+        {...backdropClose}
         className="invite-dialog"
         aria-label="Confirmar rechazo"
       >

@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -8,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { MUSCLE_GROUP_KEYS, SPORT_KEYS } from '../exercise-taxonomy';
 
 // Paginacion identica en criterio a ListStudentsQueryDto (PROMPT 04): un
 // coach puede acumular muchos ejercicios en su catalogo, asi que se pagina
@@ -55,4 +57,20 @@ export class ListExercisesQueryDto {
   @IsString()
   @MaxLength(255)
   search?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtra por un grupo muscular del catálogo',
+    enum: MUSCLE_GROUP_KEYS,
+  })
+  @IsOptional()
+  @IsIn(MUSCLE_GROUP_KEYS)
+  muscleGroup?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filtra por deporte',
+    enum: SPORT_KEYS,
+  })
+  @IsOptional()
+  @IsIn(SPORT_KEYS)
+  sport?: string;
 }

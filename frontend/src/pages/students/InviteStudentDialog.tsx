@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import type { FormEvent } from 'react';
 import { useInviteStudent } from '../../api/students';
 import { ApiError } from '../../lib/apiClient';
@@ -9,6 +10,7 @@ import { ApiError } from '../../lib/apiClient';
 // accesibilidad básica (foco atrapado, cierre con Esc) de fábrica.
 export function InviteStudentDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(dialogRef);
   const [email, setEmail] = useState('');
   const inviteMutation = useInviteStudent();
 
@@ -40,6 +42,7 @@ export function InviteStudentDialog() {
 
       <dialog
         ref={dialogRef}
+        {...backdropClose}
         className="invite-dialog"
         aria-label="Invitar alumno"
       >

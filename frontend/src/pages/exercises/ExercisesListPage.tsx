@@ -6,8 +6,24 @@ import { useExercises, useUpdateExerciseStatus } from '../../api/exercises';
 import { ApiError } from '../../lib/apiClient';
 import { ExerciseStatusBadge } from './ExerciseStatusBadge';
 import { ExerciseFormDialog } from './ExerciseFormDialog';
+import {
+  MUSCLE_GROUPS,
+  SPORTS,
+  findMuscleGroup,
+  sportLabel,
+} from '../../lib/exerciseTaxonomy';
+import type { Exercise } from '../../types/exercise';
 
 const PAGE_SIZE = 20;
+
+function muscleGroupText(exercise: Exercise): string {
+  if (exercise.muscleGroups.length > 0) {
+    return exercise.muscleGroups
+      .map((key) => findMuscleGroup(key)?.label ?? key)
+      .join(', ');
+  }
+  return exercise.muscleGroup ?? '—';
+}
 
 // Pantalla "Catálogo de ejercicios" del Coach (PROMPT 07). Mismo patrón
 // estructural exacto que StudentsListPage.tsx (PROMPT 04): toda la data
@@ -18,8 +34,16 @@ export function ExercisesListPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
+  const [muscleGroup, setMuscleGroup] = useState('');
+  const [sport, setSport] = useState('');
 
-  const exercisesQuery = useExercises({ page, limit: PAGE_SIZE, search });
+  const exercisesQuery = useExercises({
+    page,
+    limit: PAGE_SIZE,
+    search,
+    muscleGroup: muscleGroup || undefined,
+    sport: sport || undefined,
+  });
   const updateStatusMutation = useUpdateExerciseStatus();
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
@@ -49,6 +73,40 @@ export function ExercisesListPage() {
             placeholder="Ej: Sentadilla, Piernas"
           />
         </label>
+        <label className="field">
+          <span>Grupo muscular</span>
+          <select
+            value={muscleGroup}
+            onChange={(event) => {
+              setPage(1);
+              setMuscleGroup(event.target.value);
+            }}
+          >
+            <option value="">Todos</option>
+            {MUSCLE_GROUPS.map((group) => (
+              <option key={group.key} value={group.key}>
+                {group.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Deporte</span>
+          <select
+            value={sport}
+            onChange={(event) => {
+              setPage(1);
+              setSport(event.target.value);
+            }}
+          >
+            <option value="">Todos</option>
+            {SPORTS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <button type="submit">Buscar</button>
       </form>
 
@@ -65,8 +123,10 @@ export function ExercisesListPage() {
       {exercisesQuery.isSuccess && exercisesQuery.data.items.length === 0 && (
         <p>
           Todavía no tienes ejercicios
-          {search ? ' que coincidan con la búsqueda' : ''}. Usa &quot;Nuevo
-          ejercicio&quot; para agregar el primero.
+          {search || muscleGroup || sport
+            ? ' que coincidan con la búsqueda'
+            : ''}
+          . Usa &quot;Nuevo ejercicio&quot; para agregar el primero.
         </p>
       )}
 
@@ -82,7 +142,7 @@ export function ExercisesListPage() {
               <thead>
                 <tr>
                   <th>Nombre</th>
-                  <th>Grupo muscular</th>
+                  <th>Grupo muscular / deporte</th>
                   <th>Estado</th>
                   <th aria-label="Acciones" />
                 </tr>
@@ -98,23 +158,39 @@ export function ExercisesListPage() {
                         <small className="muted"> · Video disponible</small>
                       )}
                     </td>
-                    <td>{exercise.muscleGroup ?? '—'}</td>
+                    <td>
+                      {muscleGroupText(exercise)}
+                      {exercise.sports.length > 0 && (
+                        <small className="muted exercise-sports">
+                          {exercise.sports.map(sportLabel).join(' · ')}
+                        </small>
+                      )}
+                    </td>
                     <td>
                       <ExerciseStatusBadge isActive={exercise.isActive} />
                     </td>
                     <td>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          handleToggleStatus(exercise.id, exercise.isActive)
-                        }
-                        disabled={
-                          updateStatusMutation.isPending &&
-                          updateStatusMutation.variables?.id === exercise.id
-                        }
-                      >
-                        {exercise.isActive ? 'Desactivar' : 'Activar'}
-                      </button>
+                      <div className="row-actions">
+                        <Link
+                          className="button"
+                          to={`/exercises/${exercise.id}`}
+                          aria-label={`Editar ${exercise.name}`}
+                        >
+                          Editar
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleToggleStatus(exercise.id, exercise.isActive)
+                          }
+                          disabled={
+                            updateStatusMutation.isPending &&
+                            updateStatusMutation.variables?.id === exercise.id
+                          }
+                        >
+                          {exercise.isActive ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

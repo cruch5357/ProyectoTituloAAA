@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DashboardController } from './dashboard.controller';
 import { DashboardSummaryService } from './dashboard-summary.service';
 import { DashboardStudentService } from './dashboard-student.service';
+import { SuggestedLoadService } from './suggested-load.service';
 import { AuthModule } from '../auth/auth.module';
 import { StudentsModule } from '../students/students.module';
 
@@ -13,6 +14,10 @@ import { StudentsModule } from '../students/students.module';
 @Module({
   imports: [AuthModule, StudentsModule],
   controllers: [DashboardController],
-  providers: [DashboardSummaryService, DashboardStudentService],
+  providers: [
+    DashboardSummaryService,
+    DashboardStudentService,
+    SuggestedLoadService,
+  ],
 })
 export class DashboardModule {}

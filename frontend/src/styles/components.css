@@ -582,3 +582,181 @@ button.theme-toggle {
 .theme-toggle[aria-checked='true'] > .icon:last-of-type {
   color: var(--color-on-primary);
 }
+
+/* Ejercicios: grupos musculares con imagen y deportes */
+dialog.exercise-dialog {
+  max-width: 980px;
+}
+.exercise-form-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+.app-shell__content
+  > section
+  > form.exercise-edit-form:not(.search-form):not(.inline-create-form) {
+  max-width: 1080px;
+}
+.exercise-form-layout__preview {
+  position: sticky;
+  top: 0;
+}
+.muscle-picker,
+.sport-picker {
+  border: 0;
+  padding: 0;
+  margin: 0 0 1rem;
+  min-width: 0;
+}
+.muscle-picker legend,
+.sport-picker legend {
+  display: block;
+  margin-bottom: 0.4rem;
+  padding: 0;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+.muscle-picker__row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+.muscle-picker__row select {
+  flex: 1;
+  min-width: 0;
+}
+.muscle-picker__remove {
+  min-width: 44px;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.muscle-picker__add {
+  width: 100%;
+  border-style: dashed;
+}
+.sport-picker__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.sport-picker__options button {
+  min-height: 36px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.85rem;
+  border-radius: 999px;
+  background: var(--color-surface-muted);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.sport-picker__options button[aria-pressed='true'] {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+}
+/* El arte de las siluetas es claro sobre oscuro: el panel es oscuro en
+   ambos temas para que se lea bien. */
+.muscle-preview {
+  display: grid;
+  align-content: start;
+  gap: 0.75rem;
+  padding: 1rem;
+  min-height: 320px;
+  border-radius: var(--radius-lg);
+  background: #0b1117;
+  border: 1px solid #22303a;
+  color: #e7f1f6;
+}
+.muscle-preview--empty {
+  place-items: center;
+  text-align: center;
+  color: #8fa6b4;
+  font-size: 0.9rem;
+}
+.muscle-preview__item {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0.6rem;
+  border-radius: var(--radius-md);
+  border: 1px solid #1d2a33;
+}
+.muscle-preview__item img {
+  width: 100%;
+  height: auto;
+  max-height: 360px;
+  object-fit: contain;
+}
+.muscle-preview[data-count='1'] .muscle-preview__item img {
+  max-height: 440px;
+}
+.muscle-preview__item figcaption {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+.muscle-preview__item figcaption span {
+  color: #8fa6b4;
+  font-size: 0.75rem;
+}
+.muscle-preview[data-count='7'] figcaption span,
+.muscle-preview[data-count='8'] figcaption span,
+.muscle-preview[data-count='9'] figcaption span,
+.muscle-preview[data-count='10'] figcaption span,
+.muscle-preview[data-count='11'] figcaption span {
+  display: none;
+}
+.exercise-sports {
+  display: block;
+  margin-top: 0.2rem;
+}
+@media (max-width: 760px) {
+  .exercise-form-layout {
+    grid-template-columns: 1fr;
+  }
+  .exercise-form-layout__preview {
+    position: static;
+    order: -1;
+  }
+  .muscle-preview {
+    min-height: 0;
+  }
+  .muscle-preview__item img {
+    max-height: 220px;
+  }
+}
+.row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+.suggested-load__main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.suggested-load__value {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.suggested-load__value strong {
+  font-size: 2rem;
+  color: var(--color-primary);
+}
+.suggested-load__reps {
+  max-width: 120px;
+  margin: 0;
+}
+.suggested-load__note {
+  font-size: 0.8rem;
+}

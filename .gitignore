@@ -49,3 +49,11 @@ backups/
 # Browser E2E artifacts (may contain test session traces)
 /test-results/
 /playwright-report/
+
+# Ciencia de datos: entorno local y datasets descargados (cada fuente tiene
+# su propia licencia; se descargan con las instrucciones de data-science/README.md).
+# El modelo entrenado (data-science/models/) sí se versiona.
+data-science/.venv/
+data-science/data/raw/
+__pycache__/
+.pytest_cache/

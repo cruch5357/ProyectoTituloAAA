@@ -12,6 +12,11 @@ import {
 import { ApiError } from '../../lib/apiClient';
 import { ExerciseStatusBadge } from './ExerciseStatusBadge';
 import type { Exercise } from '../../types/exercise';
+import {
+  MuscleGroupPicker,
+  MuscleGroupPreview,
+  SportPicker,
+} from '../../components/exercises/MuscleGroupPicker';
 
 // Detalle + edición de un ejercicio propio (PROMPT 07, "editar ejercicio").
 // Estructura calcada de StudentDetailPage.tsx (PROMPT 04) para la carga/
@@ -66,7 +71,13 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
   const updateStatusMutation = useUpdateExerciseStatus();
 
   const [name, setName] = useState(exercise.name);
-  const [muscleGroup, setMuscleGroup] = useState(exercise.muscleGroup ?? '');
+  const [muscleGroups, setMuscleGroups] = useState(exercise.muscleGroups);
+  // Solo se envían los grupos si el coach los tocó: así un ejercicio antiguo
+  // con texto libre (ej. "Piernas") no lo pierde al editar otro campo.
+  const [muscleGroupsTouched, setMuscleGroupsTouched] = useState(false);
+  const [sports, setSports] = useState(exercise.sports);
+  const legacyMuscleGroup =
+    exercise.muscleGroups.length === 0 ? exercise.muscleGroup : null;
   const [instructions, setInstructions] = useState(exercise.instructions ?? '');
   const [videoUrl, setVideoUrl] = useState(exercise.videoUrl ?? '');
 
@@ -78,7 +89,8 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
         id: exercise.id,
         payload: {
           name,
-          muscleGroup: muscleGroup.trim() || undefined,
+          ...(muscleGroupsTouched ? { muscleGroups } : {}),
+          sports,
           instructions: instructions.trim() || undefined,
           videoUrl: videoUrl.trim() || null,
         },
@@ -100,62 +112,80 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
         <ExerciseStatusBadge isActive={exercise.isActive} />
       </div>
 
-      <form onSubmit={handleSubmit}>
-        <label className="field">
-          <span>Nombre</span>
-          <input
-            type="text"
-            required
-            minLength={2}
-            maxLength={160}
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            disabled={updateMutation.isPending}
-          />
-        </label>
+      <form onSubmit={handleSubmit} className="exercise-edit-form">
+        <div className="exercise-form-layout">
+          <div className="exercise-form-layout__fields">
+            <label className="field">
+              <span>Nombre</span>
+              <input
+                type="text"
+                required
+                minLength={2}
+                maxLength={160}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                disabled={updateMutation.isPending}
+              />
+            </label>
 
-        <label className="field">
-          <span>Grupo muscular (opcional)</span>
-          <input
-            type="text"
-            maxLength={60}
-            value={muscleGroup}
-            onChange={(event) => setMuscleGroup(event.target.value)}
-            disabled={updateMutation.isPending}
-          />
-        </label>
+            <MuscleGroupPicker
+              initialValue={exercise.muscleGroups}
+              onChange={(keys) => {
+                setMuscleGroups(keys);
+                setMuscleGroupsTouched(true);
+              }}
+              disabled={updateMutation.isPending}
+            />
+            {legacyMuscleGroup && !muscleGroupsTouched && (
+              <p className="muted">
+                Grupo muscular anterior (texto libre): {legacyMuscleGroup}.
+                Elige uno o más grupos para reemplazarlo.
+              </p>
+            )}
 
-        <label className="field">
-          <span>Indicaciones (opcional)</span>
-          <textarea
-            maxLength={2000}
-            rows={4}
-            value={instructions}
-            onChange={(event) => setInstructions(event.target.value)}
-            disabled={updateMutation.isPending}
-          />
-        </label>
+            <SportPicker
+              value={sports}
+              onChange={setSports}
+              disabled={updateMutation.isPending}
+            />
 
-        <label className="field">
-          <span>Video demostrativo (opcional)</span>
-          <input
-            type="url"
-            maxLength={500}
-            placeholder="https://www.youtube.com/watch?v=..."
-            value={videoUrl}
-            onChange={(event) => setVideoUrl(event.target.value)}
-            disabled={updateMutation.isPending}
-          />
-        </label>
+            <label className="field">
+              <span>Indicaciones (opcional)</span>
+              <textarea
+                maxLength={2000}
+                rows={4}
+                value={instructions}
+                onChange={(event) => setInstructions(event.target.value)}
+                disabled={updateMutation.isPending}
+              />
+            </label>
 
-        <ExerciseVideo
-          videoUrl={videoUrl.trim()}
-          name={name || 'Ejercicio'}
-          label="Vista previa"
-        />
-        <p className="muted">
-          YouTube público o no listado, con reproducción embebida habilitada.
-        </p>
+            <label className="field">
+              <span>Video demostrativo (opcional)</span>
+              <input
+                type="url"
+                maxLength={500}
+                placeholder="https://www.youtube.com/watch?v=..."
+                value={videoUrl}
+                onChange={(event) => setVideoUrl(event.target.value)}
+                disabled={updateMutation.isPending}
+              />
+            </label>
+
+            <ExerciseVideo
+              videoUrl={videoUrl.trim()}
+              name={name || 'Ejercicio'}
+              label="Vista previa"
+            />
+            <p className="muted">
+              YouTube público o no listado, con reproducción embebida
+              habilitada.
+            </p>
+          </div>
+          <aside className="exercise-form-layout__preview">
+            <MuscleGroupPreview keys={muscleGroups} />
+          </aside>
+        </div>
         {updateMutation.isError && (
           <p role="alert" className="field-error">
             {updateMutation.error instanceof ApiError

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import type { FormEvent } from 'react';
 import { useCreateProgram } from '../../api/programs';
 import { ApiError } from '../../lib/apiClient';
@@ -8,6 +9,7 @@ import { ApiError } from '../../lib/apiClient';
 // CREACIÓN (la edición vive en ProgramDetailPage).
 export function ProgramFormDialog() {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(dialogRef);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [durationWeeks, setDurationWeeks] = useState('');
@@ -51,6 +53,7 @@ export function ProgramFormDialog() {
 
       <dialog
         ref={dialogRef}
+        {...backdropClose}
         className="invite-dialog"
         aria-label="Nuevo programa"
       >

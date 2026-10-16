@@ -3,6 +3,11 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { DashboardSummaryService } from './dashboard-summary.service';
 import { DashboardStudentService } from './dashboard-student.service';
+import { SuggestedLoadService } from './suggested-load.service';
+import {
+  SuggestedLoadQueryDto,
+  SuggestedLoadRouteParamDto,
+} from './dto/suggested-load.dto';
 import { ListRecentActivityQueryDto } from './dto/list-recent-activity-query.dto';
 import { StudentIdRouteParamDto } from './dto/student-id-route-param.dto';
 import { GetWorkoutEvolutionQueryDto } from '../workout-logs/dto/get-workout-evolution-query.dto';
@@ -33,6 +38,7 @@ export class DashboardController {
   constructor(
     private readonly summaryService: DashboardSummaryService,
     private readonly studentService: DashboardStudentService,
+    private readonly suggestedLoadService: SuggestedLoadService,
   ) {}
 
   @Get('summary')
@@ -84,6 +90,25 @@ export class DashboardController {
       currentUser.id,
       params.studentId,
       query,
+    );
+    return { data, error: null, meta: {} };
+  }
+
+  @Get('students/:studentId/exercises/:exerciseId/suggested-load')
+  @ApiOperation({
+    summary:
+      'Carga sugerida para la próxima sesión de un ejercicio (modelo opcional de data-science)',
+  })
+  async suggestedLoad(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param() params: SuggestedLoadRouteParamDto,
+    @Query() query: SuggestedLoadQueryDto,
+  ) {
+    const data = await this.suggestedLoadService.getSuggestedLoad(
+      currentUser.id,
+      params.studentId,
+      params.exerciseId,
+      query.targetReps,
     );
     return { data, error: null, meta: {} };
   }

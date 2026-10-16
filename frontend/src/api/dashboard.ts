@@ -10,6 +10,7 @@ import type {
   CoachDashboardSummary,
   RecentActivityMeta,
   StudentDashboardResult,
+  SuggestedLoad,
 } from '../types/dashboard';
 
 export interface RecentActivityParams {
@@ -39,6 +40,14 @@ const dashboardKeys = {
     [...dashboardKeys.all, 'recent-activity', params] as const,
   student: (studentId: string, params: StudentDashboardParams) =>
     [...dashboardKeys.all, 'student', studentId, params] as const,
+  suggestedLoad: (studentId: string, exerciseId: string, targetReps?: number) =>
+    [
+      ...dashboardKeys.all,
+      'suggested-load',
+      studentId,
+      exerciseId,
+      targetReps ?? null,
+    ] as const,
 };
 
 function buildQueryString(
@@ -60,9 +69,8 @@ export function useDashboardSummary() {
   return useQuery({
     queryKey: dashboardKeys.summary(),
     queryFn: async () => {
-      const res = await apiClient.get<CoachDashboardSummary>(
-        '/dashboard/summary',
-      );
+      const res =
+        await apiClient.get<CoachDashboardSummary>('/dashboard/summary');
       return res.data;
     },
   });
@@ -99,6 +107,30 @@ export function useStudentDashboard(
       return res.data;
     },
     enabled: Boolean(studentId),
+    placeholderData: (previousData) => previousData,
+  });
+}
+
+// Carga sugerida para la próxima sesión de un ejercicio. Nunca falla por el
+// modelo: si el servicio no está, el backend responde `available: false`.
+export function useSuggestedLoad(
+  studentId: string | undefined,
+  exerciseId: string | undefined,
+  targetReps?: number,
+) {
+  return useQuery({
+    queryKey: dashboardKeys.suggestedLoad(
+      studentId ?? '',
+      exerciseId ?? '',
+      targetReps,
+    ),
+    queryFn: async () => {
+      const res = await apiClient.get<SuggestedLoad>(
+        `/dashboard/students/${studentId}/exercises/${exerciseId}/suggested-load${buildQueryString({ targetReps })}`,
+      );
+      return res.data;
+    },
+    enabled: Boolean(studentId && exerciseId),
     placeholderData: (previousData) => previousData,
   });
 }

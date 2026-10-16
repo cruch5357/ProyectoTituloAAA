@@ -1,0 +1,63 @@
+{
+  "version": "20261016213132",
+  "trained_at": "2026-10-16T21:31:32.686203+00:00",
+  "target": "cambio relativo del e1RM (Epley) en la próxima sesión del ejercicio",
+  "model": "gradient_boosting",
+  "features": [
+    "log_sessions",
+    "days_since_prev",
+    "r_prev",
+    "r_mean3",
+    "r_max",
+    "slope4",
+    "top_reps"
+  ],
+  "sources": [
+    {
+      "path": "weightlifting_721_workouts.csv",
+      "athlete_id": "kaggle-joep89",
+      "unit": "lb"
+    }
+  ],
+  "data": {
+    "series": 8046,
+    "sesiones": 1834,
+    "ejemplos": 1551,
+    "personas": 1,
+    "ejercicios": 76,
+    "desde": "2015-10-30",
+    "hasta": "2018-09-25",
+    "ejemplos_prueba": 311
+  },
+  "validacion": {
+    "ridge": {
+      "mae_cambio_pct": 10.194,
+      "mae_e1rm_kg": 14.381,
+      "acierto_direccion_pct": 52.7
+    },
+    "gradient_boosting": {
+      "mae_cambio_pct": 10.063,
+      "mae_e1rm_kg": 13.828,
+      "acierto_direccion_pct": 57.0
+    }
+  },
+  "prueba": {
+    "gradient_boosting": {
+      "mae_cambio_pct": 6.936,
+      "mae_e1rm_kg": 8.47,
+      "acierto_direccion_pct": 55.3
+    },
+    "repetir_ultima_sesion": {
+      "mae_cambio_pct": 7.399,
+      "mae_e1rm_kg": 8.878,
+      "acierto_direccion_pct": 14.8
+    },
+    "seguir_tendencia": {
+      "mae_cambio_pct": 12.987,
+      "mae_e1rm_kg": 15.736,
+      "acierto_direccion_pct": 27.7
+    }
+  },
+  "supera_lineas_base": true,
+  "sklearn_version": "1.9.1"
+}

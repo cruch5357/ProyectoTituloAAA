@@ -27,6 +27,8 @@ function buildExercise(
     coachId: 'coach-123',
     name: 'Sentadilla',
     muscleGroup: 'Piernas',
+    muscleGroups: [],
+    sports: [],
     instructions: null,
     videoUrl: null,
     isActive: true,

@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 import { DashboardController } from './dashboard.controller';
 import { DashboardSummaryService } from './dashboard-summary.service';
 import { DashboardStudentService } from './dashboard-student.service';
+import { SuggestedLoadService } from './suggested-load.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import { ROLES_METADATA_KEY } from '../auth/auth.constants';
 
@@ -27,6 +28,7 @@ describe('DashboardController - autorización declarada', () => {
 describe('DashboardController - delegación con el id del coach del token', () => {
   let summaryService: jest.Mocked<DashboardSummaryService>;
   let studentService: jest.Mocked<DashboardStudentService>;
+  let suggestedLoadService: jest.Mocked<SuggestedLoadService>;
   let controller: DashboardController;
 
   beforeEach(() => {
@@ -37,7 +39,35 @@ describe('DashboardController - delegación con el id del coach del token', () =
     studentService = {
       getStudentDashboard: jest.fn(),
     } as unknown as jest.Mocked<DashboardStudentService>;
-    controller = new DashboardController(summaryService, studentService);
+    suggestedLoadService = {
+      getSuggestedLoad: jest.fn(),
+    } as unknown as jest.Mocked<SuggestedLoadService>;
+    controller = new DashboardController(
+      summaryService,
+      studentService,
+      suggestedLoadService,
+    );
+  });
+
+  it('suggestedLoad() usa el coach del token y los ids de la ruta', async () => {
+    suggestedLoadService.getSuggestedLoad.mockResolvedValue({
+      available: false,
+      reason: 'disabled',
+    });
+
+    const res = await controller.suggestedLoad(
+      buildCoachUser(),
+      { studentId: 'student-1', exerciseId: 'exercise-1' },
+      { targetReps: 8 },
+    );
+
+    expect(suggestedLoadService.getSuggestedLoad).toHaveBeenCalledWith(
+      'coach-1',
+      'student-1',
+      'exercise-1',
+      8,
+    );
+    expect(res.data).toEqual({ available: false, reason: 'disabled' });
   });
 
   it('summary() pasa el id del coach del token, NUNCA de la query/body', async () => {

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AUDIT_ACTIONS, AUDIT_ENTITY_EXERCISE } from '../auth/auth.constants';
 import { PublicExercise, toPublicExercise } from './exercise.mapper';
+import { muscleGroupLabels } from './exercise-taxonomy';
 import { CreateExerciseDto } from './dto/create-exercise.dto';
 import { UpdateExerciseDto } from './dto/update-exercise.dto';
 import { UpdateExerciseStatusDto } from './dto/update-exercise-status.dto';
@@ -68,7 +69,7 @@ export class ExercisesService {
     coachId: string,
     query: ListExercisesQueryDto,
   ): Promise<PaginatedExercises> {
-    const { page, limit, search } = query;
+    const { page, limit, search, muscleGroup, sport } = query;
 
     const where: Prisma.ExerciseWhereInput = {
       coachId,
@@ -85,6 +86,8 @@ export class ExercisesService {
             ],
           }
         : {}),
+      ...(muscleGroup ? { muscleGroups: { has: muscleGroup } } : {}),
+      ...(sport ? { sports: { has: sport } } : {}),
     };
 
     const [items, total] = await Promise.all([
@@ -133,7 +136,14 @@ export class ExercisesService {
       data: {
         coachId,
         name: dto.name,
-        muscleGroup: dto.muscleGroup,
+        // Si llegan claves del catalogo, el texto legible se deriva de ellas
+        // para que las vistas que muestran `muscleGroup` sigan coherentes.
+        muscleGroup:
+          dto.muscleGroups !== undefined
+            ? muscleGroupLabels(dto.muscleGroups)
+            : dto.muscleGroup,
+        muscleGroups: dto.muscleGroups ?? [],
+        sports: dto.sports ?? [],
         instructions: dto.instructions,
         videoUrl: dto.videoUrl,
       },
@@ -162,7 +172,13 @@ export class ExercisesService {
 
     const data: Prisma.ExerciseUpdateInput = {};
     if (dto.name !== undefined) data.name = dto.name;
-    if (dto.muscleGroup !== undefined) data.muscleGroup = dto.muscleGroup;
+    if (dto.muscleGroups !== undefined) {
+      data.muscleGroups = dto.muscleGroups;
+      data.muscleGroup = muscleGroupLabels(dto.muscleGroups);
+    } else if (dto.muscleGroup !== undefined) {
+      data.muscleGroup = dto.muscleGroup;
+    }
+    if (dto.sports !== undefined) data.sports = dto.sports;
     if (dto.instructions !== undefined) data.instructions = dto.instructions;
     if (dto.videoUrl !== undefined) data.videoUrl = dto.videoUrl;
 

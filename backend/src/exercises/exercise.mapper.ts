@@ -10,6 +10,8 @@ export interface PublicExercise {
   coachId: string;
   name: string;
   muscleGroup: string | null;
+  muscleGroups: string[];
+  sports: string[];
   instructions: string | null;
   videoUrl: string | null;
   isActive: boolean;
@@ -23,6 +25,8 @@ export function toPublicExercise(exercise: Exercise): PublicExercise {
     coachId: exercise.coachId,
     name: exercise.name,
     muscleGroup: exercise.muscleGroup,
+    muscleGroups: exercise.muscleGroups ?? [],
+    sports: exercise.sports ?? [],
     instructions: exercise.instructions,
     videoUrl: exercise.videoUrl,
     isActive: exercise.isActive,

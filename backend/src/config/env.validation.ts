@@ -117,6 +117,12 @@ class EnvironmentVariables {
   @Min(1)
   @Max(1440)
   PASSWORD_RESET_EXPIRES_IN_MINUTES: number = 30;
+
+  // URL del servicio opcional de carga sugerida (data-science/). Vacía =
+  // función desactivada; la plataforma funciona igual sin ella.
+  @IsString()
+  @IsOptional()
+  DATA_SCIENCE_URL: string = '';
 }
 
 // Valida las variables de entorno al arrancar la aplicación para fallar rápido
@@ -137,6 +143,14 @@ export function validateEnv(config: Record<string, unknown>) {
     );
   }
   validatedConfig.APP_TIMEZONE = getAppTimezone(validatedConfig.APP_TIMEZONE);
+  if (validatedConfig.DATA_SCIENCE_URL) {
+    try {
+      const url = new URL(validatedConfig.DATA_SCIENCE_URL);
+      if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
+    } catch {
+      throw new Error('DATA_SCIENCE_URL inválida');
+    }
+  }
   if (validatedConfig.SMTP_SECURE !== 'false')
     throw new Error('SMTP_SECURE debe ser false para STARTTLS en puerto 587');
   let frontend: URL;

@@ -119,6 +119,10 @@ model Exercise {
   coach        User     @relation("CoachExercises", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   name         String
   muscleGroup  String?  @map("muscle_group")
+  // Claves de src/exercises/exercise-taxonomy.ts. muscleGroup se mantiene
+  // como texto legible derivado de estas claves (o texto libre heredado).
+  muscleGroups String[] @default([]) @map("muscle_groups")
+  sports       String[] @default([])
   instructions String?
   videoUrl     String?  @map("video_url")
   // Agregado en PROMPT 07: permite dar de baja logica un ejercicio del

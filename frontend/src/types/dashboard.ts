@@ -58,3 +58,19 @@ export interface StudentDashboardResult {
   summary: WorkoutSummaryMetrics;
   exerciseEvolution: ExerciseEvolutionPoint[] | null;
 }
+
+// GET /dashboard/students/:studentId/exercises/:exerciseId/suggested-load
+// (modelo opcional de data-science/).
+export interface SuggestedLoad {
+  available: boolean;
+  reason?: 'disabled' | 'service_unavailable' | 'insufficient_history';
+  minSessions?: number;
+  basedOnSessions?: number;
+  suggestedLoadKg?: number;
+  targetReps?: number;
+  lastE1rmKg?: number;
+  predictedE1rmKg?: number;
+  expectedChangePct?: number;
+  lastSession?: { date: string; loadKg: number; reps: number };
+  modelVersion?: string;
+}
