@@ -1,0 +1,109 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/node_modules/@testing-library/react/dist/index.js", {"importedNames":["fireEvent","render","screen"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/node_modules/react/index.js", {"importedNames":["useRef"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/lib/useBackdropClose.ts", {"importedNames":["useBackdropClose"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV","Fragment"]});
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/lib/useBackdropClose.test.tsx";
+
+function TestDialog() {
+	const dialogRef = (0,__vite_ssr_import_2__.useRef)(null);
+	const backdropClose = (0,__vite_ssr_import_3__.useBackdropClose)(dialogRef);
+	return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_4__.Fragment), { children: [/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("button", {
+		type: "button",
+		onClick: () => dialogRef.current?.showModal(),
+		children: "Abrir"
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 11,
+		columnNumber: 7
+	}, this), /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("dialog", {
+		ref: dialogRef,
+		...backdropClose,
+		"aria-label": "Modal",
+		children: /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("input", { "aria-label": "Campo" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 15,
+			columnNumber: 9
+		}, this)
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 14,
+		columnNumber: 7
+	}, this)] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 10,
+		columnNumber: 5
+	}, this);
+}
+// Fija el rectángulo del diálogo (jsdom no calcula layout).
+function openWithRect() {
+	__vite_ssr_import_1__.fireEvent.click(__vite_ssr_import_1__.screen.getByRole("button", { name: "Abrir" }));
+	const dialog = __vite_ssr_import_1__.screen.getByLabelText("Modal", { selector: "dialog" });
+	dialog.getBoundingClientRect = () => ({
+		left: 100,
+		right: 500,
+		top: 100,
+		bottom: 400
+	});
+	return dialog;
+}
+(0,__vite_ssr_import_0__.describe)("useBackdropClose", () => {
+	(0,__vite_ssr_import_0__.it)("cierra el diálogo al hacer clic en el fondo", () => {
+		(0,__vite_ssr_import_1__.render)(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)(TestDialog, {}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 34,
+			columnNumber: 12
+		}, this));
+		const dialog = openWithRect();
+		__vite_ssr_import_1__.fireEvent.mouseDown(dialog, {
+			clientX: 20,
+			clientY: 20
+		});
+		__vite_ssr_import_1__.fireEvent.click(dialog, {
+			clientX: 20,
+			clientY: 20
+		});
+		(0,__vite_ssr_import_0__.expect)(dialog.open).toBe(false);
+	});
+	(0,__vite_ssr_import_0__.it)("no cierra con clics dentro del diálogo, ni en su padding", () => {
+		(0,__vite_ssr_import_1__.render)(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)(TestDialog, {}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 44,
+			columnNumber: 12
+		}, this));
+		const dialog = openWithRect();
+		__vite_ssr_import_1__.fireEvent.mouseDown(__vite_ssr_import_1__.screen.getByLabelText("Campo"));
+		__vite_ssr_import_1__.fireEvent.click(__vite_ssr_import_1__.screen.getByLabelText("Campo"));
+		__vite_ssr_import_1__.fireEvent.mouseDown(dialog, {
+			clientX: 110,
+			clientY: 110
+		});
+		__vite_ssr_import_1__.fireEvent.click(dialog, {
+			clientX: 110,
+			clientY: 110
+		});
+		(0,__vite_ssr_import_0__.expect)(dialog.open).toBe(true);
+	});
+	(0,__vite_ssr_import_0__.it)("no cierra si el clic empezó dentro y terminó en el fondo (arrastre)", () => {
+		(0,__vite_ssr_import_1__.render)(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)(TestDialog, {}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 56,
+			columnNumber: 12
+		}, this));
+		const dialog = openWithRect();
+		__vite_ssr_import_1__.fireEvent.mouseDown(__vite_ssr_import_1__.screen.getByLabelText("Campo"));
+		__vite_ssr_import_1__.fireEvent.click(dialog, {
+			clientX: 20,
+			clientY: 20
+		});
+		(0,__vite_ssr_import_0__.expect)(dialog.open).toBe(true);
+	});
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7Ozs7Ozs7O0FBRUEsU0FBUyxhQUFhO0NBQ3BCLE1BQU0sWUFBWSxpQ0FBMEIsSUFBSTtDQUNoRCxNQUFNLGdCQUFnQiwyQ0FBaUIsU0FBUztDQUNoRCxPQUNFLGtHQUNFLGlEQUFDLFVBQUQ7RUFBUSxNQUFLO0VBQVMsZUFBZSxVQUFVLFNBQVMsVUFBVTtZQUFHO0NBRTdEOzs7O1dBQ1IsaURBQUMsVUFBRDtFQUFRLEtBQUs7RUFBVyxHQUFJO0VBQWUsY0FBVztZQUNwRCxpREFBQyxTQUFELEVBQU8sY0FBVyxRQUFTOzs7OztDQUNyQjs7OztTQUNSOzs7OztBQUVOOztBQUdBLFNBQVMsZUFBZTtDQUN0QixnQ0FBVSxNQUFNLDZCQUFPLFVBQVUsVUFBVSxFQUFFLE1BQU0sUUFBUSxDQUFDLENBQUM7Q0FDN0QsTUFBTSxTQUFTLDZCQUFPLGVBQWUsU0FBUyxFQUM1QyxVQUFVLFNBQ1osQ0FBQztDQUNELE9BQU8sK0JBQ0o7RUFBRSxNQUFNO0VBQUssT0FBTztFQUFLLEtBQUs7RUFBSyxRQUFRO0NBQUk7Q0FDbEQsT0FBTztBQUNUO0FBRUEsbUNBQVMsMEJBQTBCO0NBQ2pDLDZCQUFHLHFEQUFxRDtFQUN0RCxpREFBTyxpQ0FBQyxZQUFELENBQWE7Ozs7VUFBQztFQUNyQixNQUFNLFNBQVMsYUFBYTtFQUU1QixnQ0FBVSxVQUFVLFFBQVE7R0FBRSxTQUFTO0dBQUksU0FBUztFQUFHLENBQUM7RUFDeEQsZ0NBQVUsTUFBTSxRQUFRO0dBQUUsU0FBUztHQUFJLFNBQVM7RUFBRyxDQUFDO0VBRXBELGlDQUFPLE9BQU8sSUFBSSxDQUFDLENBQUMsS0FBSyxLQUFLO0NBQ2hDLENBQUM7Q0FFRCw2QkFBRyxrRUFBa0U7RUFDbkUsaURBQU8saUNBQUMsWUFBRCxDQUFhOzs7O1VBQUM7RUFDckIsTUFBTSxTQUFTLGFBQWE7RUFFNUIsZ0NBQVUsVUFBVSw2QkFBTyxlQUFlLE9BQU8sQ0FBQztFQUNsRCxnQ0FBVSxNQUFNLDZCQUFPLGVBQWUsT0FBTyxDQUFDO0VBQzlDLGdDQUFVLFVBQVUsUUFBUTtHQUFFLFNBQVM7R0FBSyxTQUFTO0VBQUksQ0FBQztFQUMxRCxnQ0FBVSxNQUFNLFFBQVE7R0FBRSxTQUFTO0dBQUssU0FBUztFQUFJLENBQUM7RUFFdEQsaUNBQU8sT0FBTyxJQUFJLENBQUMsQ0FBQyxLQUFLLElBQUk7Q0FDL0IsQ0FBQztDQUVELDZCQUFHLDZFQUE2RTtFQUM5RSxpREFBTyxpQ0FBQyxZQUFELENBQWE7Ozs7VUFBQztFQUNyQixNQUFNLFNBQVMsYUFBYTtFQUU1QixnQ0FBVSxVQUFVLDZCQUFPLGVBQWUsT0FBTyxDQUFDO0VBQ2xELGdDQUFVLE1BQU0sUUFBUTtHQUFFLFNBQVM7R0FBSSxTQUFTO0VBQUcsQ0FBQztFQUVwRCxpQ0FBTyxPQUFPLElBQUksQ0FBQyxDQUFDLEtBQUssSUFBSTtDQUMvQixDQUFDO0FBQ0gsQ0FBQyIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsidXNlQmFja2Ryb3BDbG9zZS50ZXN0LnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBkZXNjcmliZSwgZXhwZWN0LCBpdCB9IGZyb20gJ3ZpdGVzdCc7XHJcbmltcG9ydCB7IGZpcmVFdmVudCwgcmVuZGVyLCBzY3JlZW4gfSBmcm9tICdAdGVzdGluZy1saWJyYXJ5L3JlYWN0JztcclxuaW1wb3J0IHsgdXNlUmVmIH0gZnJvbSAncmVhY3QnO1xyXG5pbXBvcnQgeyB1c2VCYWNrZHJvcENsb3NlIH0gZnJvbSAnLi91c2VCYWNrZHJvcENsb3NlJztcclxuXHJcbmZ1bmN0aW9uIFRlc3REaWFsb2coKSB7XHJcbiAgY29uc3QgZGlhbG9nUmVmID0gdXNlUmVmPEhUTUxEaWFsb2dFbGVtZW50PihudWxsKTtcclxuICBjb25zdCBiYWNrZHJvcENsb3NlID0gdXNlQmFja2Ryb3BDbG9zZShkaWFsb2dSZWYpO1xyXG4gIHJldHVybiAoXHJcbiAgICA8PlxyXG4gICAgICA8YnV0dG9uIHR5cGU9XCJidXR0b25cIiBvbkNsaWNrPXsoKSA9PiBkaWFsb2dSZWYuY3VycmVudD8uc2hvd01vZGFsKCl9PlxyXG4gICAgICAgIEFicmlyXHJcbiAgICAgIDwvYnV0dG9uPlxyXG4gICAgICA8ZGlhbG9nIHJlZj17ZGlhbG9nUmVmfSB7Li4uYmFja2Ryb3BDbG9zZX0gYXJpYS1sYWJlbD1cIk1vZGFsXCI+XHJcbiAgICAgICAgPGlucHV0IGFyaWEtbGFiZWw9XCJDYW1wb1wiIC8+XHJcbiAgICAgIDwvZGlhbG9nPlxyXG4gICAgPC8+XHJcbiAgKTtcclxufVxyXG5cclxuLy8gRmlqYSBlbCByZWN0w6FuZ3VsbyBkZWwgZGnDoWxvZ28gKGpzZG9tIG5vIGNhbGN1bGEgbGF5b3V0KS5cclxuZnVuY3Rpb24gb3BlbldpdGhSZWN0KCkge1xyXG4gIGZpcmVFdmVudC5jbGljayhzY3JlZW4uZ2V0QnlSb2xlKCdidXR0b24nLCB7IG5hbWU6ICdBYnJpcicgfSkpO1xyXG4gIGNvbnN0IGRpYWxvZyA9IHNjcmVlbi5nZXRCeUxhYmVsVGV4dCgnTW9kYWwnLCB7XHJcbiAgICBzZWxlY3RvcjogJ2RpYWxvZycsXHJcbiAgfSkgYXMgSFRNTERpYWxvZ0VsZW1lbnQ7XHJcbiAgZGlhbG9nLmdldEJvdW5kaW5nQ2xpZW50UmVjdCA9ICgpID0+XHJcbiAgICAoeyBsZWZ0OiAxMDAsIHJpZ2h0OiA1MDAsIHRvcDogMTAwLCBib3R0b206IDQwMCB9KSBhcyBET01SZWN0O1xyXG4gIHJldHVybiBkaWFsb2c7XHJcbn1cclxuXHJcbmRlc2NyaWJlKCd1c2VCYWNrZHJvcENsb3NlJywgKCkgPT4ge1xyXG4gIGl0KCdjaWVycmEgZWwgZGnDoWxvZ28gYWwgaGFjZXIgY2xpYyBlbiBlbCBmb25kbycsICgpID0+IHtcclxuICAgIHJlbmRlcig8VGVzdERpYWxvZyAvPik7XHJcbiAgICBjb25zdCBkaWFsb2cgPSBvcGVuV2l0aFJlY3QoKTtcclxuXHJcbiAgICBmaXJlRXZlbnQubW91c2VEb3duKGRpYWxvZywgeyBjbGllbnRYOiAyMCwgY2xpZW50WTogMjAgfSk7XHJcbiAgICBmaXJlRXZlbnQuY2xpY2soZGlhbG9nLCB7IGNsaWVudFg6IDIwLCBjbGllbnRZOiAyMCB9KTtcclxuXHJcbiAgICBleHBlY3QoZGlhbG9nLm9wZW4pLnRvQmUoZmFsc2UpO1xyXG4gIH0pO1xyXG5cclxuICBpdCgnbm8gY2llcnJhIGNvbiBjbGljcyBkZW50cm8gZGVsIGRpw6Fsb2dvLCBuaSBlbiBzdSBwYWRkaW5nJywgKCkgPT4ge1xyXG4gICAgcmVuZGVyKDxUZXN0RGlhbG9nIC8+KTtcclxuICAgIGNvbnN0IGRpYWxvZyA9IG9wZW5XaXRoUmVjdCgpO1xyXG5cclxuICAgIGZpcmVFdmVudC5tb3VzZURvd24oc2NyZWVuLmdldEJ5TGFiZWxUZXh0KCdDYW1wbycpKTtcclxuICAgIGZpcmVFdmVudC5jbGljayhzY3JlZW4uZ2V0QnlMYWJlbFRleHQoJ0NhbXBvJykpO1xyXG4gICAgZmlyZUV2ZW50Lm1vdXNlRG93bihkaWFsb2csIHsgY2xpZW50WDogMTEwLCBjbGllbnRZOiAxMTAgfSk7XHJcbiAgICBmaXJlRXZlbnQuY2xpY2soZGlhbG9nLCB7IGNsaWVudFg6IDExMCwgY2xpZW50WTogMTEwIH0pO1xyXG5cclxuICAgIGV4cGVjdChkaWFsb2cub3BlbikudG9CZSh0cnVlKTtcclxuICB9KTtcclxuXHJcbiAgaXQoJ25vIGNpZXJyYSBzaSBlbCBjbGljIGVtcGV6w7MgZGVudHJvIHkgdGVybWluw7MgZW4gZWwgZm9uZG8gKGFycmFzdHJlKScsICgpID0+IHtcclxuICAgIHJlbmRlcig8VGVzdERpYWxvZyAvPik7XHJcbiAgICBjb25zdCBkaWFsb2cgPSBvcGVuV2l0aFJlY3QoKTtcclxuXHJcbiAgICBmaXJlRXZlbnQubW91c2VEb3duKHNjcmVlbi5nZXRCeUxhYmVsVGV4dCgnQ2FtcG8nKSk7XHJcbiAgICBmaXJlRXZlbnQuY2xpY2soZGlhbG9nLCB7IGNsaWVudFg6IDIwLCBjbGllbnRZOiAyMCB9KTtcclxuXHJcbiAgICBleHBlY3QoZGlhbG9nLm9wZW4pLnRvQmUodHJ1ZSk7XHJcbiAgfSk7XHJcbn0pO1xyXG4iXSwiZmlsZSI6Ii9zcmMvbGliL3VzZUJhY2tkcm9wQ2xvc2UudGVzdC50c3gifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9saWIvdXNlQmFja2Ryb3BDbG9zZS50ZXN0LnRzeCIsIi9zcmMvbGliL3VzZUJhY2tkcm9wQ2xvc2UudGVzdC50c3giLFtdLFsiNiIsIjciLCI4IiwiOSIsIjEwIl0sW10sIi9ub2RlX21vZHVsZXMvdml0ZXN0L2Rpc3QvaW5kZXguanMiLCIvbm9kZV9tb2R1bGVzL0B0ZXN0aW5nLWxpYnJhcnkvcmVhY3QvZGlzdC9pbmRleC5qcyIsIi9ub2RlX21vZHVsZXMvcmVhY3QvaW5kZXguanMiLCIvc3JjL2xpYi91c2VCYWNrZHJvcENsb3NlLnRzIiwiL25vZGVfbW9kdWxlcy9yZWFjdC9qc3gtZGV2LXJ1bnRpbWUuanMiXQ==

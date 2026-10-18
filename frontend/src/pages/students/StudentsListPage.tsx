@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
@@ -97,7 +98,7 @@ export function StudentsListPage() {
                     <td>
                       <StudentStatusBadge isActive={student.isActive} />
                     </td>
-                    <td>{new Date(student.createdAt).toLocaleDateString()}</td>
+                    <td>{readableDate(student.createdAt, false)}</td>
                     <td>
                       <button
                         type="button"

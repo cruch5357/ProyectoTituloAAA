@@ -1,6 +1,7 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { fileURLToPath } from 'node:url'
-import { loadEnv } from 'vite'
+import { readBackendTimezone } from './backendTimezone.ts'
+import type { Plugin, Connect } from 'vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -11,10 +12,38 @@ import { VitePWA } from 'vite-plugin-pwa'
 // extendido), así que `vite`/`vite build` no cambian de comportamiento.
 // https://vite.dev/config/
 const { getAppTimezone } = createRequire(import.meta.url)('../backend/config/app-timezone.cjs')
+// Solo los servidores locales de Vite exponen el certificado PUBLICO.
+// Las claves privadas permanecen fuera de public/ y nunca entran al build.
+const localCertificate = (): Plugin => {
+  const download: Connect.NextHandleFunction = (request, response, next) => {
+    const certificate = new URL('../.certs/local-ca.cer', import.meta.url);
+    if (request.url !== '/local-ca.cer' || request.method !== 'GET' || !existsSync(certificate)) return next();
+    response.setHeader('Content-Type', 'application/x-x509-ca-cert');
+    response.setHeader('Content-Disposition', 'attachment; filename="entrenamiento-local.cer"');
+    response.setHeader('Cache-Control', 'no-store');
+    response.end(readFileSync(certificate));
+  };
+  return {
+    name: 'local-certificate-download',
+    configureServer: (server) => { server.middlewares.use(download); },
+    configurePreviewServer: (server) => { server.middlewares.use(download); },
+  };
+};
 export default defineConfig(({ mode }) => ({
-  define: { __APP_TIMEZONE__: JSON.stringify(getAppTimezone(process.env.APP_TIMEZONE ?? loadEnv(mode, fileURLToPath(new URL('../backend', import.meta.url)), 'APP_TIMEZONE').APP_TIMEZONE)) },
+  server: {
+    host: '0.0.0.0', port: 5173, strictPort: true,
+    fs: { deny: ['.env', '.env.*', '*.{crt,pem}', '**/.git/**', '**/.certs/**'] },
+    https: process.env.LOCAL_HTTPS === '1' ? {
+      key: readFileSync(new URL('../.certs/local-key.pem', import.meta.url)),
+      cert: readFileSync(new URL('../.certs/local.pem', import.meta.url)),
+    } : undefined,
+    proxy: { '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true } },
+  },
+  preview: { host: '0.0.0.0', port: 4173, strictPort: true },
+  define: { __APP_TIMEZONE__: JSON.stringify(getAppTimezone(process.env.APP_TIMEZONE ?? readBackendTimezone(mode))) },
   plugins: [
     react(),
+    localCertificate(),
     // PROMPT 16: PWA instalable (RF-30). Estrategia conservadora:
     // - generateSW (Workbox) solo precachea el shell/estáticos del build
     //   (ver `globPatterns`), NO configuramos `runtimeCaching`, por lo que
@@ -36,6 +65,7 @@ export default defineConfig(({ mode }) => ({
       },
       includeAssets: ['favicon.svg'],
       manifest: {
+        id: '/',
         name: 'Plataforma de Entrenamiento',
         short_name: 'Entrenamiento',
         description:
@@ -72,7 +102,7 @@ export default defineConfig(({ mode }) => ({
         // build (JS/CSS/HTML/íconos). Nunca se agregan `runtimeCaching`
         // entries para /api/**, así que Workbox no intercepta ni
         // almacena respuestas de la API.
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        globPatterns: ['**/*.{js,css,html,svg,png,webp,ico,woff,woff2}'],
         navigateFallback: 'index.html',
         navigateFallbackDenylist: [/^\/api\//],
       },
@@ -83,3 +113,4 @@ export default defineConfig(({ mode }) => ({
     setupFiles: ['./src/test/setup.ts'],
   },
 }))
+

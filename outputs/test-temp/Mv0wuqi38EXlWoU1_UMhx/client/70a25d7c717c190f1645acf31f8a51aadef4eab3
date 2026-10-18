@@ -1,0 +1,49 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/@testing-library/react/dist/index.js", {"importedNames":["render","screen"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/lib/exerciseTaxonomy.ts", {"importedNames":["MUSCLE_GROUPS"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/components/exercises/ExerciseMuscles.tsx", {"importedNames":["ExerciseMuscles"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/components/exercises/ExerciseMuscles.test.tsx";
+
+(0,__vite_ssr_import_1__.describe)("visuales musculares del alumno", () => {
+	__vite_ssr_import_1__.it.each((0,__vite_ssr_import_2__.MUSCLE_GROUPS))("comparte la imagen del coach para $label", (group) => {
+		(0,__vite_ssr_import_0__.render)(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.ExerciseMuscles), { exercise: {
+			name: "Ejercicio",
+			muscleGroups: [group.key]
+		} }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 8,
+			columnNumber: 12
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByRole("img", { name: `Zona muscular: ${group.label}` })).toHaveAttribute("src", group.image);
+	});
+	(0,__vite_ssr_import_1__.it)("cambia los grupos al cambiar de ejercicio y conserva múltiples zonas", () => {
+		const { rerender } = (0,__vite_ssr_import_0__.render)(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.ExerciseMuscles), { exercise: {
+			name: "Primero",
+			muscleGroups: ["chest", "triceps"]
+		} }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 12,
+			columnNumber: 33
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getAllByRole("img")).toHaveLength(2);
+		rerender(/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.ExerciseMuscles), { exercise: {
+			name: "Segundo",
+			muscleGroups: ["hamstrings"]
+		} }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 14,
+			columnNumber: 14
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.queryByAltText("Zona muscular: Pecho")).not.toBeInTheDocument();
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByAltText("Zona muscular: Isquiotibiales")).toBeInTheDocument();
+	});
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBO0FBQ0E7Ozs7Ozs7O0FBRUEsbUNBQVMsd0NBQXdDO0NBQy9DLHlCQUFHLFFBQUssb0NBQWEsQ0FBQyxDQUFDLDZDQUE2QyxVQUFVO0VBQzVFLGlEQUFPLG9DQUFDLHdDQUFELEVBQWlCLFVBQVU7R0FBRSxNQUFNO0dBQWEsY0FBYyxDQUFDLE1BQU0sR0FBRztFQUFFLEVBQUk7Ozs7VUFBQztFQUN0RixpQ0FBTyw2QkFBTyxVQUFVLE9BQU8sRUFBRSxNQUFNLGtCQUFrQixNQUFNLFFBQVEsQ0FBQyxDQUFDLENBQUMsQ0FBQyxnQkFBZ0IsT0FBTyxNQUFNLEtBQUs7Q0FDL0csQ0FBQztDQUNELDZCQUFHLDhFQUE4RTtFQUMvRSxNQUFNLEVBQUUsYUFBYSxpREFBTyxvQ0FBQyx3Q0FBRCxFQUFpQixVQUFVO0dBQUUsTUFBTTtHQUFXLGNBQWMsQ0FBQyxTQUFTLFNBQVM7RUFBRSxFQUFJOzs7O1VBQUM7RUFDbEgsaUNBQU8sNkJBQU8sYUFBYSxLQUFLLENBQUMsQ0FBQyxDQUFDLGFBQWEsQ0FBQztFQUNqRCxTQUFTLG9EQUFDLHdDQUFELEVBQWlCLFVBQVU7R0FBRSxNQUFNO0dBQVcsY0FBYyxDQUFDLFlBQVk7RUFBRSxFQUFJOzs7O1VBQUM7RUFDekYsaUNBQU8sNkJBQU8sZUFBZSxzQkFBc0IsQ0FBQyxDQUFDLENBQUMsSUFBSSxrQkFBa0I7RUFDNUUsaUNBQU8sNkJBQU8sYUFBYSwrQkFBK0IsQ0FBQyxDQUFDLENBQUMsa0JBQWtCO0NBQ2pGLENBQUM7QUFDSCxDQUFDIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJFeGVyY2lzZU11c2NsZXMudGVzdC50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgcmVuZGVyLCBzY3JlZW4gfSBmcm9tICdAdGVzdGluZy1saWJyYXJ5L3JlYWN0JztcbmltcG9ydCB7IGRlc2NyaWJlLCBleHBlY3QsIGl0IH0gZnJvbSAndml0ZXN0JztcbmltcG9ydCB7IE1VU0NMRV9HUk9VUFMgfSBmcm9tICcuLi8uLi9saWIvZXhlcmNpc2VUYXhvbm9teSc7XG5pbXBvcnQgeyBFeGVyY2lzZU11c2NsZXMgfSBmcm9tICcuL0V4ZXJjaXNlTXVzY2xlcyc7XG5cbmRlc2NyaWJlKCd2aXN1YWxlcyBtdXNjdWxhcmVzIGRlbCBhbHVtbm8nLCAoKSA9PiB7XG4gIGl0LmVhY2goTVVTQ0xFX0dST1VQUykoJ2NvbXBhcnRlIGxhIGltYWdlbiBkZWwgY29hY2ggcGFyYSAkbGFiZWwnLCAoZ3JvdXApID0+IHtcbiAgICByZW5kZXIoPEV4ZXJjaXNlTXVzY2xlcyBleGVyY2lzZT17eyBuYW1lOiAnRWplcmNpY2lvJywgbXVzY2xlR3JvdXBzOiBbZ3JvdXAua2V5XSB9fSAvPik7XG4gICAgZXhwZWN0KHNjcmVlbi5nZXRCeVJvbGUoJ2ltZycsIHsgbmFtZTogYFpvbmEgbXVzY3VsYXI6ICR7Z3JvdXAubGFiZWx9YCB9KSkudG9IYXZlQXR0cmlidXRlKCdzcmMnLCBncm91cC5pbWFnZSk7XG4gIH0pO1xuICBpdCgnY2FtYmlhIGxvcyBncnVwb3MgYWwgY2FtYmlhciBkZSBlamVyY2ljaW8geSBjb25zZXJ2YSBtw7psdGlwbGVzIHpvbmFzJywgKCkgPT4ge1xuICAgIGNvbnN0IHsgcmVyZW5kZXIgfSA9IHJlbmRlcig8RXhlcmNpc2VNdXNjbGVzIGV4ZXJjaXNlPXt7IG5hbWU6ICdQcmltZXJvJywgbXVzY2xlR3JvdXBzOiBbJ2NoZXN0JywgJ3RyaWNlcHMnXSB9fSAvPik7XG4gICAgZXhwZWN0KHNjcmVlbi5nZXRBbGxCeVJvbGUoJ2ltZycpKS50b0hhdmVMZW5ndGgoMik7XG4gICAgcmVyZW5kZXIoPEV4ZXJjaXNlTXVzY2xlcyBleGVyY2lzZT17eyBuYW1lOiAnU2VndW5kbycsIG11c2NsZUdyb3VwczogWydoYW1zdHJpbmdzJ10gfX0gLz4pO1xuICAgIGV4cGVjdChzY3JlZW4ucXVlcnlCeUFsdFRleHQoJ1pvbmEgbXVzY3VsYXI6IFBlY2hvJykpLm5vdC50b0JlSW5UaGVEb2N1bWVudCgpO1xuICAgIGV4cGVjdChzY3JlZW4uZ2V0QnlBbHRUZXh0KCdab25hIG11c2N1bGFyOiBJc3F1aW90aWJpYWxlcycpKS50b0JlSW5UaGVEb2N1bWVudCgpO1xuICB9KTtcbn0pO1xuIl0sImZpbGUiOiIvc3JjL2NvbXBvbmVudHMvZXhlcmNpc2VzL0V4ZXJjaXNlTXVzY2xlcy50ZXN0LnRzeCJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9FeGVyY2lzZU11c2NsZXMudGVzdC50c3giLCIvc3JjL2NvbXBvbmVudHMvZXhlcmNpc2VzL0V4ZXJjaXNlTXVzY2xlcy50ZXN0LnRzeCIsW10sWyI2IiwiNyIsIjgiLCI5IiwiMTAiXSxbXSwiL25vZGVfbW9kdWxlcy9AdGVzdGluZy1saWJyYXJ5L3JlYWN0L2Rpc3QvaW5kZXguanMiLCIvbm9kZV9tb2R1bGVzL3ZpdGVzdC9kaXN0L2luZGV4LmpzIiwiL3NyYy9saWIvZXhlcmNpc2VUYXhvbm9teS50cyIsIi9zcmMvY29tcG9uZW50cy9leGVyY2lzZXMvRXhlcmNpc2VNdXNjbGVzLnRzeCIsIi9ub2RlX21vZHVsZXMvcmVhY3QvanN4LWRldi1ydW50aW1lLmpzIl0=

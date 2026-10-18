@@ -296,6 +296,7 @@ describe('StudentTrainingService.getSessionDetail', () => {
           id: 'exercise-1',
           name: 'Sentadilla',
           muscleGroup: 'Piernas',
+          muscleGroups: ['quadriceps', 'glutes'],
           isActive: true,
         },
       },
@@ -305,5 +306,9 @@ describe('StudentTrainingService.getSessionDetail', () => {
 
     expect(result.exercises).toHaveLength(1);
     expect(result.exercises[0].exercise.name).toBe('Sentadilla');
+    expect(result.exercises[0].exercise.muscleGroups).toEqual([
+      'quadriceps',
+      'glutes',
+    ]);
   });
 });

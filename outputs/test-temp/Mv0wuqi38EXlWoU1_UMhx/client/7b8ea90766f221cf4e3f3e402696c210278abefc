@@ -1,0 +1,25 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/calendarDate.ts", {"importedNames":["APP_TIMEZONE","displayDateOnly","displayTimestampDate","todayDate"]});
+
+
+(0,__vite_ssr_import_0__.describe)("configured planning dates", () => {
+	(0,__vite_ssr_import_0__.it)("uses the environment timezone for today and timestamp display", () => {
+		const instant = new Date("2026-10-08T01:00:00Z");
+		const expected = new Intl.DateTimeFormat("en-CA", {
+			timeZone: __vite_ssr_import_1__.APP_TIMEZONE,
+			year: "numeric",
+			month: "2-digit",
+			day: "2-digit"
+		}).format(instant);
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.todayDate)(instant)).toBe(expected);
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.displayTimestampDate)(instant.toISOString())).toBe(instant.toLocaleDateString("es-CL", { timeZone: __vite_ssr_import_1__.APP_TIMEZONE }));
+	});
+	(0,__vite_ssr_import_0__.it)("does not shift calendar dates across timezone boundaries", () => {
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.displayDateOnly)("2026-09-06")).toBe(new Date("2026-09-06T12:00:00Z").toLocaleDateString("es-CL", { timeZone: "UTC" }));
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.displayDateOnly)("2026-09-06T00:00:00.000Z")).toBe((0,__vite_ssr_import_1__.displayDateOnly)("2026-09-06"));
+	});
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTs7O0FBRUEsbUNBQVMsbUNBQW1DO0NBQzFDLDZCQUFHLHVFQUF1RTtFQUN4RSxNQUFNLFVBQVUsSUFBSSxLQUFLLHNCQUFzQjtFQUMvQyxNQUFNLFdBQVcsSUFBSSxLQUFLLGVBQWUsU0FBUztHQUFFLFVBQVU7R0FBYyxNQUFNO0dBQVcsT0FBTztHQUFXLEtBQUs7RUFBVSxDQUFDLENBQUMsQ0FBQyxPQUFPLE9BQU87RUFDL0ksaUNBQU8sb0NBQVUsT0FBTyxDQUFDLENBQUMsQ0FBQyxLQUFLLFFBQVE7RUFDeEMsaUNBQU8sK0NBQXFCLFFBQVEsWUFBWSxDQUFDLENBQUMsQ0FBQyxDQUFDLEtBQUssUUFBUSxtQkFBbUIsU0FBUyxFQUFFLFVBQVUsbUNBQWEsQ0FBQyxDQUFDO0NBQzFILENBQUM7Q0FDRCw2QkFBRyxrRUFBa0U7RUFDbkUsaUNBQU8sMENBQWdCLFlBQVksQ0FBQyxDQUFDLENBQUMsS0FBSyxJQUFJLEtBQUssc0JBQXNCLENBQUMsQ0FBQyxtQkFBbUIsU0FBUyxFQUFFLFVBQVUsTUFBTSxDQUFDLENBQUM7RUFDNUgsaUNBQU8sMENBQWdCLDBCQUEwQixDQUFDLENBQUMsQ0FBQyxLQUFLLDBDQUFnQixZQUFZLENBQUM7Q0FDeEYsQ0FBQztBQUNILENBQUMiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbImNhbGVuZGFyRGF0ZS50ZXN0LnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IGRlc2NyaWJlLCBleHBlY3QsIGl0IH0gZnJvbSAndml0ZXN0JztcbmltcG9ydCB7IEFQUF9USU1FWk9ORSwgZGlzcGxheURhdGVPbmx5LCBkaXNwbGF5VGltZXN0YW1wRGF0ZSwgdG9kYXlEYXRlIH0gZnJvbSAnLi9jYWxlbmRhckRhdGUnO1xuXG5kZXNjcmliZSgnY29uZmlndXJlZCBwbGFubmluZyBkYXRlcycsICgpID0+IHtcbiAgaXQoJ3VzZXMgdGhlIGVudmlyb25tZW50IHRpbWV6b25lIGZvciB0b2RheSBhbmQgdGltZXN0YW1wIGRpc3BsYXknLCAoKSA9PiB7XG4gICAgY29uc3QgaW5zdGFudCA9IG5ldyBEYXRlKCcyMDI2LTEwLTA4VDAxOjAwOjAwWicpO1xuICAgIGNvbnN0IGV4cGVjdGVkID0gbmV3IEludGwuRGF0ZVRpbWVGb3JtYXQoJ2VuLUNBJywgeyB0aW1lWm9uZTogQVBQX1RJTUVaT05FLCB5ZWFyOiAnbnVtZXJpYycsIG1vbnRoOiAnMi1kaWdpdCcsIGRheTogJzItZGlnaXQnIH0pLmZvcm1hdChpbnN0YW50KTtcbiAgICBleHBlY3QodG9kYXlEYXRlKGluc3RhbnQpKS50b0JlKGV4cGVjdGVkKTtcbiAgICBleHBlY3QoZGlzcGxheVRpbWVzdGFtcERhdGUoaW5zdGFudC50b0lTT1N0cmluZygpKSkudG9CZShpbnN0YW50LnRvTG9jYWxlRGF0ZVN0cmluZygnZXMtQ0wnLCB7IHRpbWVab25lOiBBUFBfVElNRVpPTkUgfSkpO1xuICB9KTtcbiAgaXQoJ2RvZXMgbm90IHNoaWZ0IGNhbGVuZGFyIGRhdGVzIGFjcm9zcyB0aW1lem9uZSBib3VuZGFyaWVzJywgKCkgPT4ge1xuICAgIGV4cGVjdChkaXNwbGF5RGF0ZU9ubHkoJzIwMjYtMDktMDYnKSkudG9CZShuZXcgRGF0ZSgnMjAyNi0wOS0wNlQxMjowMDowMFonKS50b0xvY2FsZURhdGVTdHJpbmcoJ2VzLUNMJywgeyB0aW1lWm9uZTogJ1VUQycgfSkpO1xuICAgIGV4cGVjdChkaXNwbGF5RGF0ZU9ubHkoJzIwMjYtMDktMDZUMDA6MDA6MDAuMDAwWicpKS50b0JlKGRpc3BsYXlEYXRlT25seSgnMjAyNi0wOS0wNicpKTtcbiAgfSk7XG59KTtcbiJdLCJmaWxlIjoiL3NyYy9saWIvY2FsZW5kYXJEYXRlLnRlc3QudHMifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9saWIvY2FsZW5kYXJEYXRlLnRlc3QudHMiLCIvc3JjL2xpYi9jYWxlbmRhckRhdGUudGVzdC50cyIsW10sWyI2IiwiNyJdLFtdLCIvbm9kZV9tb2R1bGVzL3ZpdGVzdC9kaXN0L2luZGV4LmpzIiwiL3NyYy9saWIvY2FsZW5kYXJEYXRlLnRzIl0=

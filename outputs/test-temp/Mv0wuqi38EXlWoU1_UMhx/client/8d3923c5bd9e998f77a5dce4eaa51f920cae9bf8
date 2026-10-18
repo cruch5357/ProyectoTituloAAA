@@ -1,0 +1,29 @@
+__vite_ssr_exportName__("registerServiceWorker", () => { try { return registerServiceWorker } catch {} });
+// Registro del service worker de la PWA (PROMPT 16 - RF-30).
+//
+// Este módulo se limita a registrar el service worker que genera
+// vite-plugin-pwa (estrategia `generateSW` de Workbox) para que la
+// aplicación sea instalable. No implementa offline-first ni cachea
+// información de negocio: eso queda fuera del alcance de este prompt
+// (ver docs/architecture.md, sección PWA).
+//
+// `virtual:pwa-register` es un módulo virtual que solo existe cuando el
+// plugin PWA está activo (build/preview). En `vite dev` esta función no se
+// invoca (ver `main.tsx`), por lo que el import dinámico nunca se resuelve
+// en ese modo.
+function registerServiceWorker() {
+	if (!("serviceWorker" in navigator)) {
+		return;
+	};
+	void __vite_ssr_dynamic_import__("/@vite-plugin-pwa/virtual:pwa-register").then(({ registerSW }) => {
+		registerSW({ immediate: true });
+	}).catch((error) => {
+		// El registro del service worker nunca debe romper la aplicación
+		// (por ejemplo, si el navegador no lo soporta completamente).
+		console.error("No se pudo registrar el service worker de la PWA.", error);
+	});
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7Ozs7Ozs7Ozs7OztBQVlPLFNBQVMsd0JBQThCO0NBQzVDLElBQUksRUFBRSxtQkFBbUIsWUFBWTtFQUNuQztDQUNGO0NBRUEsS0FBSyw0QkFBTywwQkFDVCxJQUFNLFNBQUUsVUFBaUI7RUFDeEIsV0FBVyxFQUFFLFdBQVcsS0FBSyxDQUFDO0NBQ2hDLENBQUMsQ0FBQyxDQUNELE9BQU8sVUFBbUI7OztFQUd6QixRQUFRLE1BQU0scURBQXFELEtBQUs7Q0FDMUUsQ0FBQztBQUNMIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJyZWdpc3RlclNlcnZpY2VXb3JrZXIudHMiXSwic291cmNlc0NvbnRlbnQiOlsiLy8gUmVnaXN0cm8gZGVsIHNlcnZpY2Ugd29ya2VyIGRlIGxhIFBXQSAoUFJPTVBUIDE2IC0gUkYtMzApLlxyXG4vL1xyXG4vLyBFc3RlIG3Ds2R1bG8gc2UgbGltaXRhIGEgcmVnaXN0cmFyIGVsIHNlcnZpY2Ugd29ya2VyIHF1ZSBnZW5lcmFcclxuLy8gdml0ZS1wbHVnaW4tcHdhIChlc3RyYXRlZ2lhIGBnZW5lcmF0ZVNXYCBkZSBXb3JrYm94KSBwYXJhIHF1ZSBsYVxyXG4vLyBhcGxpY2FjacOzbiBzZWEgaW5zdGFsYWJsZS4gTm8gaW1wbGVtZW50YSBvZmZsaW5lLWZpcnN0IG5pIGNhY2hlYVxyXG4vLyBpbmZvcm1hY2nDs24gZGUgbmVnb2NpbzogZXNvIHF1ZWRhIGZ1ZXJhIGRlbCBhbGNhbmNlIGRlIGVzdGUgcHJvbXB0XHJcbi8vICh2ZXIgZG9jcy9hcmNoaXRlY3R1cmUubWQsIHNlY2Npw7NuIFBXQSkuXHJcbi8vXHJcbi8vIGB2aXJ0dWFsOnB3YS1yZWdpc3RlcmAgZXMgdW4gbcOzZHVsbyB2aXJ0dWFsIHF1ZSBzb2xvIGV4aXN0ZSBjdWFuZG8gZWxcclxuLy8gcGx1Z2luIFBXQSBlc3TDoSBhY3Rpdm8gKGJ1aWxkL3ByZXZpZXcpLiBFbiBgdml0ZSBkZXZgIGVzdGEgZnVuY2nDs24gbm8gc2VcclxuLy8gaW52b2NhICh2ZXIgYG1haW4udHN4YCksIHBvciBsbyBxdWUgZWwgaW1wb3J0IGRpbsOhbWljbyBudW5jYSBzZSByZXN1ZWx2ZVxyXG4vLyBlbiBlc2UgbW9kby5cclxuZXhwb3J0IGZ1bmN0aW9uIHJlZ2lzdGVyU2VydmljZVdvcmtlcigpOiB2b2lkIHtcclxuICBpZiAoISgnc2VydmljZVdvcmtlcicgaW4gbmF2aWdhdG9yKSkge1xyXG4gICAgcmV0dXJuO1xyXG4gIH1cclxuXHJcbiAgdm9pZCBpbXBvcnQoJ3ZpcnR1YWw6cHdhLXJlZ2lzdGVyJylcclxuICAgIC50aGVuKCh7IHJlZ2lzdGVyU1cgfSkgPT4ge1xyXG4gICAgICByZWdpc3RlclNXKHsgaW1tZWRpYXRlOiB0cnVlIH0pO1xyXG4gICAgfSlcclxuICAgIC5jYXRjaCgoZXJyb3I6IHVua25vd24pID0+IHtcclxuICAgICAgLy8gRWwgcmVnaXN0cm8gZGVsIHNlcnZpY2Ugd29ya2VyIG51bmNhIGRlYmUgcm9tcGVyIGxhIGFwbGljYWNpw7NuXHJcbiAgICAgIC8vIChwb3IgZWplbXBsbywgc2kgZWwgbmF2ZWdhZG9yIG5vIGxvIHNvcG9ydGEgY29tcGxldGFtZW50ZSkuXHJcbiAgICAgIGNvbnNvbGUuZXJyb3IoJ05vIHNlIHB1ZG8gcmVnaXN0cmFyIGVsIHNlcnZpY2Ugd29ya2VyIGRlIGxhIFBXQS4nLCBlcnJvcik7XHJcbiAgICB9KTtcclxufVxyXG4iXSwiZmlsZSI6Ii9zcmMvcmVnaXN0ZXJTZXJ2aWNlV29ya2VyLnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9yZWdpc3RlclNlcnZpY2VXb3JrZXIudHMiLCIvc3JjL3JlZ2lzdGVyU2VydmljZVdvcmtlci50cyIsW10sW10sWyI2Il0sIi9Adml0ZS1wbHVnaW4tcHdhL3ZpcnR1YWw6cHdhLXJlZ2lzdGVyIl0=

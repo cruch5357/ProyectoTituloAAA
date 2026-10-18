@@ -1,0 +1,23 @@
+__vite_ssr_exportName__("ExerciseStatusBadge", () => { try { return ExerciseStatusBadge } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/pages/exercises/ExerciseStatusBadge.tsx";
+
+// Componente reutilizable y puramente presentacional, idéntico en criterio a
+// StudentStatusBadge.tsx (PROMPT 04): no decide nada de negocio, solo
+// traduce `isActive` a una etiqueta legible. Cada módulo de dominio (students,
+// exercises) mantiene su propio componente colocado junto a sus páginas en
+// vez de introducir una dependencia cruzada entre módulos.
+function ExerciseStatusBadge({ isActive }) {
+	return /* @__PURE__ */ (0,__vite_ssr_import_0__.jsxDEV)("span", {
+		className: isActive ? "status-badge status-badge--active" : "status-badge status-badge--inactive",
+		children: isActive ? "Activo" : "Inactivo"
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 8,
+		columnNumber: 5
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7Ozs7Ozs7O0FBS08sU0FBUyxvQkFBb0IsRUFBRSxZQUFtQztDQUN2RSxPQUNFLGlEQUFDLFFBQUQ7RUFDRSxXQUNFLFdBQ0ksc0NBQ0E7WUFHTCxXQUFXLFdBQVc7Q0FDbkI7Ozs7O0FBRVYiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkV4ZXJjaXNlU3RhdHVzQmFkZ2UudHN4Il0sInNvdXJjZXNDb250ZW50IjpbIi8vIENvbXBvbmVudGUgcmV1dGlsaXphYmxlIHkgcHVyYW1lbnRlIHByZXNlbnRhY2lvbmFsLCBpZMOpbnRpY28gZW4gY3JpdGVyaW8gYVxyXG4vLyBTdHVkZW50U3RhdHVzQmFkZ2UudHN4IChQUk9NUFQgMDQpOiBubyBkZWNpZGUgbmFkYSBkZSBuZWdvY2lvLCBzb2xvXHJcbi8vIHRyYWR1Y2UgYGlzQWN0aXZlYCBhIHVuYSBldGlxdWV0YSBsZWdpYmxlLiBDYWRhIG3Ds2R1bG8gZGUgZG9taW5pbyAoc3R1ZGVudHMsXHJcbi8vIGV4ZXJjaXNlcykgbWFudGllbmUgc3UgcHJvcGlvIGNvbXBvbmVudGUgY29sb2NhZG8ganVudG8gYSBzdXMgcMOhZ2luYXMgZW5cclxuLy8gdmV6IGRlIGludHJvZHVjaXIgdW5hIGRlcGVuZGVuY2lhIGNydXphZGEgZW50cmUgbcOzZHVsb3MuXHJcbmV4cG9ydCBmdW5jdGlvbiBFeGVyY2lzZVN0YXR1c0JhZGdlKHsgaXNBY3RpdmUgfTogeyBpc0FjdGl2ZTogYm9vbGVhbiB9KSB7XHJcbiAgcmV0dXJuIChcclxuICAgIDxzcGFuXHJcbiAgICAgIGNsYXNzTmFtZT17XHJcbiAgICAgICAgaXNBY3RpdmVcclxuICAgICAgICAgID8gJ3N0YXR1cy1iYWRnZSBzdGF0dXMtYmFkZ2UtLWFjdGl2ZSdcclxuICAgICAgICAgIDogJ3N0YXR1cy1iYWRnZSBzdGF0dXMtYmFkZ2UtLWluYWN0aXZlJ1xyXG4gICAgICB9XHJcbiAgICA+XHJcbiAgICAgIHtpc0FjdGl2ZSA/ICdBY3Rpdm8nIDogJ0luYWN0aXZvJ31cclxuICAgIDwvc3Bhbj5cclxuICApO1xyXG59XHJcbiJdLCJmaWxlIjoiL3NyYy9wYWdlcy9leGVyY2lzZXMvRXhlcmNpc2VTdGF0dXNCYWRnZS50c3gifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9wYWdlcy9leGVyY2lzZXMvRXhlcmNpc2VTdGF0dXNCYWRnZS50c3giLCIvc3JjL3BhZ2VzL2V4ZXJjaXNlcy9FeGVyY2lzZVN0YXR1c0JhZGdlLnRzeCIsW10sWyI2Il0sW10sIi9ub2RlX21vZHVsZXMvcmVhY3QvanN4LWRldi1ydW50aW1lLmpzIl0=

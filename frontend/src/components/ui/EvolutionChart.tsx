@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { useId } from 'react';
 import type {
   ExerciseEvolutionPoint,
@@ -87,15 +88,15 @@ export function EvolutionChart({
             fill="currentColor"
           >
             <title>
-              {new Date(p.performedAt).toLocaleDateString()}: {p.value}
+              {readableDate(p.performedAt, false)}: {p.value}
             </title>
           </circle>
         ))}
         <text x="55" y="260">
-          {new Date(data[0].performedAt).toLocaleDateString()}
+          {readableDate(data[0].performedAt, false)}
         </text>
         <text x="705" y="260" textAnchor="end">
-          {new Date(data[data.length - 1].performedAt).toLocaleDateString()}
+          {readableDate(data[data.length - 1].performedAt, false)}
         </text>
       </svg>
     </figure>

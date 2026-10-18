@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useMemo, useState } from 'react';
@@ -219,7 +220,7 @@ export function HistoryPage() {
                         {evolutionQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
                             <td>
-                              {new Date(point.performedAt).toLocaleDateString()}
+                              {readableDate(point.performedAt, false)}
                             </td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>
@@ -275,7 +276,7 @@ export function HistoryPage() {
                   <tr key={workoutLog.id}>
                     <td>
                       <Link to={`/workout-logs/${workoutLog.id}`}>
-                        {new Date(workoutLog.performedAt).toLocaleString()}
+                        {readableDate(workoutLog.performedAt)}
                       </Link>
                     </td>
                     <td>{workoutLog.session?.name ?? '—'}</td>

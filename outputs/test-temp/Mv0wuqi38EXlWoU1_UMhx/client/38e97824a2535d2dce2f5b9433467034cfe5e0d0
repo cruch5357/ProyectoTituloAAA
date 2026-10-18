@@ -1,0 +1,469 @@
+__vite_ssr_exportName__("ImportExcelPage", () => { try { return ImportExcelPage } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/react/index.js", {"importedNames":["useRef","useState"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/useBackdropClose.ts", {"importedNames":["useBackdropClose"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/node_modules/react-router-dom/dist/main.js", {"importedNames":["Link"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/api/imports.ts", {"importedNames":["useConfirmExcelImport","useRejectExcelImport","useUploadExcelImport"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/lib/apiClient.ts", {"importedNames":["ApiError"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/pages/imports/ExcelImportRowsTable.tsx", {"importedNames":["ExcelImportRowsTable"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV","Fragment"]});
+
+
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/pages/imports/ImportExcelPage.tsx";
+
+// Restricciones mostradas al coach ANTES de subir (PROMPT 13, punto 2 del
+// frontend). Son ayuda de UX únicamente: el backend vuelve a validar todo
+// de forma autoritativa (extensión real, magic bytes, tamaño, macros) — ver
+// backend/src/common/imports/excel-file-validation.ts. Nunca se confía en
+// esta validación del lado del cliente para decidir si algo es seguro.
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const ALLOWED_EXTENSION = ".xlsx";
+// Pantalla "Importar Excel" del Coach. PROMPT 13 implementó la primera
+// mitad (subir, validar, vista previa). PROMPT 14 agrega la segunda mitad
+// (RF-19/RF-20): confirmar las filas válidas hacia Program/Block/Week/
+// Session/SessionExercise, o rechazar el batch completo — ambos botones ya
+// están conectados a los endpoints reales (antes "Confirmar importación"
+// era un estado visual deshabilitado, "disponible próximamente").
+function ImportExcelPage() {
+	const rejectDialog = (0,__vite_ssr_import_0__.useRef)(null);
+	const backdropClose = (0,__vite_ssr_import_1__.useBackdropClose)(rejectDialog);
+	const [selectedFile, setSelectedFile] = (0,__vite_ssr_import_0__.useState)(null);
+	const [clientError, setClientError] = (0,__vite_ssr_import_0__.useState)(null);
+	const uploadMutation = (0,__vite_ssr_import_3__.useUploadExcelImport)();
+	const uploadedBatch = uploadMutation.data;
+	// Los hooks de mutación siempre se llaman (reglas de hooks) aunque todavía
+	// no exista un batch — `mutate()` nunca se invoca antes de que exista uno
+	// real, porque los botones que lo disparan solo se renderizan dentro del
+	// bloque `{batch && (...)}` de más abajo.
+	const confirmMutation = (0,__vite_ssr_import_3__.useConfirmExcelImport)(uploadedBatch?.id ?? "");
+	const rejectMutation = (0,__vite_ssr_import_3__.useRejectExcelImport)(uploadedBatch?.id ?? "");
+	// El batch mostrado es siempre el más reciente: si ya se confirmó o
+	// rechazó, `confirmMutation.data`/`rejectMutation.data` reflejan ese
+	// resultado (createdPrograms, status CONFIRMED/REJECTED); si no, se
+	// muestra la vista previa recién subida.
+	const batch = confirmMutation.data ?? rejectMutation.data ?? uploadedBatch;
+	function handleFileChange(event) {
+		const file = event.target.files?.[0] ?? null;
+		setClientError(null);
+		uploadMutation.reset();
+		confirmMutation.reset();
+		rejectMutation.reset();
+		if (!file) {
+			setSelectedFile(null);
+			return;
+		};
+		// Validación de UX únicamente (ver comentario de cabecera): un archivo
+		// rechazado acá ni siquiera se intenta subir, para no gastar una
+		// petición en algo que el backend rechazaría igual, pero el mensaje
+		// final de "está bien o no" siempre lo da el backend.
+		if (!file.name.toLowerCase().endsWith(ALLOWED_EXTENSION)) {
+			setClientError("Solo se aceptan archivos .xlsx (no se admiten .xlsm ni otros formatos).");
+			setSelectedFile(null);
+			return;
+		};
+		if (file.size > MAX_FILE_SIZE_BYTES) {
+			setClientError("El archivo supera el tamaño máximo permitido (5 MB).");
+			setSelectedFile(null);
+			return;
+		};
+		setSelectedFile(file);
+	}
+	function handleSubmit(event) {
+		event.preventDefault();
+		if (!selectedFile) return;
+		uploadMutation.mutate(selectedFile);
+	}
+	const isPendingReview = batch?.status === "PENDING_REVIEW";
+	const isConfirmed = batch?.status === "CONFIRMED";
+	const isRejected = batch?.status === "REJECTED";
+	return /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("section", { children: [
+		/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("dialog", {
+			ref: rejectDialog,
+			...backdropClose,
+			className: "invite-dialog",
+			"aria-label": "Confirmar rechazo",
+			children: [
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("h2", { children: "Rechazar importación" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 97,
+					columnNumber: 9
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: [
+					"Se rechazará ",
+					batch?.originalFilename,
+					". Este lote no podrá confirmarse después. No se eliminarán programas existentes; podrás subir el archivo nuevamente como otro lote."
+				] }, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 98,
+					columnNumber: 9
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+					className: "dialog-actions",
+					children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("button", {
+						type: "button",
+						className: "button--neutral",
+						onClick: () => rejectDialog.current?.close(),
+						children: "Cancelar"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 104,
+						columnNumber: 11
+					}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("button", {
+						type: "button",
+						className: "button--danger",
+						onClick: () => {
+							rejectDialog.current?.close();
+							rejectMutation.mutate();
+						},
+						children: "Rechazar definitivamente"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 111,
+						columnNumber: 11
+					}, this)]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 103,
+					columnNumber: 9
+				}, this)
+			]
+		}, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 91,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+			className: "page-header",
+			children: /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("h1", { children: "Importar Excel" }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 124,
+				columnNumber: 9
+			}, this)
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 123,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: [
+			"Sube un archivo ",
+			/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("strong", { children: ".xlsx" }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 128,
+				columnNumber: 25
+			}, this),
+			" con tu planificación siguiendo la plantilla de importación. El sistema valida el archivo y muestra una vista previa con los errores encontrados en cada fila antes de confirmar nada."
+		] }, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 127,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("ul", { children: [
+			/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("li", { children: [
+				"Formato admitido: únicamente ",
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("code", { children: ".xlsx" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 136,
+					columnNumber: 40
+				}, this),
+				" (no se aceptan archivos con macros, ",
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("code", { children: ".xlsm" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 137,
+					columnNumber: 32
+				}, this),
+				")."
+			] }, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 135,
+				columnNumber: 9
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("li", { children: "Tamaño máximo: 5 MB." }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 139,
+				columnNumber: 9
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("li", { children: "Cada fila representa la prescripción de un ejercicio dentro de una sesión." }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 140,
+				columnNumber: 9
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("li", { children: "Los ejercicios referenciados deben existir ya en tu catálogo." }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 144,
+				columnNumber: 9
+			}, this)
+		] }, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 134,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("form", {
+			onSubmit: handleSubmit,
+			className: "search-form",
+			children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("label", {
+				className: "field",
+				children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("span", { children: "Archivo Excel (.xlsx)" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 149,
+					columnNumber: 11
+				}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("input", {
+					type: "file",
+					accept: ".xlsx",
+					onChange: handleFileChange,
+					disabled: uploadMutation.isPending
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 150,
+					columnNumber: 11
+				}, this)]
+			}, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 148,
+				columnNumber: 9
+			}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("button", {
+				type: "submit",
+				disabled: !selectedFile || uploadMutation.isPending,
+				children: uploadMutation.isPending ? "Procesando…" : "Subir archivo"
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 157,
+				columnNumber: 9
+			}, this)]
+		}, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 147,
+			columnNumber: 7
+		}, this),
+		clientError && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", {
+			role: "alert",
+			className: "field-error",
+			children: clientError
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 166,
+			columnNumber: 9
+		}, this),
+		uploadMutation.isPending && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: "Procesando el archivo, por favor espera…" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 172,
+			columnNumber: 9
+		}, this),
+		uploadMutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", {
+			role: "alert",
+			className: "field-error",
+			children: uploadMutation.error instanceof __vite_ssr_import_4__.ApiError ? uploadMutation.error.message : "No se pudo procesar el archivo."
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 176,
+			columnNumber: 9
+		}, this),
+		batch && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+			className: "import-preview",
+			children: [
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("h2", { children: "Vista previa de la importación" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 185,
+					columnNumber: 11
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: [
+					"Archivo: ",
+					/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("strong", { children: batch.originalFilename }, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 187,
+						columnNumber: 22
+					}, this),
+					" — Estado:",
+					" ",
+					/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("strong", { children: batch.status }, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 188,
+						columnNumber: 13
+					}, this)
+				] }, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 186,
+					columnNumber: 11
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: [
+					"Total de filas: ",
+					batch.counts.totalRows,
+					" — Válidas:",
+					" ",
+					batch.counts.validRows,
+					" — Inválidas: ",
+					batch.counts.invalidRows
+				] }, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 190,
+					columnNumber: 11
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)((0,__vite_ssr_import_5__.ExcelImportRowsTable), { rows: batch.rows }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 195,
+					columnNumber: 11
+				}, this),
+				isPendingReview && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+					className: "import-preview__confirmation",
+					children: [
+						/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: [
+							"Las filas inválidas ",
+							/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("strong", { children: "no se importarán" }, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 200,
+								columnNumber: 37
+							}, this),
+							": corrígelas en tu archivo y vuelve a subirlo si quieres que también queden programadas. Una vez confirmada, la importación pasa a formar parte de tu programación de inmediato y",
+							" ",
+							/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("strong", { children: "la operación no debe repetirse" }, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 204,
+								columnNumber: 17
+							}, this),
+							"."
+						] }, void 0, true, {
+							fileName: _jsxFileName,
+							lineNumber: 199,
+							columnNumber: 15
+						}, this),
+						/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+							className: "import-preview__actions",
+							children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("button", {
+								type: "button",
+								className: "button--primary",
+								onClick: () => confirmMutation.mutate(),
+								disabled: batch.counts.validRows === 0 || confirmMutation.isPending || rejectMutation.isPending,
+								children: confirmMutation.isPending ? "Confirmando…" : "Confirmar importación"
+							}, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 208,
+								columnNumber: 17
+							}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("button", {
+								type: "button",
+								className: "button--danger",
+								onClick: () => rejectDialog.current?.showModal(),
+								disabled: confirmMutation.isPending || rejectMutation.isPending,
+								children: rejectMutation.isPending ? "Rechazando…" : "Rechazar importación"
+							}, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 222,
+								columnNumber: 17
+							}, this)]
+						}, void 0, true, {
+							fileName: _jsxFileName,
+							lineNumber: 207,
+							columnNumber: 15
+						}, this),
+						batch.counts.validRows === 0 && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", {
+							role: "alert",
+							className: "field-error",
+							children: "El archivo no tiene ninguna fila válida: no hay nada que confirmar. Corrige los errores y vuelve a subirlo."
+						}, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 237,
+							columnNumber: 17
+						}, this)
+					]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 198,
+					columnNumber: 13
+				}, this),
+				confirmMutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", {
+					role: "alert",
+					className: "field-error",
+					children: confirmMutation.error instanceof __vite_ssr_import_4__.ApiError ? confirmMutation.error.message : "No se pudo confirmar la importación."
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 246,
+					columnNumber: 13
+				}, this),
+				rejectMutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", {
+					role: "alert",
+					className: "field-error",
+					children: rejectMutation.error instanceof __vite_ssr_import_4__.ApiError ? rejectMutation.error.message : "No se pudo rechazar la importación."
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 254,
+					columnNumber: 13
+				}, this),
+				isConfirmed && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+					className: "import-preview__result",
+					role: "status",
+					children: [
+						/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("h3", { children: "Importación confirmada" }, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 263,
+							columnNumber: 15
+						}, this),
+						/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: "Esta importación ya está confirmada y forma parte de tu programación. No es necesario (ni posible) repetir la confirmación." }, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 264,
+							columnNumber: 15
+						}, this),
+						batch.createdPrograms.length > 0 && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)((0,__vite_ssr_import_6__.Fragment), { children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: "Programas creados a partir de este archivo:" }, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 271,
+							columnNumber: 19
+						}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("ul", { children: batch.createdPrograms.map((program) => /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("li", { children: program.name }, program.id, false, {
+							fileName: _jsxFileName,
+							lineNumber: 274,
+							columnNumber: 23
+						}, this)) }, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 272,
+							columnNumber: 19
+						}, this)] }, void 0, true, {
+							fileName: _jsxFileName,
+							lineNumber: 270,
+							columnNumber: 17
+						}, this),
+						/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)((0,__vite_ssr_import_2__.Link), {
+							to: "/programs",
+							children: "Ir a Mis programas"
+						}, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 279,
+							columnNumber: 15
+						}, this)
+					]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 262,
+					columnNumber: 13
+				}, this),
+				isRejected && /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("div", {
+					className: "import-preview__result",
+					role: "status",
+					children: [/* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("h3", { children: "Importación rechazada" }, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 285,
+						columnNumber: 15
+					}, this), /* @__PURE__ */ (0,__vite_ssr_import_6__.jsxDEV)("p", { children: "Este batch fue rechazado: no se creó ninguna programación a partir de él." }, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 286,
+						columnNumber: 15
+					}, this)]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 284,
+					columnNumber: 13
+				}, this)
+			]
+		}, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 184,
+			columnNumber: 9
+		}, this)
+	] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 90,
+		columnNumber: 5
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,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WTtNQUF3Qjs7Ozs7S0FDMUM7Ozs7OztJQUdOLGNBQ0MsaURBQUMsT0FBRDtLQUFLLFdBQVU7S0FBeUIsTUFBSztlQUE3QyxDQUNFLGlEQUFDLE1BQUQsWUFBSSx3QkFBeUI7Ozs7ZUFDN0IsaURBQUMsS0FBRCxZQUFHLDRFQUdBOzs7O2FBQ0E7Ozs7OztHQUVKOzs7Ozs7Q0FFQTs7Ozs7QUFFYiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiSW1wb3J0RXhjZWxQYWdlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VSZWYsIHVzZVN0YXRlIH0gZnJvbSAncmVhY3QnO1xyXG5pbXBvcnQgeyB1c2VCYWNrZHJvcENsb3NlIH0gZnJvbSAnLi4vLi4vbGliL3VzZUJhY2tkcm9wQ2xvc2UnO1xyXG5pbXBvcnQgdHlwZSB7IENoYW5nZUV2ZW50LCBGb3JtRXZlbnQgfSBmcm9tICdyZWFjdCc7XHJcbmltcG9ydCB7IExpbmsgfSBmcm9tICdyZWFjdC1yb3V0ZXItZG9tJztcclxuaW1wb3J0IHtcclxuICB1c2VDb25maXJtRXhjZWxJbXBvcnQsXHJcbiAgdXNlUmVqZWN0RXhjZWxJbXBvcnQsXHJcbiAgdXNlVXBsb2FkRXhjZWxJbXBvcnQsXHJcbn0gZnJvbSAnLi4vLi4vYXBpL2ltcG9ydHMnO1xyXG5pbXBvcnQgeyBBcGlFcnJvciB9IGZyb20gJy4uLy4uL2xpYi9hcGlDbGllbnQnO1xyXG5pbXBvcnQgeyBFeGNlbEltcG9ydFJvd3NUYWJsZSB9IGZyb20gJy4vRXhjZWxJbXBvcnRSb3dzVGFibGUnO1xyXG5cclxuLy8gUmVzdHJpY2Npb25lcyBtb3N0cmFkYXMgYWwgY29hY2ggQU5URVMgZGUgc3ViaXIgKFBST01QVCAxMywgcHVudG8gMiBkZWxcclxuLy8gZnJvbnRlbmQpLiBTb24gYXl1ZGEgZGUgVVggw7puaWNhbWVudGU6IGVsIGJhY2tlbmQgdnVlbHZlIGEgdmFsaWRhciB0b2RvXHJcbi8vIGRlIGZvcm1hIGF1dG9yaXRhdGl2YSAoZXh0ZW5zacOzbiByZWFsLCBtYWdpYyBieXRlcywgdGFtYcOxbywgbWFjcm9zKSDigJQgdmVyXHJcbi8vIGJhY2tlbmQvc3JjL2NvbW1vbi9pbXBvcnRzL2V4Y2VsLWZpbGUtdmFsaWRhdGlvbi50cy4gTnVuY2Egc2UgY29uZsOtYSBlblxyXG4vLyBlc3RhIHZhbGlkYWNpw7NuIGRlbCBsYWRvIGRlbCBjbGllbnRlIHBhcmEgZGVjaWRpciBzaSBhbGdvIGVzIHNlZ3Vyby5cclxuY29uc3QgTUFYX0ZJTEVfU0laRV9CWVRFUyA9IDUgKiAxMDI0ICogMTAyNDtcclxuY29uc3QgQUxMT1dFRF9FWFRFTlNJT04gPSAnLnhsc3gnO1xyXG5cclxuLy8gUGFudGFsbGEgXCJJbXBvcnRhciBFeGNlbFwiIGRlbCBDb2FjaC4gUFJPTVBUIDEzIGltcGxlbWVudMOzIGxhIHByaW1lcmFcclxuLy8gbWl0YWQgKHN1YmlyLCB2YWxpZGFyLCB2aXN0YSBwcmV2aWEpLiBQUk9NUFQgMTQgYWdyZWdhIGxhIHNlZ3VuZGEgbWl0YWRcclxuLy8gKFJGLTE5L1JGLTIwKTogY29uZmlybWFyIGxhcyBmaWxhcyB2w6FsaWRhcyBoYWNpYSBQcm9ncmFtL0Jsb2NrL1dlZWsvXHJcbi8vIFNlc3Npb24vU2Vzc2lvbkV4ZXJjaXNlLCBvIHJlY2hhemFyIGVsIGJhdGNoIGNvbXBsZXRvIOKAlCBhbWJvcyBib3RvbmVzIHlhXHJcbi8vIGVzdMOhbiBjb25lY3RhZG9zIGEgbG9zIGVuZHBvaW50cyByZWFsZXMgKGFudGVzIFwiQ29uZmlybWFyIGltcG9ydGFjacOzblwiXHJcbi8vIGVyYSB1biBlc3RhZG8gdmlzdWFsIGRlc2hhYmlsaXRhZG8sIFwiZGlzcG9uaWJsZSBwcsOzeGltYW1lbnRlXCIpLlxyXG5leHBvcnQgZnVuY3Rpb24gSW1wb3J0RXhjZWxQYWdlKCkge1xyXG4gIGNvbnN0IHJlamVjdERpYWxvZyA9IHVzZVJlZjxIVE1MRGlhbG9nRWxlbWVudD4obnVsbCk7XHJcbiAgY29uc3QgYmFja2Ryb3BDbG9zZSA9IHVzZUJhY2tkcm9wQ2xvc2UocmVqZWN0RGlhbG9nKTtcclxuICBjb25zdCBbc2VsZWN0ZWRGaWxlLCBzZXRTZWxlY3RlZEZpbGVdID0gdXNlU3RhdGU8RmlsZSB8IG51bGw+KG51bGwpO1xyXG4gIGNvbnN0IFtjbGllbnRFcnJvciwgc2V0Q2xpZW50RXJyb3JdID0gdXNlU3RhdGU8c3RyaW5nIHwgbnVsbD4obnVsbCk7XHJcbiAgY29uc3QgdXBsb2FkTXV0YXRpb24gPSB1c2VVcGxvYWRFeGNlbEltcG9ydCgpO1xyXG5cclxuICBjb25zdCB1cGxvYWRlZEJhdGNoID0gdXBsb2FkTXV0YXRpb24uZGF0YTtcclxuICAvLyBMb3MgaG9va3MgZGUgbXV0YWNpw7NuIHNpZW1wcmUgc2UgbGxhbWFuIChyZWdsYXMgZGUgaG9va3MpIGF1bnF1ZSB0b2RhdsOtYVxyXG4gIC8vIG5vIGV4aXN0YSB1biBiYXRjaCDigJQgYG11dGF0ZSgpYCBudW5jYSBzZSBpbnZvY2EgYW50ZXMgZGUgcXVlIGV4aXN0YSB1bm9cclxuICAvLyByZWFsLCBwb3JxdWUgbG9zIGJvdG9uZXMgcXVlIGxvIGRpc3BhcmFuIHNvbG8gc2UgcmVuZGVyaXphbiBkZW50cm8gZGVsXHJcbiAgLy8gYmxvcXVlIGB7YmF0Y2ggJiYgKC4uLil9YCBkZSBtw6FzIGFiYWpvLlxyXG4gIGNvbnN0IGNvbmZpcm1NdXRhdGlvbiA9IHVzZUNvbmZpcm1FeGNlbEltcG9ydCh1cGxvYWRlZEJhdGNoPy5pZCA/PyAnJyk7XHJcbiAgY29uc3QgcmVqZWN0TXV0YXRpb24gPSB1c2VSZWplY3RFeGNlbEltcG9ydCh1cGxvYWRlZEJhdGNoPy5pZCA/PyAnJyk7XHJcbiAgLy8gRWwgYmF0Y2ggbW9zdHJhZG8gZXMgc2llbXByZSBlbCBtw6FzIHJlY2llbnRlOiBzaSB5YSBzZSBjb25maXJtw7Mgb1xyXG4gIC8vIHJlY2hhesOzLCBgY29uZmlybU11dGF0aW9uLmRhdGFgL2ByZWplY3RNdXRhdGlvbi5kYXRhYCByZWZsZWphbiBlc2VcclxuICAvLyByZXN1bHRhZG8gKGNyZWF0ZWRQcm9ncmFtcywgc3RhdHVzIENPTkZJUk1FRC9SRUpFQ1RFRCk7IHNpIG5vLCBzZVxyXG4gIC8vIG11ZXN0cmEgbGEgdmlzdGEgcHJldmlhIHJlY2nDqW4gc3ViaWRhLlxyXG4gIGNvbnN0IGJhdGNoID0gY29uZmlybU11dGF0aW9uLmRhdGEgPz8gcmVqZWN0TXV0YXRpb24uZGF0YSA/PyB1cGxvYWRlZEJhdGNoO1xyXG5cclxuICBmdW5jdGlvbiBoYW5kbGVGaWxlQ2hhbmdlKGV2ZW50OiBDaGFuZ2VFdmVudDxIVE1MSW5wdXRFbGVtZW50Pikge1xyXG4gICAgY29uc3QgZmlsZSA9IGV2ZW50LnRhcmdldC5maWxlcz8uWzBdID8/IG51bGw7XHJcbiAgICBzZXRDbGllbnRFcnJvcihudWxsKTtcclxuICAgIHVwbG9hZE11dGF0aW9uLnJlc2V0KCk7XHJcbiAgICBjb25maXJtTXV0YXRpb24ucmVzZXQoKTtcclxuICAgIHJlamVjdE11dGF0aW9uLnJlc2V0KCk7XHJcblxyXG4gICAgaWYgKCFmaWxlKSB7XHJcbiAgICAgIHNldFNlbGVjdGVkRmlsZShudWxsKTtcclxuICAgICAgcmV0dXJuO1xyXG4gICAgfVxyXG5cclxuICAgIC8vIFZhbGlkYWNpw7NuIGRlIFVYIMO6bmljYW1lbnRlICh2ZXIgY29tZW50YXJpbyBkZSBjYWJlY2VyYSk6IHVuIGFyY2hpdm9cclxuICAgIC8vIHJlY2hhemFkbyBhY8OhIG5pIHNpcXVpZXJhIHNlIGludGVudGEgc3ViaXIsIHBhcmEgbm8gZ2FzdGFyIHVuYVxyXG4gICAgLy8gcGV0aWNpw7NuIGVuIGFsZ28gcXVlIGVsIGJhY2tlbmQgcmVjaGF6YXLDrWEgaWd1YWwsIHBlcm8gZWwgbWVuc2FqZVxyXG4gICAgLy8gZmluYWwgZGUgXCJlc3TDoSBiaWVuIG8gbm9cIiBzaWVtcHJlIGxvIGRhIGVsIGJhY2tlbmQuXHJcbiAgICBpZiAoIWZpbGUubmFtZS50b0xvd2VyQ2FzZSgpLmVuZHNXaXRoKEFMTE9XRURfRVhURU5TSU9OKSkge1xyXG4gICAgICBzZXRDbGllbnRFcnJvcihcclxuICAgICAgICAnU29sbyBzZSBhY2VwdGFuIGFyY2hpdm9zIC54bHN4IChubyBzZSBhZG1pdGVuIC54bHNtIG5pIG90cm9zIGZvcm1hdG9zKS4nLFxyXG4gICAgICApO1xyXG4gICAgICBzZXRTZWxlY3RlZEZpbGUobnVsbCk7XHJcbiAgICAgIHJldHVybjtcclxuICAgIH1cclxuICAgIGlmIChmaWxlLnNpemUgPiBNQVhfRklMRV9TSVpFX0JZVEVTKSB7XHJcbiAgICAgIHNldENsaWVudEVycm9yKCdFbCBhcmNoaXZvIHN1cGVyYSBlbCB0YW1hw7FvIG3DoXhpbW8gcGVybWl0aWRvICg1IE1CKS4nKTtcclxuICAgICAgc2V0U2VsZWN0ZWRGaWxlKG51bGwpO1xyXG4gICAgICByZXR1cm47XHJcbiAgICB9XHJcblxyXG4gICAgc2V0U2VsZWN0ZWRGaWxlKGZpbGUpO1xyXG4gIH1cclxuXHJcbiAgZnVuY3Rpb24gaGFuZGxlU3VibWl0KGV2ZW50OiBGb3JtRXZlbnQ8SFRNTEZvcm1FbGVtZW50Pikge1xyXG4gICAgZXZlbnQucHJldmVudERlZmF1bHQoKTtcclxuICAgIGlmICghc2VsZWN0ZWRGaWxlKSByZXR1cm47XHJcbiAgICB1cGxvYWRNdXRhdGlvbi5tdXRhdGUoc2VsZWN0ZWRGaWxlKTtcclxuICB9XHJcblxyXG4gIGNvbnN0IGlzUGVuZGluZ1JldmlldyA9IGJhdGNoPy5zdGF0dXMgPT09ICdQRU5ESU5HX1JFVklFVyc7XHJcbiAgY29uc3QgaXNDb25maXJtZWQgPSBiYXRjaD8uc3RhdHVzID09PSAnQ09ORklSTUVEJztcclxuICBjb25zdCBpc1JlamVjdGVkID0gYmF0Y2g/LnN0YXR1cyA9PT0gJ1JFSkVDVEVEJztcclxuXHJcbiAgcmV0dXJuIChcclxuICAgIDxzZWN0aW9uPlxyXG4gICAgICA8ZGlhbG9nXHJcbiAgICAgICAgcmVmPXtyZWplY3REaWFsb2d9XHJcbiAgICAgICAgey4uLmJhY2tkcm9wQ2xvc2V9XHJcbiAgICAgICAgY2xhc3NOYW1lPVwiaW52aXRlLWRpYWxvZ1wiXHJcbiAgICAgICAgYXJpYS1sYWJlbD1cIkNvbmZpcm1hciByZWNoYXpvXCJcclxuICAgICAgPlxyXG4gICAgICAgIDxoMj5SZWNoYXphciBpbXBvcnRhY2nDs248L2gyPlxyXG4gICAgICAgIDxwPlxyXG4gICAgICAgICAgU2UgcmVjaGF6YXLDoSB7YmF0Y2g/Lm9yaWdpbmFsRmlsZW5hbWV9LiBFc3RlIGxvdGUgbm8gcG9kcsOhIGNvbmZpcm1hcnNlXHJcbiAgICAgICAgICBkZXNwdcOpcy4gTm8gc2UgZWxpbWluYXLDoW4gcHJvZ3JhbWFzIGV4aXN0ZW50ZXM7IHBvZHLDoXMgc3ViaXIgZWxcclxuICAgICAgICAgIGFyY2hpdm8gbnVldmFtZW50ZSBjb21vIG90cm8gbG90ZS5cclxuICAgICAgICA8L3A+XHJcbiAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJkaWFsb2ctYWN0aW9uc1wiPlxyXG4gICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgICAgY2xhc3NOYW1lPVwiYnV0dG9uLS1uZXV0cmFsXCJcclxuICAgICAgICAgICAgb25DbGljaz17KCkgPT4gcmVqZWN0RGlhbG9nLmN1cnJlbnQ/LmNsb3NlKCl9XHJcbiAgICAgICAgICA+XHJcbiAgICAgICAgICAgIENhbmNlbGFyXHJcbiAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgIDxidXR0b25cclxuICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgIGNsYXNzTmFtZT1cImJ1dHRvbi0tZGFuZ2VyXCJcclxuICAgICAgICAgICAgb25DbGljaz17KCkgPT4ge1xyXG4gICAgICAgICAgICAgIHJlamVjdERpYWxvZy5jdXJyZW50Py5jbG9zZSgpO1xyXG4gICAgICAgICAgICAgIHJlamVjdE11dGF0aW9uLm11dGF0ZSgpO1xyXG4gICAgICAgICAgICB9fVxyXG4gICAgICAgICAgPlxyXG4gICAgICAgICAgICBSZWNoYXphciBkZWZpbml0aXZhbWVudGVcclxuICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgIDwvZGl2PlxyXG4gICAgICA8L2RpYWxvZz5cclxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJwYWdlLWhlYWRlclwiPlxyXG4gICAgICAgIDxoMT5JbXBvcnRhciBFeGNlbDwvaDE+XHJcbiAgICAgIDwvZGl2PlxyXG5cclxuICAgICAgPHA+XHJcbiAgICAgICAgU3ViZSB1biBhcmNoaXZvIDxzdHJvbmc+Lnhsc3g8L3N0cm9uZz4gY29uIHR1IHBsYW5pZmljYWNpw7NuIHNpZ3VpZW5kbyBsYVxyXG4gICAgICAgIHBsYW50aWxsYSBkZSBpbXBvcnRhY2nDs24uIEVsIHNpc3RlbWEgdmFsaWRhIGVsIGFyY2hpdm8geSBtdWVzdHJhIHVuYVxyXG4gICAgICAgIHZpc3RhIHByZXZpYSBjb24gbG9zIGVycm9yZXMgZW5jb250cmFkb3MgZW4gY2FkYSBmaWxhIGFudGVzIGRlIGNvbmZpcm1hclxyXG4gICAgICAgIG5hZGEuXHJcbiAgICAgIDwvcD5cclxuXHJcbiAgICAgIDx1bD5cclxuICAgICAgICA8bGk+XHJcbiAgICAgICAgICBGb3JtYXRvIGFkbWl0aWRvOiDDum5pY2FtZW50ZSA8Y29kZT4ueGxzeDwvY29kZT4gKG5vIHNlIGFjZXB0YW5cclxuICAgICAgICAgIGFyY2hpdm9zIGNvbiBtYWNyb3MsIDxjb2RlPi54bHNtPC9jb2RlPikuXHJcbiAgICAgICAgPC9saT5cclxuICAgICAgICA8bGk+VGFtYcOxbyBtw6F4aW1vOiA1IE1CLjwvbGk+XHJcbiAgICAgICAgPGxpPlxyXG4gICAgICAgICAgQ2FkYSBmaWxhIHJlcHJlc2VudGEgbGEgcHJlc2NyaXBjacOzbiBkZSB1biBlamVyY2ljaW8gZGVudHJvIGRlIHVuYVxyXG4gICAgICAgICAgc2VzacOzbi5cclxuICAgICAgICA8L2xpPlxyXG4gICAgICAgIDxsaT5Mb3MgZWplcmNpY2lvcyByZWZlcmVuY2lhZG9zIGRlYmVuIGV4aXN0aXIgeWEgZW4gdHUgY2F0w6Fsb2dvLjwvbGk+XHJcbiAgICAgIDwvdWw+XHJcblxyXG4gICAgICA8Zm9ybSBvblN1Ym1pdD17aGFuZGxlU3VibWl0fSBjbGFzc05hbWU9XCJzZWFyY2gtZm9ybVwiPlxyXG4gICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmaWVsZFwiPlxyXG4gICAgICAgICAgPHNwYW4+QXJjaGl2byBFeGNlbCAoLnhsc3gpPC9zcGFuPlxyXG4gICAgICAgICAgPGlucHV0XHJcbiAgICAgICAgICAgIHR5cGU9XCJmaWxlXCJcclxuICAgICAgICAgICAgYWNjZXB0PVwiLnhsc3hcIlxyXG4gICAgICAgICAgICBvbkNoYW5nZT17aGFuZGxlRmlsZUNoYW5nZX1cclxuICAgICAgICAgICAgZGlzYWJsZWQ9e3VwbG9hZE11dGF0aW9uLmlzUGVuZGluZ31cclxuICAgICAgICAgIC8+XHJcbiAgICAgICAgPC9sYWJlbD5cclxuICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICB0eXBlPVwic3VibWl0XCJcclxuICAgICAgICAgIGRpc2FibGVkPXshc2VsZWN0ZWRGaWxlIHx8IHVwbG9hZE11dGF0aW9uLmlzUGVuZGluZ31cclxuICAgICAgICA+XHJcbiAgICAgICAgICB7dXBsb2FkTXV0YXRpb24uaXNQZW5kaW5nID8gJ1Byb2Nlc2FuZG/igKYnIDogJ1N1YmlyIGFyY2hpdm8nfVxyXG4gICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICA8L2Zvcm0+XHJcblxyXG4gICAgICB7Y2xpZW50RXJyb3IgJiYgKFxyXG4gICAgICAgIDxwIHJvbGU9XCJhbGVydFwiIGNsYXNzTmFtZT1cImZpZWxkLWVycm9yXCI+XHJcbiAgICAgICAgICB7Y2xpZW50RXJyb3J9XHJcbiAgICAgICAgPC9wPlxyXG4gICAgICApfVxyXG5cclxuICAgICAge3VwbG9hZE11dGF0aW9uLmlzUGVuZGluZyAmJiAoXHJcbiAgICAgICAgPHA+UHJvY2VzYW5kbyBlbCBhcmNoaXZvLCBwb3IgZmF2b3IgZXNwZXJh4oCmPC9wPlxyXG4gICAgICApfVxyXG5cclxuICAgICAge3VwbG9hZE11dGF0aW9uLmlzRXJyb3IgJiYgKFxyXG4gICAgICAgIDxwIHJvbGU9XCJhbGVydFwiIGNsYXNzTmFtZT1cImZpZWxkLWVycm9yXCI+XHJcbiAgICAgICAgICB7dXBsb2FkTXV0YXRpb24uZXJyb3IgaW5zdGFuY2VvZiBBcGlFcnJvclxyXG4gICAgICAgICAgICA/IHVwbG9hZE11dGF0aW9uLmVycm9yLm1lc3NhZ2VcclxuICAgICAgICAgICAgOiAnTm8gc2UgcHVkbyBwcm9jZXNhciBlbCBhcmNoaXZvLid9XHJcbiAgICAgICAgPC9wPlxyXG4gICAgICApfVxyXG5cclxuICAgICAge2JhdGNoICYmIChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImltcG9ydC1wcmV2aWV3XCI+XHJcbiAgICAgICAgICA8aDI+VmlzdGEgcHJldmlhIGRlIGxhIGltcG9ydGFjacOzbjwvaDI+XHJcbiAgICAgICAgICA8cD5cclxuICAgICAgICAgICAgQXJjaGl2bzogPHN0cm9uZz57YmF0Y2gub3JpZ2luYWxGaWxlbmFtZX08L3N0cm9uZz4g4oCUIEVzdGFkbzp7JyAnfVxyXG4gICAgICAgICAgICA8c3Ryb25nPntiYXRjaC5zdGF0dXN9PC9zdHJvbmc+XHJcbiAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICA8cD5cclxuICAgICAgICAgICAgVG90YWwgZGUgZmlsYXM6IHtiYXRjaC5jb3VudHMudG90YWxSb3dzfSDigJQgVsOhbGlkYXM6eycgJ31cclxuICAgICAgICAgICAge2JhdGNoLmNvdW50cy52YWxpZFJvd3N9IOKAlCBJbnbDoWxpZGFzOiB7YmF0Y2guY291bnRzLmludmFsaWRSb3dzfVxyXG4gICAgICAgICAgPC9wPlxyXG5cclxuICAgICAgICAgIDxFeGNlbEltcG9ydFJvd3NUYWJsZSByb3dzPXtiYXRjaC5yb3dzfSAvPlxyXG5cclxuICAgICAgICAgIHtpc1BlbmRpbmdSZXZpZXcgJiYgKFxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImltcG9ydC1wcmV2aWV3X19jb25maXJtYXRpb25cIj5cclxuICAgICAgICAgICAgICA8cD5cclxuICAgICAgICAgICAgICAgIExhcyBmaWxhcyBpbnbDoWxpZGFzIDxzdHJvbmc+bm8gc2UgaW1wb3J0YXLDoW48L3N0cm9uZz46XHJcbiAgICAgICAgICAgICAgICBjb3Jyw61nZWxhcyBlbiB0dSBhcmNoaXZvIHkgdnVlbHZlIGEgc3ViaXJsbyBzaSBxdWllcmVzIHF1ZVxyXG4gICAgICAgICAgICAgICAgdGFtYmnDqW4gcXVlZGVuIHByb2dyYW1hZGFzLiBVbmEgdmV6IGNvbmZpcm1hZGEsIGxhIGltcG9ydGFjacOzblxyXG4gICAgICAgICAgICAgICAgcGFzYSBhIGZvcm1hciBwYXJ0ZSBkZSB0dSBwcm9ncmFtYWNpw7NuIGRlIGlubWVkaWF0byB5eycgJ31cclxuICAgICAgICAgICAgICAgIDxzdHJvbmc+bGEgb3BlcmFjacOzbiBubyBkZWJlIHJlcGV0aXJzZTwvc3Ryb25nPi5cclxuICAgICAgICAgICAgICA8L3A+XHJcblxyXG4gICAgICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiaW1wb3J0LXByZXZpZXdfX2FjdGlvbnNcIj5cclxuICAgICAgICAgICAgICAgIDxidXR0b25cclxuICAgICAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgICAgICAgIGNsYXNzTmFtZT1cImJ1dHRvbi0tcHJpbWFyeVwiXHJcbiAgICAgICAgICAgICAgICAgIG9uQ2xpY2s9eygpID0+IGNvbmZpcm1NdXRhdGlvbi5tdXRhdGUoKX1cclxuICAgICAgICAgICAgICAgICAgZGlzYWJsZWQ9e1xyXG4gICAgICAgICAgICAgICAgICAgIGJhdGNoLmNvdW50cy52YWxpZFJvd3MgPT09IDAgfHxcclxuICAgICAgICAgICAgICAgICAgICBjb25maXJtTXV0YXRpb24uaXNQZW5kaW5nIHx8XHJcbiAgICAgICAgICAgICAgICAgICAgcmVqZWN0TXV0YXRpb24uaXNQZW5kaW5nXHJcbiAgICAgICAgICAgICAgICAgIH1cclxuICAgICAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICAgICAge2NvbmZpcm1NdXRhdGlvbi5pc1BlbmRpbmdcclxuICAgICAgICAgICAgICAgICAgICA/ICdDb25maXJtYW5kb+KApidcclxuICAgICAgICAgICAgICAgICAgICA6ICdDb25maXJtYXIgaW1wb3J0YWNpw7NuJ31cclxuICAgICAgICAgICAgICAgIDwvYnV0dG9uPlxyXG4gICAgICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgICAgICB0eXBlPVwiYnV0dG9uXCJcclxuICAgICAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiYnV0dG9uLS1kYW5nZXJcIlxyXG4gICAgICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiByZWplY3REaWFsb2cuY3VycmVudD8uc2hvd01vZGFsKCl9XHJcbiAgICAgICAgICAgICAgICAgIGRpc2FibGVkPXtcclxuICAgICAgICAgICAgICAgICAgICBjb25maXJtTXV0YXRpb24uaXNQZW5kaW5nIHx8IHJlamVjdE11dGF0aW9uLmlzUGVuZGluZ1xyXG4gICAgICAgICAgICAgICAgICB9XHJcbiAgICAgICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAgICAgIHtyZWplY3RNdXRhdGlvbi5pc1BlbmRpbmdcclxuICAgICAgICAgICAgICAgICAgICA/ICdSZWNoYXphbmRv4oCmJ1xyXG4gICAgICAgICAgICAgICAgICAgIDogJ1JlY2hhemFyIGltcG9ydGFjacOzbid9XHJcbiAgICAgICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgICA8L2Rpdj5cclxuXHJcbiAgICAgICAgICAgICAge2JhdGNoLmNvdW50cy52YWxpZFJvd3MgPT09IDAgJiYgKFxyXG4gICAgICAgICAgICAgICAgPHAgcm9sZT1cImFsZXJ0XCIgY2xhc3NOYW1lPVwiZmllbGQtZXJyb3JcIj5cclxuICAgICAgICAgICAgICAgICAgRWwgYXJjaGl2byBubyB0aWVuZSBuaW5ndW5hIGZpbGEgdsOhbGlkYTogbm8gaGF5IG5hZGEgcXVlXHJcbiAgICAgICAgICAgICAgICAgIGNvbmZpcm1hci4gQ29ycmlnZSBsb3MgZXJyb3JlcyB5IHZ1ZWx2ZSBhIHN1YmlybG8uXHJcbiAgICAgICAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICAgICAgKX1cclxuICAgICAgICAgICAgPC9kaXY+XHJcbiAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgIHtjb25maXJtTXV0YXRpb24uaXNFcnJvciAmJiAoXHJcbiAgICAgICAgICAgIDxwIHJvbGU9XCJhbGVydFwiIGNsYXNzTmFtZT1cImZpZWxkLWVycm9yXCI+XHJcbiAgICAgICAgICAgICAge2NvbmZpcm1NdXRhdGlvbi5lcnJvciBpbnN0YW5jZW9mIEFwaUVycm9yXHJcbiAgICAgICAgICAgICAgICA/IGNvbmZpcm1NdXRhdGlvbi5lcnJvci5tZXNzYWdlXHJcbiAgICAgICAgICAgICAgICA6ICdObyBzZSBwdWRvIGNvbmZpcm1hciBsYSBpbXBvcnRhY2nDs24uJ31cclxuICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgKX1cclxuXHJcbiAgICAgICAgICB7cmVqZWN0TXV0YXRpb24uaXNFcnJvciAmJiAoXHJcbiAgICAgICAgICAgIDxwIHJvbGU9XCJhbGVydFwiIGNsYXNzTmFtZT1cImZpZWxkLWVycm9yXCI+XHJcbiAgICAgICAgICAgICAge3JlamVjdE11dGF0aW9uLmVycm9yIGluc3RhbmNlb2YgQXBpRXJyb3JcclxuICAgICAgICAgICAgICAgID8gcmVqZWN0TXV0YXRpb24uZXJyb3IubWVzc2FnZVxyXG4gICAgICAgICAgICAgICAgOiAnTm8gc2UgcHVkbyByZWNoYXphciBsYSBpbXBvcnRhY2nDs24uJ31cclxuICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgKX1cclxuXHJcbiAgICAgICAgICB7aXNDb25maXJtZWQgJiYgKFxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImltcG9ydC1wcmV2aWV3X19yZXN1bHRcIiByb2xlPVwic3RhdHVzXCI+XHJcbiAgICAgICAgICAgICAgPGgzPkltcG9ydGFjacOzbiBjb25maXJtYWRhPC9oMz5cclxuICAgICAgICAgICAgICA8cD5cclxuICAgICAgICAgICAgICAgIEVzdGEgaW1wb3J0YWNpw7NuIHlhIGVzdMOhIGNvbmZpcm1hZGEgeSBmb3JtYSBwYXJ0ZSBkZSB0dVxyXG4gICAgICAgICAgICAgICAgcHJvZ3JhbWFjacOzbi4gTm8gZXMgbmVjZXNhcmlvIChuaSBwb3NpYmxlKSByZXBldGlyIGxhXHJcbiAgICAgICAgICAgICAgICBjb25maXJtYWNpw7NuLlxyXG4gICAgICAgICAgICAgIDwvcD5cclxuICAgICAgICAgICAgICB7YmF0Y2guY3JlYXRlZFByb2dyYW1zLmxlbmd0aCA+IDAgJiYgKFxyXG4gICAgICAgICAgICAgICAgPD5cclxuICAgICAgICAgICAgICAgICAgPHA+UHJvZ3JhbWFzIGNyZWFkb3MgYSBwYXJ0aXIgZGUgZXN0ZSBhcmNoaXZvOjwvcD5cclxuICAgICAgICAgICAgICAgICAgPHVsPlxyXG4gICAgICAgICAgICAgICAgICAgIHtiYXRjaC5jcmVhdGVkUHJvZ3JhbXMubWFwKChwcm9ncmFtKSA9PiAoXHJcbiAgICAgICAgICAgICAgICAgICAgICA8bGkga2V5PXtwcm9ncmFtLmlkfT57cHJvZ3JhbS5uYW1lfTwvbGk+XHJcbiAgICAgICAgICAgICAgICAgICAgKSl9XHJcbiAgICAgICAgICAgICAgICAgIDwvdWw+XHJcbiAgICAgICAgICAgICAgICA8Lz5cclxuICAgICAgICAgICAgICApfVxyXG4gICAgICAgICAgICAgIDxMaW5rIHRvPVwiL3Byb2dyYW1zXCI+SXIgYSBNaXMgcHJvZ3JhbWFzPC9MaW5rPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICl9XHJcblxyXG4gICAgICAgICAge2lzUmVqZWN0ZWQgJiYgKFxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImltcG9ydC1wcmV2aWV3X19yZXN1bHRcIiByb2xlPVwic3RhdHVzXCI+XHJcbiAgICAgICAgICAgICAgPGgzPkltcG9ydGFjacOzbiByZWNoYXphZGE8L2gzPlxyXG4gICAgICAgICAgICAgIDxwPlxyXG4gICAgICAgICAgICAgICAgRXN0ZSBiYXRjaCBmdWUgcmVjaGF6YWRvOiBubyBzZSBjcmXDsyBuaW5ndW5hIHByb2dyYW1hY2nDs24gYVxyXG4gICAgICAgICAgICAgICAgcGFydGlyIGRlIMOpbC5cclxuICAgICAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICAgIDwvZGl2PlxyXG4gICAgICAgICAgKX1cclxuICAgICAgICA8L2Rpdj5cclxuICAgICAgKX1cclxuICAgIDwvc2VjdGlvbj5cclxuICApO1xyXG59XHJcbiJdLCJmaWxlIjoiL3NyYy9wYWdlcy9pbXBvcnRzL0ltcG9ydEV4Y2VsUGFnZS50c3gifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9wYWdlcy9pbXBvcnRzL0ltcG9ydEV4Y2VsUGFnZS50c3giLCIvc3JjL3BhZ2VzL2ltcG9ydHMvSW1wb3J0RXhjZWxQYWdlLnRzeCIsW10sWyI2IiwiNyIsIjgiLCI5IiwiMTAiLCIxMSIsIjEyIl0sW10sIi9ub2RlX21vZHVsZXMvcmVhY3QvaW5kZXguanMiLCIvc3JjL2xpYi91c2VCYWNrZHJvcENsb3NlLnRzIiwiL25vZGVfbW9kdWxlcy9yZWFjdC1yb3V0ZXItZG9tL2Rpc3QvbWFpbi5qcyIsIi9zcmMvYXBpL2ltcG9ydHMudHMiLCIvc3JjL2xpYi9hcGlDbGllbnQudHMiLCIvc3JjL3BhZ2VzL2ltcG9ydHMvRXhjZWxJbXBvcnRSb3dzVGFibGUudHN4IiwiL25vZGVfbW9kdWxlcy9yZWFjdC9qc3gtZGV2LXJ1bnRpbWUuanMiXQ==

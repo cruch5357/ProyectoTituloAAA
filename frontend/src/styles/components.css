@@ -760,3 +760,6 @@ dialog.exercise-dialog {
 .suggested-load__note {
   font-size: 0.8rem;
 }
+
+.student-muscle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; margin-block: 1.5rem; }
+.student-exercise-visual { grid-column: 1 / -1; min-width: 0; width: 100%; max-width: 640px; }

@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link } from 'react-router-dom';
 import { useMyProgramAssignments } from '../../api/programAssignments';
@@ -78,7 +79,7 @@ export function MyAssignedProgramsPage() {
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
 <td>
-  {new Date(assignment.assignedAt).toLocaleDateString()}
+  {readableDate(assignment.assignedAt, false)}
 </td>
                 </tr>
               ))}

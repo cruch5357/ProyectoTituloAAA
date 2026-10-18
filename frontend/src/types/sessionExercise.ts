@@ -4,6 +4,7 @@ export interface EmbeddedExercise {
   id: string;
   name: string;
   muscleGroup: string | null;
+  muscleGroups?: string[];
   videoUrl?: string | null;
   isActive: boolean;
 }

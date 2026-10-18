@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { Skeleton } from '../../components/ui/Primitives';
 import { Link, useParams } from 'react-router-dom';
 import { useStudent, useUpdateStudentStatus } from '../../api/students';
@@ -65,7 +66,7 @@ export function StudentDetailPage({
         </div>
         <div>
           <dt>Alumno desde</dt>
-          <dd>{new Date(student.createdAt).toLocaleDateString()}</dd>
+          <dd>{readableDate(student.createdAt, false)}</dd>
         </div>
       </dl>
 

@@ -1,0 +1,157 @@
+__vite_ssr_exportName__("MUSCLE_GROUPS", () => { try { return MUSCLE_GROUPS } catch {} });
+__vite_ssr_exportName__("SPORTS", () => { try { return SPORTS } catch {} });
+__vite_ssr_exportName__("findMuscleGroup", () => { try { return findMuscleGroup } catch {} });
+__vite_ssr_exportName__("sportLabel", () => { try { return sportLabel } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/assets/muscle-groups/abs.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/assets/muscle-groups/back.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/assets/muscle-groups/biceps.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/assets/muscle-groups/calves.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/assets/muscle-groups/chest.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/assets/muscle-groups/forearms.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/src/assets/muscle-groups/glutes.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_7__ = await __vite_ssr_import__("/src/assets/muscle-groups/hamstrings.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_8__ = await __vite_ssr_import__("/src/assets/muscle-groups/quadriceps.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_9__ = await __vite_ssr_import__("/src/assets/muscle-groups/shoulders.webp?import", {"importedNames":["default"]});
+const __vite_ssr_import_10__ = await __vite_ssr_import__("/src/assets/muscle-groups/triceps.webp?import", {"importedNames":["default"]});
+// Catálogos cerrados para clasificar ejercicios. Las claves deben coincidir
+// con backend/src/exercises/exercise-taxonomy.ts (el backend valida que solo
+// lleguen estas claves).
+
+
+
+
+
+
+
+
+
+
+
+const MUSCLE_GROUPS = [
+	{
+		key: "chest",
+		label: "Pecho",
+		detail: "Pectorales",
+		image: __vite_ssr_import_4__.default
+	},
+	{
+		key: "back",
+		label: "Espalda",
+		detail: "Dorsales",
+		image: __vite_ssr_import_1__.default
+	},
+	{
+		key: "shoulders",
+		label: "Hombros",
+		detail: "Deltoides",
+		image: __vite_ssr_import_9__.default
+	},
+	{
+		key: "biceps",
+		label: "Bíceps",
+		detail: "Bíceps braquial",
+		image: __vite_ssr_import_2__.default
+	},
+	{
+		key: "triceps",
+		label: "Tríceps",
+		detail: "Tríceps braquial",
+		image: __vite_ssr_import_10__.default
+	},
+	{
+		key: "forearms",
+		label: "Antebrazos",
+		detail: "Flexores y extensores",
+		image: __vite_ssr_import_5__.default
+	},
+	{
+		key: "abs",
+		label: "Abdomen",
+		detail: "Recto abdominal y oblicuos",
+		image: __vite_ssr_import_0__.default
+	},
+	{
+		key: "quadriceps",
+		label: "Cuádriceps",
+		detail: "Cuádriceps femoral",
+		image: __vite_ssr_import_8__.default
+	},
+	{
+		key: "hamstrings",
+		label: "Isquiotibiales",
+		detail: "Isquiotibiales",
+		image: __vite_ssr_import_7__.default
+	},
+	{
+		key: "glutes",
+		label: "Glúteos",
+		detail: "Glúteo mayor y medio",
+		image: __vite_ssr_import_6__.default
+	},
+	{
+		key: "calves",
+		label: "Pantorrillas",
+		detail: "Gemelos",
+		image: __vite_ssr_import_3__.default
+	}
+];
+const SPORTS = [
+	{
+		key: "general",
+		label: "Acondicionamiento general"
+	},
+	{
+		key: "bodybuilding",
+		label: "Hipertrofia / Fisicoculturismo"
+	},
+	{
+		key: "powerlifting",
+		label: "Powerlifting"
+	},
+	{
+		key: "weightlifting",
+		label: "Halterofilia"
+	},
+	{
+		key: "crossfit",
+		label: "CrossFit"
+	},
+	{
+		key: "running",
+		label: "Running"
+	},
+	{
+		key: "cycling",
+		label: "Ciclismo"
+	},
+	{
+		key: "swimming",
+		label: "Natación"
+	},
+	{
+		key: "football",
+		label: "Fútbol"
+	},
+	{
+		key: "basketball",
+		label: "Básquetbol"
+	},
+	{
+		key: "tennis",
+		label: "Tenis"
+	},
+	{
+		key: "martial_arts",
+		label: "Artes marciales"
+	}
+];
+function findMuscleGroup(key) {
+	return MUSCLE_GROUPS.find((group) => group.key === key);
+};
+function sportLabel(key) {
+	return SPORTS.find((sport) => sport.key === key)?.label ?? key;
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7OztBQUdBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7QUFDQTtBQUNBO0FBQ0E7Ozs7Ozs7Ozs7Ozs7OztBQVNPLE1BQU0sZ0JBQThDO0NBQ3pEO0VBQUUsS0FBSztFQUFTLE9BQU87RUFBUyxRQUFRO0VBQWMsT0FBTztDQUFNO0NBQ25FO0VBQUUsS0FBSztFQUFRLE9BQU87RUFBVyxRQUFRO0VBQVksT0FBTztDQUFLO0NBQ2pFO0VBQUUsS0FBSztFQUFhLE9BQU87RUFBVyxRQUFRO0VBQWEsT0FBTztDQUFVO0NBQzVFO0VBQUUsS0FBSztFQUFVLE9BQU87RUFBVSxRQUFRO0VBQW1CLE9BQU87Q0FBTztDQUMzRTtFQUNFLEtBQUs7RUFDTCxPQUFPO0VBQ1AsUUFBUTtFQUNSLE9BQU87Q0FDVDtDQUNBO0VBQ0UsS0FBSztFQUNMLE9BQU87RUFDUCxRQUFRO0VBQ1IsT0FBTztDQUNUO0NBQ0E7RUFDRSxLQUFLO0VBQ0wsT0FBTztFQUNQLFFBQVE7RUFDUixPQUFPO0NBQ1Q7Q0FDQTtFQUNFLEtBQUs7RUFDTCxPQUFPO0VBQ1AsUUFBUTtFQUNSLE9BQU87Q0FDVDtDQUNBO0VBQ0UsS0FBSztFQUNMLE9BQU87RUFDUCxRQUFRO0VBQ1IsT0FBTztDQUNUO0NBQ0E7RUFDRSxLQUFLO0VBQ0wsT0FBTztFQUNQLFFBQVE7RUFDUixPQUFPO0NBQ1Q7Q0FDQTtFQUFFLEtBQUs7RUFBVSxPQUFPO0VBQWdCLFFBQVE7RUFBVyxPQUFPO0NBQU87QUFDM0U7QUFFTyxNQUFNLFNBQW9EO0NBQy9EO0VBQUUsS0FBSztFQUFXLE9BQU87Q0FBNEI7Q0FDckQ7RUFBRSxLQUFLO0VBQWdCLE9BQU87Q0FBaUM7Q0FDL0Q7RUFBRSxLQUFLO0VBQWdCLE9BQU87Q0FBZTtDQUM3QztFQUFFLEtBQUs7RUFBaUIsT0FBTztDQUFlO0NBQzlDO0VBQUUsS0FBSztFQUFZLE9BQU87Q0FBVztDQUNyQztFQUFFLEtBQUs7RUFBVyxPQUFPO0NBQVU7Q0FDbkM7RUFBRSxLQUFLO0VBQVcsT0FBTztDQUFXO0NBQ3BDO0VBQUUsS0FBSztFQUFZLE9BQU87Q0FBVztDQUNyQztFQUFFLEtBQUs7RUFBWSxPQUFPO0NBQVM7Q0FDbkM7RUFBRSxLQUFLO0VBQWMsT0FBTztDQUFhO0NBQ3pDO0VBQUUsS0FBSztFQUFVLE9BQU87Q0FBUTtDQUNoQztFQUFFLEtBQUs7RUFBZ0IsT0FBTztDQUFrQjtBQUNsRDtBQUVPLFNBQVMsZ0JBQWdCLEtBQTRDO0NBQzFFLE9BQU8sY0FBYyxNQUFNLFVBQVUsTUFBTSxRQUFRLEdBQUc7QUFDeEQ7QUFFTyxTQUFTLFdBQVcsS0FBcUI7Q0FDOUMsT0FBTyxPQUFPLE1BQU0sVUFBVSxNQUFNLFFBQVEsR0FBRyxDQUFDLEVBQUUsU0FBUztBQUM3RCIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiZXhlcmNpc2VUYXhvbm9teS50cyJdLCJzb3VyY2VzQ29udGVudCI6WyIvLyBDYXTDoWxvZ29zIGNlcnJhZG9zIHBhcmEgY2xhc2lmaWNhciBlamVyY2ljaW9zLiBMYXMgY2xhdmVzIGRlYmVuIGNvaW5jaWRpclxyXG4vLyBjb24gYmFja2VuZC9zcmMvZXhlcmNpc2VzL2V4ZXJjaXNlLXRheG9ub215LnRzIChlbCBiYWNrZW5kIHZhbGlkYSBxdWUgc29sb1xyXG4vLyBsbGVndWVuIGVzdGFzIGNsYXZlcykuXHJcbmltcG9ydCBhYnMgZnJvbSAnLi4vYXNzZXRzL211c2NsZS1ncm91cHMvYWJzLndlYnAnO1xyXG5pbXBvcnQgYmFjayBmcm9tICcuLi9hc3NldHMvbXVzY2xlLWdyb3Vwcy9iYWNrLndlYnAnO1xyXG5pbXBvcnQgYmljZXBzIGZyb20gJy4uL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2JpY2Vwcy53ZWJwJztcclxuaW1wb3J0IGNhbHZlcyBmcm9tICcuLi9hc3NldHMvbXVzY2xlLWdyb3Vwcy9jYWx2ZXMud2VicCc7XHJcbmltcG9ydCBjaGVzdCBmcm9tICcuLi9hc3NldHMvbXVzY2xlLWdyb3Vwcy9jaGVzdC53ZWJwJztcclxuaW1wb3J0IGZvcmVhcm1zIGZyb20gJy4uL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2ZvcmVhcm1zLndlYnAnO1xyXG5pbXBvcnQgZ2x1dGVzIGZyb20gJy4uL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2dsdXRlcy53ZWJwJztcclxuaW1wb3J0IGhhbXN0cmluZ3MgZnJvbSAnLi4vYXNzZXRzL211c2NsZS1ncm91cHMvaGFtc3RyaW5ncy53ZWJwJztcclxuaW1wb3J0IHF1YWRyaWNlcHMgZnJvbSAnLi4vYXNzZXRzL211c2NsZS1ncm91cHMvcXVhZHJpY2Vwcy53ZWJwJztcclxuaW1wb3J0IHNob3VsZGVycyBmcm9tICcuLi9hc3NldHMvbXVzY2xlLWdyb3Vwcy9zaG91bGRlcnMud2VicCc7XHJcbmltcG9ydCB0cmljZXBzIGZyb20gJy4uL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL3RyaWNlcHMud2VicCc7XHJcblxyXG5leHBvcnQgaW50ZXJmYWNlIE11c2NsZUdyb3VwT3B0aW9uIHtcclxuICBrZXk6IHN0cmluZztcclxuICBsYWJlbDogc3RyaW5nO1xyXG4gIGRldGFpbDogc3RyaW5nO1xyXG4gIGltYWdlOiBzdHJpbmc7XHJcbn1cclxuXHJcbmV4cG9ydCBjb25zdCBNVVNDTEVfR1JPVVBTOiByZWFkb25seSBNdXNjbGVHcm91cE9wdGlvbltdID0gW1xyXG4gIHsga2V5OiAnY2hlc3QnLCBsYWJlbDogJ1BlY2hvJywgZGV0YWlsOiAnUGVjdG9yYWxlcycsIGltYWdlOiBjaGVzdCB9LFxyXG4gIHsga2V5OiAnYmFjaycsIGxhYmVsOiAnRXNwYWxkYScsIGRldGFpbDogJ0RvcnNhbGVzJywgaW1hZ2U6IGJhY2sgfSxcclxuICB7IGtleTogJ3Nob3VsZGVycycsIGxhYmVsOiAnSG9tYnJvcycsIGRldGFpbDogJ0RlbHRvaWRlcycsIGltYWdlOiBzaG91bGRlcnMgfSxcclxuICB7IGtleTogJ2JpY2VwcycsIGxhYmVsOiAnQsOtY2VwcycsIGRldGFpbDogJ0LDrWNlcHMgYnJhcXVpYWwnLCBpbWFnZTogYmljZXBzIH0sXHJcbiAge1xyXG4gICAga2V5OiAndHJpY2VwcycsXHJcbiAgICBsYWJlbDogJ1Ryw61jZXBzJyxcclxuICAgIGRldGFpbDogJ1Ryw61jZXBzIGJyYXF1aWFsJyxcclxuICAgIGltYWdlOiB0cmljZXBzLFxyXG4gIH0sXHJcbiAge1xyXG4gICAga2V5OiAnZm9yZWFybXMnLFxyXG4gICAgbGFiZWw6ICdBbnRlYnJhem9zJyxcclxuICAgIGRldGFpbDogJ0ZsZXhvcmVzIHkgZXh0ZW5zb3JlcycsXHJcbiAgICBpbWFnZTogZm9yZWFybXMsXHJcbiAgfSxcclxuICB7XHJcbiAgICBrZXk6ICdhYnMnLFxyXG4gICAgbGFiZWw6ICdBYmRvbWVuJyxcclxuICAgIGRldGFpbDogJ1JlY3RvIGFiZG9taW5hbCB5IG9ibGljdW9zJyxcclxuICAgIGltYWdlOiBhYnMsXHJcbiAgfSxcclxuICB7XHJcbiAgICBrZXk6ICdxdWFkcmljZXBzJyxcclxuICAgIGxhYmVsOiAnQ3XDoWRyaWNlcHMnLFxyXG4gICAgZGV0YWlsOiAnQ3XDoWRyaWNlcHMgZmVtb3JhbCcsXHJcbiAgICBpbWFnZTogcXVhZHJpY2VwcyxcclxuICB9LFxyXG4gIHtcclxuICAgIGtleTogJ2hhbXN0cmluZ3MnLFxyXG4gICAgbGFiZWw6ICdJc3F1aW90aWJpYWxlcycsXHJcbiAgICBkZXRhaWw6ICdJc3F1aW90aWJpYWxlcycsXHJcbiAgICBpbWFnZTogaGFtc3RyaW5ncyxcclxuICB9LFxyXG4gIHtcclxuICAgIGtleTogJ2dsdXRlcycsXHJcbiAgICBsYWJlbDogJ0dsw7p0ZW9zJyxcclxuICAgIGRldGFpbDogJ0dsw7p0ZW8gbWF5b3IgeSBtZWRpbycsXHJcbiAgICBpbWFnZTogZ2x1dGVzLFxyXG4gIH0sXHJcbiAgeyBrZXk6ICdjYWx2ZXMnLCBsYWJlbDogJ1BhbnRvcnJpbGxhcycsIGRldGFpbDogJ0dlbWVsb3MnLCBpbWFnZTogY2FsdmVzIH0sXHJcbl07XHJcblxyXG5leHBvcnQgY29uc3QgU1BPUlRTOiByZWFkb25seSB7IGtleTogc3RyaW5nOyBsYWJlbDogc3RyaW5nIH1bXSA9IFtcclxuICB7IGtleTogJ2dlbmVyYWwnLCBsYWJlbDogJ0Fjb25kaWNpb25hbWllbnRvIGdlbmVyYWwnIH0sXHJcbiAgeyBrZXk6ICdib2R5YnVpbGRpbmcnLCBsYWJlbDogJ0hpcGVydHJvZmlhIC8gRmlzaWNvY3VsdHVyaXNtbycgfSxcclxuICB7IGtleTogJ3Bvd2VybGlmdGluZycsIGxhYmVsOiAnUG93ZXJsaWZ0aW5nJyB9LFxyXG4gIHsga2V5OiAnd2VpZ2h0bGlmdGluZycsIGxhYmVsOiAnSGFsdGVyb2ZpbGlhJyB9LFxyXG4gIHsga2V5OiAnY3Jvc3NmaXQnLCBsYWJlbDogJ0Nyb3NzRml0JyB9LFxyXG4gIHsga2V5OiAncnVubmluZycsIGxhYmVsOiAnUnVubmluZycgfSxcclxuICB7IGtleTogJ2N5Y2xpbmcnLCBsYWJlbDogJ0NpY2xpc21vJyB9LFxyXG4gIHsga2V5OiAnc3dpbW1pbmcnLCBsYWJlbDogJ05hdGFjacOzbicgfSxcclxuICB7IGtleTogJ2Zvb3RiYWxsJywgbGFiZWw6ICdGw7p0Ym9sJyB9LFxyXG4gIHsga2V5OiAnYmFza2V0YmFsbCcsIGxhYmVsOiAnQsOhc3F1ZXRib2wnIH0sXHJcbiAgeyBrZXk6ICd0ZW5uaXMnLCBsYWJlbDogJ1RlbmlzJyB9LFxyXG4gIHsga2V5OiAnbWFydGlhbF9hcnRzJywgbGFiZWw6ICdBcnRlcyBtYXJjaWFsZXMnIH0sXHJcbl07XHJcblxyXG5leHBvcnQgZnVuY3Rpb24gZmluZE11c2NsZUdyb3VwKGtleTogc3RyaW5nKTogTXVzY2xlR3JvdXBPcHRpb24gfCB1bmRlZmluZWQge1xyXG4gIHJldHVybiBNVVNDTEVfR1JPVVBTLmZpbmQoKGdyb3VwKSA9PiBncm91cC5rZXkgPT09IGtleSk7XHJcbn1cclxuXHJcbmV4cG9ydCBmdW5jdGlvbiBzcG9ydExhYmVsKGtleTogc3RyaW5nKTogc3RyaW5nIHtcclxuICByZXR1cm4gU1BPUlRTLmZpbmQoKHNwb3J0KSA9PiBzcG9ydC5rZXkgPT09IGtleSk/LmxhYmVsID8/IGtleTtcclxufVxyXG4iXSwiZmlsZSI6Ii9zcmMvbGliL2V4ZXJjaXNlVGF4b25vbXkudHMifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9saWIvZXhlcmNpc2VUYXhvbm9teS50cyIsIi9zcmMvbGliL2V4ZXJjaXNlVGF4b25vbXkudHMiLFtdLFsiNiIsIjciLCI4IiwiOSIsIjEwIiwiMTEiLCIxMiIsIjEzIiwiMTQiLCIxNSIsIjE2Il0sW10sIi9zcmMvYXNzZXRzL211c2NsZS1ncm91cHMvYWJzLndlYnA/aW1wb3J0IiwiL3NyYy9hc3NldHMvbXVzY2xlLWdyb3Vwcy9iYWNrLndlYnA/aW1wb3J0IiwiL3NyYy9hc3NldHMvbXVzY2xlLWdyb3Vwcy9iaWNlcHMud2VicD9pbXBvcnQiLCIvc3JjL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2NhbHZlcy53ZWJwP2ltcG9ydCIsIi9zcmMvYXNzZXRzL211c2NsZS1ncm91cHMvY2hlc3Qud2VicD9pbXBvcnQiLCIvc3JjL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2ZvcmVhcm1zLndlYnA/aW1wb3J0IiwiL3NyYy9hc3NldHMvbXVzY2xlLWdyb3Vwcy9nbHV0ZXMud2VicD9pbXBvcnQiLCIvc3JjL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL2hhbXN0cmluZ3Mud2VicD9pbXBvcnQiLCIvc3JjL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL3F1YWRyaWNlcHMud2VicD9pbXBvcnQiLCIvc3JjL2Fzc2V0cy9tdXNjbGUtZ3JvdXBzL3Nob3VsZGVycy53ZWJwP2ltcG9ydCIsIi9zcmMvYXNzZXRzL211c2NsZS1ncm91cHMvdHJpY2Vwcy53ZWJwP2ltcG9ydCJd

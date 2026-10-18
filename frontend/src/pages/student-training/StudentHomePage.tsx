@@ -1,4 +1,4 @@
-import { displayTimestampDate } from '../../lib/calendarDate';
+import { readableDate } from '../../lib/readableDate';
 import { Adherence } from '../../components/coaching/Adherence';
 import { useCalendar } from '../../api/coaching';
 import { MyCoach, NextCompetition, SessionContext } from '../../components/coaching/Planning';
@@ -52,8 +52,21 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         title={
           training ? 'Tu entrenamiento' : `Hola, ${user?.name ?? 'atleta'}`
         }
-        description="Cada sesión cuenta. Encuentra tu programa y registra tu entrenamiento."
+        description={training ? 'Encuentra tu programa y registra tu entrenamiento.' : 'Revisa tu rendimiento reciente y sigue tu progreso.'}
       />
+      {!training && <>
+          {evolution.isLoading && <Skeleton />}
+          {evolution.isError && (
+            <ErrorState retry={() => void evolution.refetch()} />
+          )}
+          {evolution.data && (
+            <PersonalPerformance
+              summary={evolution.data.summary}
+              recent={evolution.data.recentPerformance}
+              registered={history.data?.meta.total}
+            />
+          )}
+      </>}
       {inProgress.isLoading && (
         <Skeleton label="Buscando entrenamientos en curso…" />
       )}
@@ -80,11 +93,11 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           </Link>
         </section>
       )}
-      {assignments.isLoading && <Skeleton label="Cargando tu entrenamiento…" />}
-      {assignments.isError && (
+      {training && assignments.isLoading && <Skeleton label="Cargando tu entrenamiento…" />}
+      {training && assignments.isError && (
         <ErrorState retry={() => void assignments.refetch()} />
       )}
-      {assignments.isSuccess && !program && !pending && (
+      {training && assignments.isSuccess && !program && !pending && (
         <Card>
           <EmptyState
             title="Tu próximo paso empieza aquí"
@@ -97,14 +110,14 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           />
         </Card>
       )}
-      {!pending && inProgress.isSuccess && calendar.data?.nextSession && <section className="hero-card">
+      {training && !pending && inProgress.isSuccess && calendar.data?.nextSession && <section className="hero-card">
         <p className="eyebrow">{calendar.data.nextSession.date === calendar.data.today ? 'Entrenamiento de hoy' : 'Próximo entrenamiento'}</p>
         <SessionContext session={calendar.data.nextSession} />
         {calendar.data.nextSession.date === calendar.data.today ? <SessionPreview sessionId={calendar.data.nextSession.sessionId} /> : <Link to={`/student/sessions/${calendar.data.nextSession.sessionId}`}>Ver entrenamiento</Link>}
       </section>}
       {calendar.data && <Card><Adherence assignments={calendar.data.assignments} /></Card>}
       {calendar.isError && <ErrorState retry={() => void calendar.refetch()} />}
-      {program && !pending && !calendar.data?.nextSession && inProgress.isSuccess && (
+      {training && program && !pending && !calendar.data?.nextSession && inProgress.isSuccess && (
         <section className="hero-card">
           <p className="eyebrow">Entrenamiento disponible</p>
           <h2>{program.name}</h2>
@@ -130,20 +143,9 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         </section>
       )}
       {!training && calendar.data && <NextCompetition competition={calendar.data.nextCompetition} today={calendar.data.today} />}
-      {calendar.data?.pendingSession && <Card><h3>Sesión pasada sin finalizar</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
+      {training && calendar.data?.pendingSession && <Card><h3>Sesión pasada sin finalizar</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
       {!training && (
         <>
-          {evolution.isLoading && <Skeleton />}
-          {evolution.isError && (
-            <ErrorState retry={() => void evolution.refetch()} />
-          )}
-          {evolution.data && (
-            <PersonalPerformance
-              summary={evolution.data.summary}
-              recent={evolution.data.recentPerformance}
-              registered={history.data?.meta.total}
-            />
-          )}
           <MyCoach />
           <Card>
             <div className="page-header">
@@ -167,7 +169,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
                     {log.session?.name ?? 'Entrenamiento'}
                   </Link>
                   <p className="muted">
-                    {displayTimestampDate(log.performedAt)} ·{' '}
+                    {readableDate(log.performedAt)} ·{' '}
                     {log.session?.week.block.program.name} ·{' '}
                     {log.durationMinutes === null
                       ? 'En curso'

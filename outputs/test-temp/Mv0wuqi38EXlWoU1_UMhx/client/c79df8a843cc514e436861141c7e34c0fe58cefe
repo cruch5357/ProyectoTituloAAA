@@ -1,0 +1,194 @@
+__vite_ssr_exportName__("ProfilePage", () => { try { return ProfilePage } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/api/coaching.ts", {"importedNames":["useProfile","useCoachingMutation"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/auth/useAuth.ts", {"importedNames":["useAuth"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/components/coaching/Planning.tsx", {"importedNames":["MyCoach"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/components/ui/Primitives.tsx", {"importedNames":["Card","ErrorState","Skeleton"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/pages/coaching/ProfilePage.tsx";
+
+function ProfilePage() {
+	const query = (0,__vite_ssr_import_0__.useProfile)();
+	const mutation = (0,__vite_ssr_import_0__.useCoachingMutation)();
+	const { logout } = (0,__vite_ssr_import_1__.useAuth)();
+	if (query.isLoading) return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.Skeleton), {}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 10,
+		columnNumber: 31
+	}, this);
+	if (query.isError) return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.ErrorState), { retry: () => void query.refetch() }, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 11,
+		columnNumber: 29
+	}, this);
+	if (!query.data) return null;
+	const { name, email, role, profile } = query.data;
+	return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("section", { children: [
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("h1", { children: "Mi perfil" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 14,
+			columnNumber: 19
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.Card), { children: [
+			/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("span", {
+				className: "avatar",
+				children: (profile?.displayName || name).slice(0, 1)
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 14,
+				columnNumber: 43
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("h2", { children: name }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 14,
+				columnNumber: 119
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", { children: [
+				email,
+				" · ",
+				role === "COACH" ? "Coach" : "Alumno"
+			] }, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 14,
+				columnNumber: 134
+			}, this),
+			/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("form", {
+				className: "coaching-form",
+				onSubmit: (e) => {
+					e.preventDefault();
+					const values = Object.fromEntries(new FormData(e.currentTarget));
+					const data = Object.fromEntries(Object.entries(values).map(([key, value]) => [key, value === "" ? null : value]));
+					mutation.mutate({
+						path: "/profile/me",
+						data
+					});
+				},
+				children: [
+					[
+						[
+							"displayName",
+							"Nombre visible",
+							"text",
+							100
+						],
+						[
+							"phone",
+							"Teléfono",
+							"tel",
+							30
+						],
+						[
+							"birthDate",
+							"Fecha de nacimiento",
+							"date",
+							10
+						],
+						[
+							"city",
+							"Ciudad",
+							"text",
+							100
+						],
+						[
+							"sport",
+							"Deporte",
+							"text",
+							100
+						],
+						[
+							"avatarUrl",
+							"URL del avatar (HTTPS)",
+							"url",
+							1e3
+						]
+					].map(([key, label, type, maxLength]) => /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("label", {
+						className: "field",
+						children: [label, /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("input", {
+							name: key,
+							type,
+							maxLength,
+							defaultValue: key === "birthDate" ? profile?.[key]?.slice(0, 10) ?? "" : profile?.[key] ?? ""
+						}, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 20,
+							columnNumber: 355
+						}, this)]
+					}, key, true, {
+						fileName: _jsxFileName,
+						lineNumber: 20,
+						columnNumber: 313
+					}, this)),
+					/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("label", {
+						className: "field",
+						children: ["Biografía", /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("textarea", {
+							name: "bio",
+							maxLength: 1e3,
+							defaultValue: profile?.bio ?? ""
+						}, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 21,
+							columnNumber: 41
+						}, this)]
+					}, void 0, true, {
+						fileName: _jsxFileName,
+						lineNumber: 21,
+						columnNumber: 7
+					}, this),
+					/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("button", {
+						disabled: mutation.isPending,
+						children: "Guardar perfil"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 22,
+						columnNumber: 7
+					}, this),
+					mutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_3__.ErrorState), { message: mutation.error.message }, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 22,
+						columnNumber: 89
+					}, this),
+					mutation.isSuccess && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", {
+						role: "status",
+						children: "Perfil guardado."
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 22,
+						columnNumber: 160
+					}, this)
+				]
+			}, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 15,
+				columnNumber: 5
+			}, this)
+		] }, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 14,
+			columnNumber: 37
+		}, this),
+		role === "STUDENT" && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_2__.MyCoach), {}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 23,
+			columnNumber: 42
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("button", {
+			onClick: () => void logout(),
+			children: "Cerrar sesión"
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 23,
+			columnNumber: 54
+		}, this)
+	] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 14,
+		columnNumber: 10
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUFBO0FBQ0E7QUFDQTtBQUNBOzs7Ozs7OztBQUVPLFNBQVMsY0FBYztDQUM1QixNQUFNLFFBQVEsc0NBQVc7Q0FDekIsTUFBTSxXQUFXLCtDQUFvQjtDQUNyQyxNQUFNLEVBQUUsV0FBVyxtQ0FBUTtDQUMzQixJQUFJLE1BQU0sV0FBVyxPQUFPLG9EQUFDLGlDQUFELENBQVc7Ozs7O0NBQ3ZDLElBQUksTUFBTSxTQUFTLE9BQU8sb0RBQUMsbUNBQUQsRUFBWSxhQUFhLEtBQUssTUFBTSxRQUFRLEVBQUk7Ozs7O0NBQzFFLElBQUksQ0FBQyxNQUFNLE1BQU0sT0FBTztDQUN4QixNQUFNLEVBQUUsTUFBTSxPQUFPLE1BQU0sWUFBWSxNQUFNO0NBQzdDLE9BQU8saURBQUMsV0FBRDtFQUFTLGlEQUFDLE1BQUQsWUFBSSxZQUFhOzs7OztFQUFDLG9EQUFDLDZCQUFEO0dBQU0saURBQUMsUUFBRDtJQUFNLFdBQVU7ZUFBVyxTQUFTLGVBQWUsS0FBSSxDQUFFLE1BQU0sR0FBRyxDQUFDO0dBQVE7Ozs7O0dBQUMsaURBQUMsTUFBRCxZQUFLLEtBQVM7Ozs7O0dBQUMsaURBQUMsS0FBRDtJQUFJO0lBQU07SUFBSSxTQUFTLFVBQVUsVUFBVTtHQUFZOzs7OztHQUN4TCxpREFBQyxRQUFEO0lBQU0sV0FBVTtJQUFnQixXQUFXLE1BQU07S0FDL0MsRUFBRSxlQUFlO0tBQUcsTUFBTSxTQUFTLE9BQU8sWUFBWSxJQUFJLFNBQVMsRUFBRSxhQUFhLENBQUM7S0FDbkYsTUFBTSxPQUFPLE9BQU8sWUFBWSxPQUFPLFFBQVEsTUFBTSxDQUFDLENBQUMsS0FBSyxDQUFDLEtBQUssV0FBVyxDQUFDLEtBQUssVUFBVSxLQUFLLE9BQU8sS0FBSyxDQUFDLENBQUM7S0FDaEgsU0FBUyxPQUFPO01BQUUsTUFBTTtNQUFlO0tBQUssQ0FBQztJQUMvQztjQUpBO0tBS0k7TUFBQztPQUFDO09BQWU7T0FBa0I7T0FBUTtNQUFHO01BQUc7T0FBQztPQUFTO09BQVk7T0FBTztNQUFFO01BQUc7T0FBQztPQUFhO09BQXVCO09BQVE7TUFBRTtNQUFHO09BQUM7T0FBUTtPQUFVO09BQVE7TUFBRztNQUFHO09BQUM7T0FBUztPQUFXO09BQVE7TUFBRztNQUFHO09BQUM7T0FBYTtPQUEwQjtPQUFPO01BQUk7S0FBQyxDQUFDLENBQVcsS0FBSyxDQUFDLEtBQUssT0FBTyxNQUFNLGVBQWUsaURBQUMsU0FBRDtNQUFPLFdBQVU7Z0JBQWpCLENBQW9DLE9BQU0saURBQUMsU0FBRDtPQUFPLE1BQU07T0FBVztPQUFpQjtPQUFXLGNBQWMsUUFBUSxjQUFjLFVBQVUsSUFBSSxFQUFFLE1BQU0sR0FBRyxFQUFFLEtBQUssS0FBSyxVQUFVLFFBQVE7TUFBSzs7OztjQUFRO1FBQXhLOzs7O1lBQXdLLENBQUM7S0FDemYsaURBQUMsU0FBRDtNQUFPLFdBQVU7Z0JBQWpCLENBQXlCLGFBQVMsaURBQUMsWUFBRDtPQUFVLE1BQUs7T0FBTSxXQUFXO09BQU0sY0FBYyxTQUFTLE9BQU87TUFBSzs7OztjQUFROzs7Ozs7S0FDbkgsaURBQUMsVUFBRDtNQUFRLFVBQVUsU0FBUztnQkFBVztLQUFzQjs7Ozs7S0FBRSxTQUFTLFdBQVcsb0RBQUMsbUNBQUQsRUFBWSxTQUFTLFNBQVMsTUFBTSxRQUFVOzs7OztLQUFHLFNBQVMsYUFBYSxpREFBQyxLQUFEO01BQUcsTUFBSztnQkFBUztLQUFtQjs7Ozs7SUFDekw7Ozs7OztFQUFPOzs7OztFQUFFLFNBQVMsYUFBYSxvREFBQyxnQ0FBRCxDQUFVOzs7OztFQUFFLGlEQUFDLFVBQUQ7R0FBUSxlQUFlLEtBQUssT0FBTzthQUFHO0VBQXFCOzs7OztDQUFVOzs7OztBQUMxSCIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiUHJvZmlsZVBhZ2UudHN4Il0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IHVzZVByb2ZpbGUsIHVzZUNvYWNoaW5nTXV0YXRpb24gfSBmcm9tICcuLi8uLi9hcGkvY29hY2hpbmcnO1xuaW1wb3J0IHsgdXNlQXV0aCB9IGZyb20gJy4uLy4uL2F1dGgvdXNlQXV0aCc7XG5pbXBvcnQgeyBNeUNvYWNoIH0gZnJvbSAnLi4vLi4vY29tcG9uZW50cy9jb2FjaGluZy9QbGFubmluZyc7XG5pbXBvcnQgeyBDYXJkLCBFcnJvclN0YXRlLCBTa2VsZXRvbiB9IGZyb20gJy4uLy4uL2NvbXBvbmVudHMvdWkvUHJpbWl0aXZlcyc7XG5cbmV4cG9ydCBmdW5jdGlvbiBQcm9maWxlUGFnZSgpIHtcbiAgY29uc3QgcXVlcnkgPSB1c2VQcm9maWxlKCk7XG4gIGNvbnN0IG11dGF0aW9uID0gdXNlQ29hY2hpbmdNdXRhdGlvbigpO1xuICBjb25zdCB7IGxvZ291dCB9ID0gdXNlQXV0aCgpO1xuICBpZiAocXVlcnkuaXNMb2FkaW5nKSByZXR1cm4gPFNrZWxldG9uIC8+O1xuICBpZiAocXVlcnkuaXNFcnJvcikgcmV0dXJuIDxFcnJvclN0YXRlIHJldHJ5PXsoKSA9PiB2b2lkIHF1ZXJ5LnJlZmV0Y2goKX0gLz47XG4gIGlmICghcXVlcnkuZGF0YSkgcmV0dXJuIG51bGw7XG4gIGNvbnN0IHsgbmFtZSwgZW1haWwsIHJvbGUsIHByb2ZpbGUgfSA9IHF1ZXJ5LmRhdGE7XG4gIHJldHVybiA8c2VjdGlvbj48aDE+TWkgcGVyZmlsPC9oMT48Q2FyZD48c3BhbiBjbGFzc05hbWU9XCJhdmF0YXJcIj57KHByb2ZpbGU/LmRpc3BsYXlOYW1lIHx8IG5hbWUpLnNsaWNlKDAsIDEpfTwvc3Bhbj48aDI+e25hbWV9PC9oMj48cD57ZW1haWx9IMK3IHtyb2xlID09PSAnQ09BQ0gnID8gJ0NvYWNoJyA6ICdBbHVtbm8nfTwvcD5cbiAgICA8Zm9ybSBjbGFzc05hbWU9XCJjb2FjaGluZy1mb3JtXCIgb25TdWJtaXQ9eyhlKSA9PiB7XG4gICAgICBlLnByZXZlbnREZWZhdWx0KCk7IGNvbnN0IHZhbHVlcyA9IE9iamVjdC5mcm9tRW50cmllcyhuZXcgRm9ybURhdGEoZS5jdXJyZW50VGFyZ2V0KSk7XG4gICAgICBjb25zdCBkYXRhID0gT2JqZWN0LmZyb21FbnRyaWVzKE9iamVjdC5lbnRyaWVzKHZhbHVlcykubWFwKChba2V5LCB2YWx1ZV0pID0+IFtrZXksIHZhbHVlID09PSAnJyA/IG51bGwgOiB2YWx1ZV0pKTtcbiAgICAgIG11dGF0aW9uLm11dGF0ZSh7IHBhdGg6ICcvcHJvZmlsZS9tZScsIGRhdGEgfSk7XG4gICAgfX0+XG4gICAgICB7KFtbJ2Rpc3BsYXlOYW1lJywgJ05vbWJyZSB2aXNpYmxlJywgJ3RleHQnLCAxMDBdLCBbJ3Bob25lJywgJ1RlbMOpZm9ubycsICd0ZWwnLCAzMF0sIFsnYmlydGhEYXRlJywgJ0ZlY2hhIGRlIG5hY2ltaWVudG8nLCAnZGF0ZScsIDEwXSwgWydjaXR5JywgJ0NpdWRhZCcsICd0ZXh0JywgMTAwXSwgWydzcG9ydCcsICdEZXBvcnRlJywgJ3RleHQnLCAxMDBdLCBbJ2F2YXRhclVybCcsICdVUkwgZGVsIGF2YXRhciAoSFRUUFMpJywgJ3VybCcsIDEwMDBdXSBhcyBjb25zdCkubWFwKChba2V5LCBsYWJlbCwgdHlwZSwgbWF4TGVuZ3RoXSkgPT4gPGxhYmVsIGNsYXNzTmFtZT1cImZpZWxkXCIga2V5PXtrZXl9PntsYWJlbH08aW5wdXQgbmFtZT17a2V5fSB0eXBlPXt0eXBlfSBtYXhMZW5ndGg9e21heExlbmd0aH0gZGVmYXVsdFZhbHVlPXtrZXkgPT09ICdiaXJ0aERhdGUnID8gcHJvZmlsZT8uW2tleV0/LnNsaWNlKDAsIDEwKSA/PyAnJyA6IHByb2ZpbGU/LltrZXldID8/ICcnfSAvPjwvbGFiZWw+KX1cbiAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmaWVsZFwiPkJpb2dyYWbDrWE8dGV4dGFyZWEgbmFtZT1cImJpb1wiIG1heExlbmd0aD17MTAwMH0gZGVmYXVsdFZhbHVlPXtwcm9maWxlPy5iaW8gPz8gJyd9IC8+PC9sYWJlbD5cbiAgICAgIDxidXR0b24gZGlzYWJsZWQ9e211dGF0aW9uLmlzUGVuZGluZ30+R3VhcmRhciBwZXJmaWw8L2J1dHRvbj57bXV0YXRpb24uaXNFcnJvciAmJiA8RXJyb3JTdGF0ZSBtZXNzYWdlPXttdXRhdGlvbi5lcnJvci5tZXNzYWdlfSAvPn17bXV0YXRpb24uaXNTdWNjZXNzICYmIDxwIHJvbGU9XCJzdGF0dXNcIj5QZXJmaWwgZ3VhcmRhZG8uPC9wPn1cbiAgICA8L2Zvcm0+PC9DYXJkPntyb2xlID09PSAnU1RVREVOVCcgJiYgPE15Q29hY2ggLz59PGJ1dHRvbiBvbkNsaWNrPXsoKSA9PiB2b2lkIGxvZ291dCgpfT5DZXJyYXIgc2VzacOzbjwvYnV0dG9uPjwvc2VjdGlvbj47XG59XG4iXSwiZmlsZSI6Ii9zcmMvcGFnZXMvY29hY2hpbmcvUHJvZmlsZVBhZ2UudHN4In0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9wYWdlcy9jb2FjaGluZy9Qcm9maWxlUGFnZS50c3giLCIvc3JjL3BhZ2VzL2NvYWNoaW5nL1Byb2ZpbGVQYWdlLnRzeCIsW10sWyI2IiwiNyIsIjgiLCI5IiwiMTAiXSxbXSwiL3NyYy9hcGkvY29hY2hpbmcudHMiLCIvc3JjL2F1dGgvdXNlQXV0aC50cyIsIi9zcmMvY29tcG9uZW50cy9jb2FjaGluZy9QbGFubmluZy50c3giLCIvc3JjL2NvbXBvbmVudHMvdWkvUHJpbWl0aXZlcy50c3giLCIvbm9kZV9tb2R1bGVzL3JlYWN0L2pzeC1kZXYtcnVudGltZS5qcyJd

@@ -1,0 +1,59 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/@testing-library/react/dist/index.js", {"importedNames":["render","screen"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/components/ui/EvolutionChart.tsx", {"importedNames":["EvolutionChart"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/components/ui/EvolutionChart.test.tsx";
+
+(0,__vite_ssr_import_1__.describe)("Evolución real", () => {
+	(0,__vite_ssr_import_1__.it)("reutiliza la línea temporal para RPE con escala fija y conserva el cero medido", () => {
+		(0,__vite_ssr_import_0__.render)(/* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)((0,__vite_ssr_import_2__.EvolutionChart), { effortPoints: [{
+			performedAt: "2026-10-01",
+			overallRpe: 0
+		}, {
+			performedAt: "2026-10-03",
+			overallRpe: 8
+		}] }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 7,
+			columnNumber: 7
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByRole("img", { name: /Esfuerzo por fecha/ })).toBeInTheDocument();
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByText("Esfuerzo percibido (RPE 0–10) · últimos 15 días")).toBeInTheDocument();
+	});
+	(0,__vite_ssr_import_1__.it)("no fabrica puntos cuando falta carga", () => {
+		(0,__vite_ssr_import_0__.render)(/* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)((0,__vite_ssr_import_2__.EvolutionChart), { points: [{
+			workoutLogId: "1",
+			performedAt: "2026-01-01",
+			maxActualLoad: null,
+			totalActualReps: 4,
+			setCount: 1
+		}] }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 23,
+			columnNumber: 7
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.queryByRole("img")).not.toBeInTheDocument();
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByText("Más registros, más perspectiva")).toBeInTheDocument();
+	});
+	(0,__vite_ssr_import_1__.it)("muestra cargas cero y positivas con descripción accesible", () => {
+		(0,__vite_ssr_import_0__.render)(/* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)((0,__vite_ssr_import_2__.EvolutionChart), { points: [0, 25].map((load, index) => ({
+			workoutLogId: String(index),
+			performedAt: `2026-01-0${index + 1}`,
+			maxActualLoad: load,
+			totalActualReps: 4,
+			setCount: 1
+		})) }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 42,
+			columnNumber: 7
+		}, this));
+		(0,__vite_ssr_import_1__.expect)(__vite_ssr_import_0__.screen.getByRole("img", { name: /Evolución de carga máxima/ })).toBeInTheDocument();
+	});
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTtBQUNBOzs7Ozs7O0FBQ0EsbUNBQVMsd0JBQXdCO0NBQy9CLDZCQUFHLHdGQUF3RjtFQUN6RixpREFDRSxvQ0FBQyx1Q0FBRCxFQUNFLGNBQWMsQ0FDWjtHQUFFLGFBQWE7R0FBYyxZQUFZO0VBQUUsR0FDM0M7R0FBRSxhQUFhO0dBQWMsWUFBWTtFQUFFLENBQzdDLEVBQ0Q7Ozs7VUFDSDtFQUNBLGlDQUNFLDZCQUFPLFVBQVUsT0FBTyxFQUFFLE1BQU0scUJBQXFCLENBQUMsQ0FDeEQsQ0FBQyxDQUFDLGtCQUFrQjtFQUNwQixpQ0FDRSw2QkFBTyxVQUFVLGlEQUFpRCxDQUNwRSxDQUFDLENBQUMsa0JBQWtCO0NBQ3RCLENBQUM7Q0FDRCw2QkFBRyw4Q0FBOEM7RUFDL0MsaURBQ0Usb0NBQUMsdUNBQUQsRUFDRSxRQUFRLENBQ047R0FDRSxjQUFjO0dBQ2QsYUFBYTtHQUNiLGVBQWU7R0FDZixpQkFBaUI7R0FDakIsVUFBVTtFQUNaLENBQ0YsRUFDRDs7OztVQUNIO0VBQ0EsaUNBQU8sNkJBQU8sWUFBWSxLQUFLLENBQUMsQ0FBQyxDQUFDLElBQUksa0JBQWtCO0VBQ3hELGlDQUNFLDZCQUFPLFVBQVUsZ0NBQWdDLENBQ25ELENBQUMsQ0FBQyxrQkFBa0I7Q0FDdEIsQ0FBQztDQUNELDZCQUFHLG1FQUFtRTtFQUNwRSxpREFDRSxvQ0FBQyx1Q0FBRCxFQUNFLFFBQVEsQ0FBQyxHQUFHLEVBQUUsQ0FBQyxDQUFDLEtBQUssTUFBTSxXQUFXO0dBQ3BDLGNBQWMsT0FBTyxLQUFLO0dBQzFCLGFBQWEsWUFBWSxRQUFRO0dBQ2pDLGVBQWU7R0FDZixpQkFBaUI7R0FDakIsVUFBVTtFQUNaLEVBQUUsRUFDSDs7OztVQUNIO0VBQ0EsaUNBQ0UsNkJBQU8sVUFBVSxPQUFPLEVBQUUsTUFBTSw0QkFBNEIsQ0FBQyxDQUMvRCxDQUFDLENBQUMsa0JBQWtCO0NBQ3RCLENBQUM7QUFDSCxDQUFDIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJFdm9sdXRpb25DaGFydC50ZXN0LnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyByZW5kZXIsIHNjcmVlbiB9IGZyb20gJ0B0ZXN0aW5nLWxpYnJhcnkvcmVhY3QnO1xuaW1wb3J0IHsgZGVzY3JpYmUsIGV4cGVjdCwgaXQgfSBmcm9tICd2aXRlc3QnO1xuaW1wb3J0IHsgRXZvbHV0aW9uQ2hhcnQgfSBmcm9tICcuL0V2b2x1dGlvbkNoYXJ0JztcbmRlc2NyaWJlKCdFdm9sdWNpw7NuIHJlYWwnLCAoKSA9PiB7XG4gIGl0KCdyZXV0aWxpemEgbGEgbMOtbmVhIHRlbXBvcmFsIHBhcmEgUlBFIGNvbiBlc2NhbGEgZmlqYSB5IGNvbnNlcnZhIGVsIGNlcm8gbWVkaWRvJywgKCkgPT4ge1xuICAgIHJlbmRlcihcbiAgICAgIDxFdm9sdXRpb25DaGFydFxuICAgICAgICBlZmZvcnRQb2ludHM9e1tcbiAgICAgICAgICB7IHBlcmZvcm1lZEF0OiAnMjAyNi0xMC0wMScsIG92ZXJhbGxScGU6IDAgfSxcbiAgICAgICAgICB7IHBlcmZvcm1lZEF0OiAnMjAyNi0xMC0wMycsIG92ZXJhbGxScGU6IDggfSxcbiAgICAgICAgXX1cbiAgICAgIC8+LFxuICAgICk7XG4gICAgZXhwZWN0KFxuICAgICAgc2NyZWVuLmdldEJ5Um9sZSgnaW1nJywgeyBuYW1lOiAvRXNmdWVyem8gcG9yIGZlY2hhLyB9KSxcbiAgICApLnRvQmVJblRoZURvY3VtZW50KCk7XG4gICAgZXhwZWN0KFxuICAgICAgc2NyZWVuLmdldEJ5VGV4dCgnRXNmdWVyem8gcGVyY2liaWRvIChSUEUgMOKAkzEwKSDCtyDDumx0aW1vcyAxNSBkw61hcycpLFxuICAgICkudG9CZUluVGhlRG9jdW1lbnQoKTtcbiAgfSk7XG4gIGl0KCdubyBmYWJyaWNhIHB1bnRvcyBjdWFuZG8gZmFsdGEgY2FyZ2EnLCAoKSA9PiB7XG4gICAgcmVuZGVyKFxuICAgICAgPEV2b2x1dGlvbkNoYXJ0XG4gICAgICAgIHBvaW50cz17W1xuICAgICAgICAgIHtcbiAgICAgICAgICAgIHdvcmtvdXRMb2dJZDogJzEnLFxuICAgICAgICAgICAgcGVyZm9ybWVkQXQ6ICcyMDI2LTAxLTAxJyxcbiAgICAgICAgICAgIG1heEFjdHVhbExvYWQ6IG51bGwsXG4gICAgICAgICAgICB0b3RhbEFjdHVhbFJlcHM6IDQsXG4gICAgICAgICAgICBzZXRDb3VudDogMSxcbiAgICAgICAgICB9LFxuICAgICAgICBdfVxuICAgICAgLz4sXG4gICAgKTtcbiAgICBleHBlY3Qoc2NyZWVuLnF1ZXJ5QnlSb2xlKCdpbWcnKSkubm90LnRvQmVJblRoZURvY3VtZW50KCk7XG4gICAgZXhwZWN0KFxuICAgICAgc2NyZWVuLmdldEJ5VGV4dCgnTcOhcyByZWdpc3Ryb3MsIG3DoXMgcGVyc3BlY3RpdmEnKSxcbiAgICApLnRvQmVJblRoZURvY3VtZW50KCk7XG4gIH0pO1xuICBpdCgnbXVlc3RyYSBjYXJnYXMgY2VybyB5IHBvc2l0aXZhcyBjb24gZGVzY3JpcGNpw7NuIGFjY2VzaWJsZScsICgpID0+IHtcbiAgICByZW5kZXIoXG4gICAgICA8RXZvbHV0aW9uQ2hhcnRcbiAgICAgICAgcG9pbnRzPXtbMCwgMjVdLm1hcCgobG9hZCwgaW5kZXgpID0+ICh7XG4gICAgICAgICAgd29ya291dExvZ0lkOiBTdHJpbmcoaW5kZXgpLFxuICAgICAgICAgIHBlcmZvcm1lZEF0OiBgMjAyNi0wMS0wJHtpbmRleCArIDF9YCxcbiAgICAgICAgICBtYXhBY3R1YWxMb2FkOiBsb2FkLFxuICAgICAgICAgIHRvdGFsQWN0dWFsUmVwczogNCxcbiAgICAgICAgICBzZXRDb3VudDogMSxcbiAgICAgICAgfSkpfVxuICAgICAgLz4sXG4gICAgKTtcbiAgICBleHBlY3QoXG4gICAgICBzY3JlZW4uZ2V0QnlSb2xlKCdpbWcnLCB7IG5hbWU6IC9Fdm9sdWNpw7NuIGRlIGNhcmdhIG3DoXhpbWEvIH0pLFxuICAgICkudG9CZUluVGhlRG9jdW1lbnQoKTtcbiAgfSk7XG59KTtcbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL3VpL0V2b2x1dGlvbkNoYXJ0LnRlc3QudHN4In0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9jb21wb25lbnRzL3VpL0V2b2x1dGlvbkNoYXJ0LnRlc3QudHN4IiwiL3NyYy9jb21wb25lbnRzL3VpL0V2b2x1dGlvbkNoYXJ0LnRlc3QudHN4IixbXSxbIjYiLCI3IiwiOCIsIjkiXSxbXSwiL25vZGVfbW9kdWxlcy9AdGVzdGluZy1saWJyYXJ5L3JlYWN0L2Rpc3QvaW5kZXguanMiLCIvbm9kZV9tb2R1bGVzL3ZpdGVzdC9kaXN0L2luZGV4LmpzIiwiL3NyYy9jb21wb25lbnRzL3VpL0V2b2x1dGlvbkNoYXJ0LnRzeCIsIi9ub2RlX21vZHVsZXMvcmVhY3QvanN4LWRldi1ydW50aW1lLmpzIl0=

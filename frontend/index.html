@@ -8,10 +8,18 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
+    <link rel="apple-touch-icon" href="/pwa-192x192.png" />
+    <meta name="theme-color" content="#1f2937" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Entrenamiento" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <style>body{margin:0;background:#f4f7f9;color:#183746;font-family:system-ui,sans-serif}.app-loading{padding:clamp(24px,8vw,80px);max-width:640px;margin:auto}.app-loading button{padding:12px 20px;border-radius:12px;border:0;background:#087e91;color:white;font:inherit}</style>
     <title>Plataforma de Entrenamiento</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root"><main class="app-loading" role="status"><h1>Entrenamiento</h1><p id="startup-status">Abriendo tu espacio…</p><button id="startup-retry" hidden>Volver a intentar</button></main></div>
+    <noscript>Activa JavaScript para abrir Entrenamiento.</noscript>
+    <script src="/startup.js" defer></script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

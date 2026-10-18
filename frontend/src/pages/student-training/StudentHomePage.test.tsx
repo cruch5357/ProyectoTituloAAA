@@ -144,5 +144,7 @@ describe('Inicio del alumno', () => {
       0,
     );
     expect(screen.queryByText('0.0 / 10')).not.toBeInTheDocument();
+    expect(screen.queryByText('Entrenamiento disponible')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
   });
 });

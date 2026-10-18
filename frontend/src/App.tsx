@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './auth/AuthContext';
 import { AppRouter } from './routes/AppRouter';
@@ -27,6 +28,7 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  useEffect(() => { window.dispatchEvent(new Event('app-mounted')); }, []);
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

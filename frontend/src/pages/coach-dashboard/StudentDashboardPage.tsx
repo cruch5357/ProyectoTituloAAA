@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { useCalendar } from '../../api/coaching';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { useState } from 'react';
@@ -262,7 +263,7 @@ export function StudentDashboardPage({
                         {dashboardQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
                             <td>
-                              {new Date(point.performedAt).toLocaleDateString()}
+                              {readableDate(point.performedAt, false)}
                             </td>
                             <td>{point.maxActualLoad ?? '—'}</td>
                             <td>{point.totalActualReps ?? '—'}</td>

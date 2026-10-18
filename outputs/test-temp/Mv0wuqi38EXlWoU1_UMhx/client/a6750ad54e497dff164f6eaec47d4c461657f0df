@@ -1,0 +1,116 @@
+__vite_ssr_exportName__("StudentBlockPage", () => { try { return StudentBlockPage } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/components/ui/Primitives.tsx", {"importedNames":["Skeleton"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/node_modules/react-router-dom/dist/main.js", {"importedNames":["Link","useParams"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/api/studentTraining.ts", {"importedNames":["useStudentBlock","useStudentWeeks"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/lib/apiClient.ts", {"importedNames":["ApiError"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/pages/student-training/StudentBlockPage.tsx";
+
+// Espejo de solo lectura de BlockDetailPage.tsx (Coach): lista las semanas
+// de un bloque asignado. Nunca permite crear/editar nada.
+function StudentBlockPage() {
+	const { id } = (0,__vite_ssr_import_1__.useParams)();
+	const blockQuery = (0,__vite_ssr_import_2__.useStudentBlock)(id);
+	const weeksQuery = (0,__vite_ssr_import_2__.useStudentWeeks)(id);
+	if (blockQuery.isLoading) {
+		return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_0__.Skeleton), { label: "Cargando bloque…" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 14,
+			columnNumber: 12
+		}, this);
+	};
+	if (blockQuery.isError) {
+		const message = blockQuery.error instanceof __vite_ssr_import_3__.ApiError ? blockQuery.error.message : "No se pudo cargar el bloque.";
+		return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("section", { children: /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", {
+			role: "alert",
+			className: "field-error",
+			children: message
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 24,
+			columnNumber: 9
+		}, this) }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 23,
+			columnNumber: 7
+		}, this);
+	};
+	if (!blockQuery.data) {
+		return null;
+	};
+	const block = blockQuery.data;
+	return /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("section", { children: [
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", { children: /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_1__.Link), {
+			to: `/student/programs/${block.programId}`,
+			children: "← Volver al programa"
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 40,
+			columnNumber: 9
+		}, this) }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 39,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("h1", { children: block.name }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 45,
+			columnNumber: 7
+		}, this),
+		/* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("h2", { children: "Semanas" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 47,
+			columnNumber: 7
+		}, this),
+		weeksQuery.isLoading && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_0__.Skeleton), { label: "Cargando semanas…" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 49,
+			columnNumber: 32
+		}, this),
+		weeksQuery.isError && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", {
+			role: "alert",
+			className: "field-error",
+			children: "No se pudieron cargar las semanas de este bloque."
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 52,
+			columnNumber: 9
+		}, this),
+		weeksQuery.isSuccess && weeksQuery.data.length === 0 && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("p", { children: "Este bloque todavía no tiene semanas." }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 58,
+			columnNumber: 9
+		}, this),
+		weeksQuery.isSuccess && weeksQuery.data.length > 0 && /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("ul", {
+			className: "nested-list",
+			children: weeksQuery.data.map((week) => /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)("li", { children: /* @__PURE__ */ (0,__vite_ssr_import_4__.jsxDEV)((0,__vite_ssr_import_1__.Link), {
+				to: `/student/weeks/${week.id}`,
+				children: ["Semana ", week.number]
+			}, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 65,
+				columnNumber: 15
+			}, this) }, week.id, false, {
+				fileName: _jsxFileName,
+				lineNumber: 64,
+				columnNumber: 13
+			}, this))
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 62,
+			columnNumber: 9
+		}, this)
+	] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 38,
+		columnNumber: 5
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUFBO0FBQ0E7QUFDQTtBQUNBOzs7Ozs7Ozs7O0FBSU8sU0FBUyxtQkFBbUI7Q0FDakMsTUFBTSxFQUFFLE9BQU8scUNBQTBCO0NBQ3pDLE1BQU0sYUFBYSwwQ0FBZ0IsRUFBRTtDQUNyQyxNQUFNLGFBQWEsMENBQWdCLEVBQUU7Q0FFckMsSUFBSSxXQUFXLFdBQVc7RUFDeEIsT0FBTyxvREFBQyxpQ0FBRCxFQUFVLE9BQU0sbUJBQW9COzs7OztDQUM3QztDQUVBLElBQUksV0FBVyxTQUFTO0VBQ3RCLE1BQU0sVUFDSixXQUFXLGlCQUFpQixpQ0FDeEIsV0FBVyxNQUFNLFVBQ2pCO0VBQ04sT0FDRSxpREFBQyxXQUFELFlBQ0UsaURBQUMsS0FBRDtHQUFHLE1BQUs7R0FBUSxXQUFVO2FBQ3ZCO0VBQ0E7Ozs7V0FDSTs7Ozs7Q0FFYjtDQUVBLElBQUksQ0FBQyxXQUFXLE1BQU07RUFDcEIsT0FBTztDQUNUO0NBRUEsTUFBTSxRQUFRLFdBQVc7Q0FFekIsT0FDRSxpREFBQyxXQUFEO0VBQ0UsaURBQUMsS0FBRCxZQUNFLG9EQUFDLDZCQUFEO0dBQU0sSUFBSSxxQkFBcUIsTUFBTTthQUFhO0VBRTVDOzs7O1dBQ0w7Ozs7O0VBRUgsaURBQUMsTUFBRCxZQUFLLE1BQU0sS0FBUzs7Ozs7RUFFcEIsaURBQUMsTUFBRCxZQUFJLFVBQVc7Ozs7O0VBRWQsV0FBVyxhQUFhLG9EQUFDLGlDQUFELEVBQVUsT0FBTSxvQkFBcUI7Ozs7O0VBRTdELFdBQVcsV0FDVixpREFBQyxLQUFEO0dBQUcsTUFBSztHQUFRLFdBQVU7YUFBYztFQUVyQzs7Ozs7RUFHSixXQUFXLGFBQWEsV0FBVyxLQUFLLFdBQVcsS0FDbEQsaURBQUMsS0FBRCxZQUFHLHdDQUF3Qzs7Ozs7RUFHNUMsV0FBVyxhQUFhLFdBQVcsS0FBSyxTQUFTLEtBQ2hELGlEQUFDLE1BQUQ7R0FBSSxXQUFVO2FBQ1gsV0FBVyxLQUFLLEtBQUssU0FDcEIsaURBQUMsTUFBRCxZQUNFLG9EQUFDLDZCQUFEO0lBQU0sSUFBSSxrQkFBa0IsS0FBSztjQUFqQyxDQUF1QyxXQUFRLEtBQUssTUFBYTs7Ozs7WUFDL0QsR0FGSyxLQUFLOzs7O1VBRVYsQ0FDTDtFQUNDOzs7OztDQUVDOzs7OztBQUViIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJTdHVkZW50QmxvY2tQYWdlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBTa2VsZXRvbiB9IGZyb20gJy4uLy4uL2NvbXBvbmVudHMvdWkvUHJpbWl0aXZlcyc7XG5pbXBvcnQgeyBMaW5rLCB1c2VQYXJhbXMgfSBmcm9tICdyZWFjdC1yb3V0ZXItZG9tJztcbmltcG9ydCB7IHVzZVN0dWRlbnRCbG9jaywgdXNlU3R1ZGVudFdlZWtzIH0gZnJvbSAnLi4vLi4vYXBpL3N0dWRlbnRUcmFpbmluZyc7XG5pbXBvcnQgeyBBcGlFcnJvciB9IGZyb20gJy4uLy4uL2xpYi9hcGlDbGllbnQnO1xuXG4vLyBFc3Blam8gZGUgc29sbyBsZWN0dXJhIGRlIEJsb2NrRGV0YWlsUGFnZS50c3ggKENvYWNoKTogbGlzdGEgbGFzIHNlbWFuYXNcbi8vIGRlIHVuIGJsb3F1ZSBhc2lnbmFkby4gTnVuY2EgcGVybWl0ZSBjcmVhci9lZGl0YXIgbmFkYS5cbmV4cG9ydCBmdW5jdGlvbiBTdHVkZW50QmxvY2tQYWdlKCkge1xuICBjb25zdCB7IGlkIH0gPSB1c2VQYXJhbXM8eyBpZDogc3RyaW5nIH0+KCk7XG4gIGNvbnN0IGJsb2NrUXVlcnkgPSB1c2VTdHVkZW50QmxvY2soaWQpO1xuICBjb25zdCB3ZWVrc1F1ZXJ5ID0gdXNlU3R1ZGVudFdlZWtzKGlkKTtcblxuICBpZiAoYmxvY2tRdWVyeS5pc0xvYWRpbmcpIHtcbiAgICByZXR1cm4gPFNrZWxldG9uIGxhYmVsPVwiQ2FyZ2FuZG8gYmxvcXVl4oCmXCIgLz47XG4gIH1cblxuICBpZiAoYmxvY2tRdWVyeS5pc0Vycm9yKSB7XG4gICAgY29uc3QgbWVzc2FnZSA9XG4gICAgICBibG9ja1F1ZXJ5LmVycm9yIGluc3RhbmNlb2YgQXBpRXJyb3JcbiAgICAgICAgPyBibG9ja1F1ZXJ5LmVycm9yLm1lc3NhZ2VcbiAgICAgICAgOiAnTm8gc2UgcHVkbyBjYXJnYXIgZWwgYmxvcXVlLic7XG4gICAgcmV0dXJuIChcbiAgICAgIDxzZWN0aW9uPlxuICAgICAgICA8cCByb2xlPVwiYWxlcnRcIiBjbGFzc05hbWU9XCJmaWVsZC1lcnJvclwiPlxuICAgICAgICAgIHttZXNzYWdlfVxuICAgICAgICA8L3A+XG4gICAgICA8L3NlY3Rpb24+XG4gICAgKTtcbiAgfVxuXG4gIGlmICghYmxvY2tRdWVyeS5kYXRhKSB7XG4gICAgcmV0dXJuIG51bGw7XG4gIH1cblxuICBjb25zdCBibG9jayA9IGJsb2NrUXVlcnkuZGF0YTtcblxuICByZXR1cm4gKFxuICAgIDxzZWN0aW9uPlxuICAgICAgPHA+XG4gICAgICAgIDxMaW5rIHRvPXtgL3N0dWRlbnQvcHJvZ3JhbXMvJHtibG9jay5wcm9ncmFtSWR9YH0+XG4gICAgICAgICAg4oaQIFZvbHZlciBhbCBwcm9ncmFtYVxuICAgICAgICA8L0xpbms+XG4gICAgICA8L3A+XG5cbiAgICAgIDxoMT57YmxvY2submFtZX08L2gxPlxuXG4gICAgICA8aDI+U2VtYW5hczwvaDI+XG5cbiAgICAgIHt3ZWVrc1F1ZXJ5LmlzTG9hZGluZyAmJiA8U2tlbGV0b24gbGFiZWw9XCJDYXJnYW5kbyBzZW1hbmFz4oCmXCIgLz59XG5cbiAgICAgIHt3ZWVrc1F1ZXJ5LmlzRXJyb3IgJiYgKFxuICAgICAgICA8cCByb2xlPVwiYWxlcnRcIiBjbGFzc05hbWU9XCJmaWVsZC1lcnJvclwiPlxuICAgICAgICAgIE5vIHNlIHB1ZGllcm9uIGNhcmdhciBsYXMgc2VtYW5hcyBkZSBlc3RlIGJsb3F1ZS5cbiAgICAgICAgPC9wPlxuICAgICAgKX1cblxuICAgICAge3dlZWtzUXVlcnkuaXNTdWNjZXNzICYmIHdlZWtzUXVlcnkuZGF0YS5sZW5ndGggPT09IDAgJiYgKFxuICAgICAgICA8cD5Fc3RlIGJsb3F1ZSB0b2RhdsOtYSBubyB0aWVuZSBzZW1hbmFzLjwvcD5cbiAgICAgICl9XG5cbiAgICAgIHt3ZWVrc1F1ZXJ5LmlzU3VjY2VzcyAmJiB3ZWVrc1F1ZXJ5LmRhdGEubGVuZ3RoID4gMCAmJiAoXG4gICAgICAgIDx1bCBjbGFzc05hbWU9XCJuZXN0ZWQtbGlzdFwiPlxuICAgICAgICAgIHt3ZWVrc1F1ZXJ5LmRhdGEubWFwKCh3ZWVrKSA9PiAoXG4gICAgICAgICAgICA8bGkga2V5PXt3ZWVrLmlkfT5cbiAgICAgICAgICAgICAgPExpbmsgdG89e2Avc3R1ZGVudC93ZWVrcy8ke3dlZWsuaWR9YH0+U2VtYW5hIHt3ZWVrLm51bWJlcn08L0xpbms+XG4gICAgICAgICAgICA8L2xpPlxuICAgICAgICAgICkpfVxuICAgICAgICA8L3VsPlxuICAgICAgKX1cbiAgICA8L3NlY3Rpb24+XG4gICk7XG59XG4iXSwiZmlsZSI6Ii9zcmMvcGFnZXMvc3R1ZGVudC10cmFpbmluZy9TdHVkZW50QmxvY2tQYWdlLnRzeCJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9wYWdlcy9zdHVkZW50LXRyYWluaW5nL1N0dWRlbnRCbG9ja1BhZ2UudHN4IiwiL3NyYy9wYWdlcy9zdHVkZW50LXRyYWluaW5nL1N0dWRlbnRCbG9ja1BhZ2UudHN4IixbXSxbIjYiLCI3IiwiOCIsIjkiLCIxMCJdLFtdLCIvc3JjL2NvbXBvbmVudHMvdWkvUHJpbWl0aXZlcy50c3giLCIvbm9kZV9tb2R1bGVzL3JlYWN0LXJvdXRlci1kb20vZGlzdC9tYWluLmpzIiwiL3NyYy9hcGkvc3R1ZGVudFRyYWluaW5nLnRzIiwiL3NyYy9saWIvYXBpQ2xpZW50LnRzIiwiL25vZGVfbW9kdWxlcy9yZWFjdC9qc3gtZGV2LXJ1bnRpbWUuanMiXQ==

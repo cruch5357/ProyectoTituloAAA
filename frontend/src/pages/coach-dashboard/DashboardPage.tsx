@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { CoachOperations } from '../../components/coaching/CoachOperations';
 import { useContext, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -251,7 +252,7 @@ export function DashboardPage() {
                       )}
                     </td>
                     <td data-label="Fecha">
-                      {new Date(workoutLog.performedAt).toLocaleString()}
+                      {readableDate(workoutLog.performedAt)}
                     </td>
                     <td data-label="Sesión">
                       {workoutLog.session?.name ?? '—'}

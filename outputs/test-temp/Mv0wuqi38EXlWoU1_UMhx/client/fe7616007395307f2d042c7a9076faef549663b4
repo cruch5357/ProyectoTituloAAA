@@ -1,0 +1,79 @@
+__vite_ssr_exportName__("useUploadExcelImport", () => { try { return useUploadExcelImport } catch {} });
+__vite_ssr_exportName__("useExcelImportBatch", () => { try { return useExcelImportBatch } catch {} });
+__vite_ssr_exportName__("useConfirmExcelImport", () => { try { return useConfirmExcelImport } catch {} });
+__vite_ssr_exportName__("useRejectExcelImport", () => { try { return useRejectExcelImport } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useMutation","useQuery","useQueryClient"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/apiClient.ts", {"importedNames":["apiClient"]});
+// Hooks de TanStack Query para la importación de Excel (PROMPT 13). Mismo
+// criterio exacto que api/exercises.ts: toda la data remota pasa por acá,
+// ninguna página guarda el batch en useState propio más allá del archivo
+// seleccionado (que es puramente un input de formulario, no data del
+// servidor).
+
+
+const excelImportsKeys = {
+	all: ["excel-imports"],
+	detail: (id) => [
+		...excelImportsKeys.all,
+		"detail",
+		id
+	]
+};
+function useUploadExcelImport() {
+	const queryClient = (0,__vite_ssr_import_0__.useQueryClient)();
+	return (0,__vite_ssr_import_0__.useMutation)({
+		mutationFn: async (file) => {
+			const formData = new FormData();
+			formData.append("file", file);
+			const res = await __vite_ssr_import_1__.apiClient.postFile("/imports/excel", formData);
+			return res.data;
+		},
+		onSuccess: (batch) => {
+			queryClient.setQueryData(excelImportsKeys.detail(batch.id), batch);
+		}
+	});
+};
+function useExcelImportBatch(id) {
+	return (0,__vite_ssr_import_0__.useQuery)({
+		queryKey: excelImportsKeys.detail(id ?? ""),
+		queryFn: async () => {
+			const res = await __vite_ssr_import_1__.apiClient.get(`/imports/excel/${id}`);
+			return res.data;
+		},
+		enabled: Boolean(id)
+	});
+};
+// PROMPT 14: confirma un batch PENDING_REVIEW propio — normaliza sus filas
+// válidas hacia Program/Block/Week/Session/SessionExercise. El resultado
+// (incluido `createdPrograms`) reemplaza directamente la caché del detalle
+// de este batch, igual que hace `useUploadExcelImport` con la vista previa.
+function useConfirmExcelImport(batchId) {
+	const queryClient = (0,__vite_ssr_import_0__.useQueryClient)();
+	return (0,__vite_ssr_import_0__.useMutation)({
+		mutationFn: async () => {
+			const res = await __vite_ssr_import_1__.apiClient.post(`/imports/excel/${batchId}/confirm`);
+			return res.data;
+		},
+		onSuccess: (batch) => {
+			queryClient.setQueryData(excelImportsKeys.detail(batch.id), batch);
+		}
+	});
+};
+// PROMPT 14: rechaza un batch PENDING_REVIEW propio sin generar ninguna
+// programación.
+function useRejectExcelImport(batchId) {
+	const queryClient = (0,__vite_ssr_import_0__.useQueryClient)();
+	return (0,__vite_ssr_import_0__.useMutation)({
+		mutationFn: async () => {
+			const res = await __vite_ssr_import_1__.apiClient.post(`/imports/excel/${batchId}/reject`);
+			return res.data;
+		},
+		onSuccess: (batch) => {
+			queryClient.setQueryData(excelImportsKeys.detail(batch.id), batch);
+		}
+	});
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTs7OztBQUtBO0FBQ0E7Ozs7Ozs7O0FBR0EsTUFBTSxtQkFBbUI7Q0FDdkIsS0FBSyxDQUFDLGVBQWU7Q0FDckIsU0FBUyxPQUFlO0VBQUMsR0FBRyxpQkFBaUI7RUFBSztFQUFVO0NBQUU7QUFDaEU7QUFFTyxTQUFTLHVCQUF1QjtDQUNyQyxNQUFNLGNBQWMsMENBQWU7Q0FDbkMsT0FBTyxzQ0FBWTtFQUNqQixZQUFZLE9BQU8sU0FBZTtHQUNoQyxNQUFNLFdBQVcsSUFBSSxTQUFTO0dBQzlCLFNBQVMsT0FBTyxRQUFRLElBQUk7R0FDNUIsTUFBTSxNQUFNLE1BQU0sZ0NBQVUsU0FDMUIsa0JBQ0EsUUFDRjtHQUNBLE9BQU8sSUFBSTtFQUNiO0VBQ0EsWUFBWSxVQUFVO0dBQ3BCLFlBQVksYUFBYSxpQkFBaUIsT0FBTyxNQUFNLEVBQUUsR0FBRyxLQUFLO0VBQ25FO0NBQ0YsQ0FBQztBQUNIO0FBRU8sU0FBUyxvQkFBb0IsSUFBd0I7Q0FDMUQsT0FBTyxtQ0FBUztFQUNkLFVBQVUsaUJBQWlCLE9BQU8sTUFBTSxFQUFFO0VBQzFDLFNBQVMsWUFBWTtHQUNuQixNQUFNLE1BQU0sTUFBTSxnQ0FBVSxJQUFzQixrQkFBa0IsSUFBSTtHQUN4RSxPQUFPLElBQUk7RUFDYjtFQUNBLFNBQVMsUUFBUSxFQUFFO0NBQ3JCLENBQUM7QUFDSDs7Ozs7QUFNTyxTQUFTLHNCQUFzQixTQUFpQjtDQUNyRCxNQUFNLGNBQWMsMENBQWU7Q0FDbkMsT0FBTyxzQ0FBWTtFQUNqQixZQUFZLFlBQVk7R0FDdEIsTUFBTSxNQUFNLE1BQU0sZ0NBQVUsS0FDMUIsa0JBQWtCLFFBQVEsU0FDNUI7R0FDQSxPQUFPLElBQUk7RUFDYjtFQUNBLFlBQVksVUFBVTtHQUNwQixZQUFZLGFBQWEsaUJBQWlCLE9BQU8sTUFBTSxFQUFFLEdBQUcsS0FBSztFQUNuRTtDQUNGLENBQUM7QUFDSDs7O0FBSU8sU0FBUyxxQkFBcUIsU0FBaUI7Q0FDcEQsTUFBTSxjQUFjLDBDQUFlO0NBQ25DLE9BQU8sc0NBQVk7RUFDakIsWUFBWSxZQUFZO0dBQ3RCLE1BQU0sTUFBTSxNQUFNLGdDQUFVLEtBQzFCLGtCQUFrQixRQUFRLFFBQzVCO0dBQ0EsT0FBTyxJQUFJO0VBQ2I7RUFDQSxZQUFZLFVBQVU7R0FDcEIsWUFBWSxhQUFhLGlCQUFpQixPQUFPLE1BQU0sRUFBRSxHQUFHLEtBQUs7RUFDbkU7Q0FDRixDQUFDO0FBQ0giLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbImltcG9ydHMudHMiXSwic291cmNlc0NvbnRlbnQiOlsiLy8gSG9va3MgZGUgVGFuU3RhY2sgUXVlcnkgcGFyYSBsYSBpbXBvcnRhY2nDs24gZGUgRXhjZWwgKFBST01QVCAxMykuIE1pc21vXHJcbi8vIGNyaXRlcmlvIGV4YWN0byBxdWUgYXBpL2V4ZXJjaXNlcy50czogdG9kYSBsYSBkYXRhIHJlbW90YSBwYXNhIHBvciBhY8OhLFxyXG4vLyBuaW5ndW5hIHDDoWdpbmEgZ3VhcmRhIGVsIGJhdGNoIGVuIHVzZVN0YXRlIHByb3BpbyBtw6FzIGFsbMOhIGRlbCBhcmNoaXZvXHJcbi8vIHNlbGVjY2lvbmFkbyAocXVlIGVzIHB1cmFtZW50ZSB1biBpbnB1dCBkZSBmb3JtdWxhcmlvLCBubyBkYXRhIGRlbFxyXG4vLyBzZXJ2aWRvcikuXHJcbmltcG9ydCB7IHVzZU11dGF0aW9uLCB1c2VRdWVyeSwgdXNlUXVlcnlDbGllbnQgfSBmcm9tICdAdGFuc3RhY2svcmVhY3QtcXVlcnknO1xyXG5pbXBvcnQgeyBhcGlDbGllbnQgfSBmcm9tICcuLi9saWIvYXBpQ2xpZW50JztcclxuaW1wb3J0IHR5cGUgeyBFeGNlbEltcG9ydEJhdGNoIH0gZnJvbSAnLi4vdHlwZXMvZXhjZWxJbXBvcnQnO1xyXG5cclxuY29uc3QgZXhjZWxJbXBvcnRzS2V5cyA9IHtcclxuICBhbGw6IFsnZXhjZWwtaW1wb3J0cyddIGFzIGNvbnN0LFxyXG4gIGRldGFpbDogKGlkOiBzdHJpbmcpID0+IFsuLi5leGNlbEltcG9ydHNLZXlzLmFsbCwgJ2RldGFpbCcsIGlkXSBhcyBjb25zdCxcclxufTtcclxuXHJcbmV4cG9ydCBmdW5jdGlvbiB1c2VVcGxvYWRFeGNlbEltcG9ydCgpIHtcclxuICBjb25zdCBxdWVyeUNsaWVudCA9IHVzZVF1ZXJ5Q2xpZW50KCk7XHJcbiAgcmV0dXJuIHVzZU11dGF0aW9uKHtcclxuICAgIG11dGF0aW9uRm46IGFzeW5jIChmaWxlOiBGaWxlKSA9PiB7XHJcbiAgICAgIGNvbnN0IGZvcm1EYXRhID0gbmV3IEZvcm1EYXRhKCk7XHJcbiAgICAgIGZvcm1EYXRhLmFwcGVuZCgnZmlsZScsIGZpbGUpO1xyXG4gICAgICBjb25zdCByZXMgPSBhd2FpdCBhcGlDbGllbnQucG9zdEZpbGU8RXhjZWxJbXBvcnRCYXRjaD4oXHJcbiAgICAgICAgJy9pbXBvcnRzL2V4Y2VsJyxcclxuICAgICAgICBmb3JtRGF0YSxcclxuICAgICAgKTtcclxuICAgICAgcmV0dXJuIHJlcy5kYXRhO1xyXG4gICAgfSxcclxuICAgIG9uU3VjY2VzczogKGJhdGNoKSA9PiB7XHJcbiAgICAgIHF1ZXJ5Q2xpZW50LnNldFF1ZXJ5RGF0YShleGNlbEltcG9ydHNLZXlzLmRldGFpbChiYXRjaC5pZCksIGJhdGNoKTtcclxuICAgIH0sXHJcbiAgfSk7XHJcbn1cclxuXHJcbmV4cG9ydCBmdW5jdGlvbiB1c2VFeGNlbEltcG9ydEJhdGNoKGlkOiBzdHJpbmcgfCB1bmRlZmluZWQpIHtcclxuICByZXR1cm4gdXNlUXVlcnkoe1xyXG4gICAgcXVlcnlLZXk6IGV4Y2VsSW1wb3J0c0tleXMuZGV0YWlsKGlkID8/ICcnKSxcclxuICAgIHF1ZXJ5Rm46IGFzeW5jICgpID0+IHtcclxuICAgICAgY29uc3QgcmVzID0gYXdhaXQgYXBpQ2xpZW50LmdldDxFeGNlbEltcG9ydEJhdGNoPihgL2ltcG9ydHMvZXhjZWwvJHtpZH1gKTtcclxuICAgICAgcmV0dXJuIHJlcy5kYXRhO1xyXG4gICAgfSxcclxuICAgIGVuYWJsZWQ6IEJvb2xlYW4oaWQpLFxyXG4gIH0pO1xyXG59XHJcblxyXG4vLyBQUk9NUFQgMTQ6IGNvbmZpcm1hIHVuIGJhdGNoIFBFTkRJTkdfUkVWSUVXIHByb3BpbyDigJQgbm9ybWFsaXphIHN1cyBmaWxhc1xyXG4vLyB2w6FsaWRhcyBoYWNpYSBQcm9ncmFtL0Jsb2NrL1dlZWsvU2Vzc2lvbi9TZXNzaW9uRXhlcmNpc2UuIEVsIHJlc3VsdGFkb1xyXG4vLyAoaW5jbHVpZG8gYGNyZWF0ZWRQcm9ncmFtc2ApIHJlZW1wbGF6YSBkaXJlY3RhbWVudGUgbGEgY2FjaMOpIGRlbCBkZXRhbGxlXHJcbi8vIGRlIGVzdGUgYmF0Y2gsIGlndWFsIHF1ZSBoYWNlIGB1c2VVcGxvYWRFeGNlbEltcG9ydGAgY29uIGxhIHZpc3RhIHByZXZpYS5cclxuZXhwb3J0IGZ1bmN0aW9uIHVzZUNvbmZpcm1FeGNlbEltcG9ydChiYXRjaElkOiBzdHJpbmcpIHtcclxuICBjb25zdCBxdWVyeUNsaWVudCA9IHVzZVF1ZXJ5Q2xpZW50KCk7XHJcbiAgcmV0dXJuIHVzZU11dGF0aW9uKHtcclxuICAgIG11dGF0aW9uRm46IGFzeW5jICgpID0+IHtcclxuICAgICAgY29uc3QgcmVzID0gYXdhaXQgYXBpQ2xpZW50LnBvc3Q8RXhjZWxJbXBvcnRCYXRjaD4oXHJcbiAgICAgICAgYC9pbXBvcnRzL2V4Y2VsLyR7YmF0Y2hJZH0vY29uZmlybWAsXHJcbiAgICAgICk7XHJcbiAgICAgIHJldHVybiByZXMuZGF0YTtcclxuICAgIH0sXHJcbiAgICBvblN1Y2Nlc3M6IChiYXRjaCkgPT4ge1xyXG4gICAgICBxdWVyeUNsaWVudC5zZXRRdWVyeURhdGEoZXhjZWxJbXBvcnRzS2V5cy5kZXRhaWwoYmF0Y2guaWQpLCBiYXRjaCk7XHJcbiAgICB9LFxyXG4gIH0pO1xyXG59XHJcblxyXG4vLyBQUk9NUFQgMTQ6IHJlY2hhemEgdW4gYmF0Y2ggUEVORElOR19SRVZJRVcgcHJvcGlvIHNpbiBnZW5lcmFyIG5pbmd1bmFcclxuLy8gcHJvZ3JhbWFjacOzbi5cclxuZXhwb3J0IGZ1bmN0aW9uIHVzZVJlamVjdEV4Y2VsSW1wb3J0KGJhdGNoSWQ6IHN0cmluZykge1xyXG4gIGNvbnN0IHF1ZXJ5Q2xpZW50ID0gdXNlUXVlcnlDbGllbnQoKTtcclxuICByZXR1cm4gdXNlTXV0YXRpb24oe1xyXG4gICAgbXV0YXRpb25GbjogYXN5bmMgKCkgPT4ge1xyXG4gICAgICBjb25zdCByZXMgPSBhd2FpdCBhcGlDbGllbnQucG9zdDxFeGNlbEltcG9ydEJhdGNoPihcclxuICAgICAgICBgL2ltcG9ydHMvZXhjZWwvJHtiYXRjaElkfS9yZWplY3RgLFxyXG4gICAgICApO1xyXG4gICAgICByZXR1cm4gcmVzLmRhdGE7XHJcbiAgICB9LFxyXG4gICAgb25TdWNjZXNzOiAoYmF0Y2gpID0+IHtcclxuICAgICAgcXVlcnlDbGllbnQuc2V0UXVlcnlEYXRhKGV4Y2VsSW1wb3J0c0tleXMuZGV0YWlsKGJhdGNoLmlkKSwgYmF0Y2gpO1xyXG4gICAgfSxcclxuICB9KTtcclxufVxyXG4iXSwiZmlsZSI6Ii9zcmMvYXBpL2ltcG9ydHMudHMifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9hcGkvaW1wb3J0cy50cyIsIi9zcmMvYXBpL2ltcG9ydHMudHMiLFtdLFsiNiIsIjciXSxbXSwiL25vZGVfbW9kdWxlcy9AdGFuc3RhY2svcmVhY3QtcXVlcnkvYnVpbGQvbW9kZXJuL2luZGV4LmpzIiwiL3NyYy9saWIvYXBpQ2xpZW50LnRzIl0=

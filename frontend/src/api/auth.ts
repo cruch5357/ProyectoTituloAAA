@@ -48,10 +48,14 @@ export async function login(payload: LoginPayload): Promise<SessionResult> {
 let pendingRefresh: Promise<SessionResult> | undefined;
 export function refreshSession(): Promise<SessionResult> {
   // React StrictMode can mount twice; rotate each refresh cookie only once.
-  pendingRefresh ??= apiClient.post<SessionResult>("/auth/refresh", undefined, {
+  if (pendingRefresh) return pendingRefresh;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8000);
+  pendingRefresh = apiClient.post<SessionResult>("/auth/refresh", undefined, {
     skipAuth: true,
     withCsrf: true,
-  }).then((res) => res.data).finally(() => { pendingRefresh = undefined; });
+    signal: controller.signal,
+  }).then((res) => res.data).finally(() => { clearTimeout(timeout); pendingRefresh = undefined; });
   return pendingRefresh;
 }
 

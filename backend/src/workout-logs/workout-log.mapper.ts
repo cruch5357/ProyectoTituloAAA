@@ -103,6 +103,7 @@ export function toPublicSetLog(setLog: SetLogWithExercise): PublicSetLog {
               id: setLog.sessionExercise.exercise.id,
               name: setLog.sessionExercise.exercise.name,
               muscleGroup: setLog.sessionExercise.exercise.muscleGroup,
+              muscleGroups: setLog.sessionExercise.exercise.muscleGroups ?? [],
               videoUrl: setLog.sessionExercise.exercise.videoUrl,
               isActive: setLog.sessionExercise.exercise.isActive,
             },

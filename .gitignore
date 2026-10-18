@@ -57,3 +57,6 @@ data-science/.venv/
 data-science/data/raw/
 __pycache__/
 .pytest_cache/
+
+# Certificados locales de desarrollo
+.certs/

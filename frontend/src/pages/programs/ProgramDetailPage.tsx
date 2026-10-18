@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { todayDate } from '../../lib/calendarDate';
 import { DuplicateButton } from '../../components/program/DuplicateButton';
 import { AssignmentDate } from '../../components/coaching/Planning';
@@ -325,7 +326,7 @@ function ProgramAssignmentsSection({ programId }: { programId: string }) {
                     <AssignmentStatusBadge status={assignment.status} />
                   </td>
 <td>
-  {new Date(assignment.assignedAt).toLocaleDateString()}<AssignmentDate id={assignment.id} startDate={assignment.startDate} />
+  {readableDate(assignment.assignedAt, false)}<AssignmentDate id={assignment.id} startDate={assignment.startDate} />
 </td>
                   <td>
                     <button

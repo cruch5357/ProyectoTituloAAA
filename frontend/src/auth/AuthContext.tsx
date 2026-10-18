@@ -58,16 +58,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const generation = sessionGeneration.current;
 
     refreshSession()
       .then((result) => {
-        if (cancelled) return;
+        if (cancelled || generation !== sessionGeneration.current) return;
         accessTokenRef.current = result.accessToken;
         setUser(result.user);
         setStatus('authenticated');
       })
       .catch(() => {
-        if (cancelled) return;
+        if (cancelled || generation !== sessionGeneration.current) return;
         accessTokenRef.current = null;
         setUser(null);
         setStatus('anonymous');

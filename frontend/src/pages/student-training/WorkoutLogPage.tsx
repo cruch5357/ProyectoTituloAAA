@@ -1,3 +1,5 @@
+import { readableDate } from '../../lib/readableDate';
+import { ExerciseMuscles } from '../../components/exercises/ExerciseMuscles';
 import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { Skeleton } from '../../components/ui/Primitives';
 import { useMemo, useState } from 'react';
@@ -57,7 +59,7 @@ export function WorkoutLogPage() {
       </p>
 
       <h1>
-        Entrenamiento del {new Date(workoutLog.performedAt).toLocaleString()}
+        Entrenamiento · {readableDate(workoutLog.performedAt)}
       </h1>
       {workoutLog.session && (
         <p>
@@ -315,10 +317,18 @@ function AddSetLogForm({
   const workoutLogQuery = useWorkoutLog(workoutLogId);
   const addMutation = useAddSetLogs(workoutLogId);
   const exercises = workoutLogQuery.data?.prescriptionSource === 'snapshot'
-    ? (workoutLogQuery.data.prescriptions ?? []).map((item) => ({
-        ...item, id: item.sessionExerciseId,
-        exercise: { id: item.exerciseId, name: item.exerciseName, videoUrl: sessionQuery.data?.exercises.find((current) => current.exerciseId === item.exerciseId)?.exercise.videoUrl ?? null },
-      }))
+    ? (workoutLogQuery.data.prescriptions ?? []).map((item) => {
+        const current = sessionQuery.data?.exercises.find(
+          (entry) => entry.exerciseId === item.exerciseId,
+        )?.exercise;
+        return {
+          ...item, id: item.sessionExerciseId,
+          exercise: {
+            ...current, id: item.exerciseId, name: item.exerciseName,
+            videoUrl: current?.videoUrl ?? null,
+          },
+        };
+      })
     : sessionQuery.data?.exercises ?? [];
 
   const [sessionExerciseId, setSessionExerciseId] = useState('');
@@ -401,11 +411,13 @@ function AddSetLogForm({
         {exercises
           .filter((item) => item.id === sessionExerciseId)
           .map((item) => (
-            <ExerciseVideo
-              key={item.id}
-              videoUrl={item.exercise.videoUrl}
-              name={item.exercise.name}
-            />
+            <div key={item.id} className="student-exercise-visual">
+              <ExerciseMuscles exercise={item.exercise} />
+              <ExerciseVideo
+                videoUrl={item.exercise.videoUrl}
+                name={item.exercise.name}
+              />
+            </div>
           ))}
         <label className="field">
           <span>Número de serie</span>

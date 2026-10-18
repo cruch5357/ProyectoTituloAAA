@@ -23,6 +23,7 @@
     "postinstall": "prisma generate",
     "prisma:seed": "prisma db seed",
     "seed:demo": "prisma db seed",
+    "seed:showcase": "node --env-file=.env -r ts-node/register prisma/seed-showcase.ts",
     "lint:check": "eslint \"{src,apps,libs,test}/**/*.ts\"",
     "lint:fix": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "prisma:migrate:deploy": "prisma migrate deploy",

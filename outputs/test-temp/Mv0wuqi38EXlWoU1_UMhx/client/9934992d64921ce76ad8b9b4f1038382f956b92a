@@ -1,0 +1,32 @@
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/vitest/dist/index.js", {"importedNames":["describe","expect","it"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/readableDate.ts", {"importedNames":["readableDate"]});
+
+
+(0,__vite_ssr_import_0__.describe)("fechas legibles", () => {
+	const now = new Date("2026-10-17T18:00:00Z");
+	(0,__vite_ssr_import_0__.it)("distingue hoy, ayer y anteayer por día de calendario", () => {
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-17", false, now)).toBe("Hoy");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-16", false, now)).toBe("Ayer");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-15", false, now)).toBe("Anteayer");
+	});
+	(0,__vite_ssr_import_0__.it)("identifica la semana anterior de lunes a domingo y especifica el día", () => {
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-11", false, now)).toBe("Semana pasada · domingo, 11 de octubre");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-05", false, now)).toContain("Semana pasada");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-04", false, now)).toBe("4 de octubre");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-14", false, now)).toBe("miércoles, 14 de octubre");
+	});
+	(0,__vite_ssr_import_0__.it)("incluye el año antiguo y maneja fechas inválidas y futuras", () => {
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2025-10-17", false, now)).toBe("17 de octubre de 2025");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("2026-10-18", false, now)).toBe("Mañana");
+		(0,__vite_ssr_import_0__.expect)((0,__vite_ssr_import_1__.readableDate)("invalid", true, now)).toBe("Fecha no disponible");
+	});
+	(0,__vite_ssr_import_0__.it)("omite segundos y compara fechas con la zona de la aplicación", () => {
+		const timestamp = "2026-10-18T01:50:05Z";
+		const label = (0,__vite_ssr_import_1__.readableDate)(timestamp, true, new Date(timestamp));
+		(0,__vite_ssr_import_0__.expect)(label).toMatch(/^Hoy · \d{2}:\d{2}$/);
+	});
+});
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUE7QUFDQTs7O0FBRUEsbUNBQVMseUJBQXlCO0NBQ2hDLE1BQU0sTUFBTSxJQUFJLEtBQUssc0JBQXNCO0NBQzNDLDZCQUFHLDhEQUE4RDtFQUMvRCxpQ0FBTyx1Q0FBYSxjQUFjLE9BQU8sR0FBRyxDQUFDLENBQUMsQ0FBQyxLQUFLLEtBQUs7RUFDekQsaUNBQU8sdUNBQWEsY0FBYyxPQUFPLEdBQUcsQ0FBQyxDQUFDLENBQUMsS0FBSyxNQUFNO0VBQzFELGlDQUFPLHVDQUFhLGNBQWMsT0FBTyxHQUFHLENBQUMsQ0FBQyxDQUFDLEtBQUssVUFBVTtDQUNoRSxDQUFDO0NBQ0QsNkJBQUcsOEVBQThFO0VBQy9FLGlDQUFPLHVDQUFhLGNBQWMsT0FBTyxHQUFHLENBQUMsQ0FBQyxDQUFDLEtBQUssd0NBQXdDO0VBQzVGLGlDQUFPLHVDQUFhLGNBQWMsT0FBTyxHQUFHLENBQUMsQ0FBQyxDQUFDLFVBQVUsZUFBZTtFQUN4RSxpQ0FBTyx1Q0FBYSxjQUFjLE9BQU8sR0FBRyxDQUFDLENBQUMsQ0FBQyxLQUFLLGNBQWM7RUFDbEUsaUNBQU8sdUNBQWEsY0FBYyxPQUFPLEdBQUcsQ0FBQyxDQUFDLENBQUMsS0FBSywwQkFBMEI7Q0FDaEYsQ0FBQztDQUNELDZCQUFHLG9FQUFvRTtFQUNyRSxpQ0FBTyx1Q0FBYSxjQUFjLE9BQU8sR0FBRyxDQUFDLENBQUMsQ0FBQyxLQUFLLHVCQUF1QjtFQUMzRSxpQ0FBTyx1Q0FBYSxjQUFjLE9BQU8sR0FBRyxDQUFDLENBQUMsQ0FBQyxLQUFLLFFBQVE7RUFDNUQsaUNBQU8sdUNBQWEsV0FBVyxNQUFNLEdBQUcsQ0FBQyxDQUFDLENBQUMsS0FBSyxxQkFBcUI7Q0FDdkUsQ0FBQztDQUNELDZCQUFHLHNFQUFzRTtFQUN2RSxNQUFNLFlBQVk7RUFDbEIsTUFBTSxRQUFRLHVDQUFhLFdBQVcsTUFBTSxJQUFJLEtBQUssU0FBUyxDQUFDO0VBQy9ELGlDQUFPLEtBQUssQ0FBQyxDQUFDLFFBQVEscUJBQXFCO0NBQzdDLENBQUM7QUFDSCxDQUFDIiwibmFtZXMiOltdLCJpZ25vcmVMaXN0IjpbXSwic291cmNlcyI6WyJyZWFkYWJsZURhdGUudGVzdC50cyJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyBkZXNjcmliZSwgZXhwZWN0LCBpdCB9IGZyb20gJ3ZpdGVzdCc7XG5pbXBvcnQgeyByZWFkYWJsZURhdGUgfSBmcm9tICcuL3JlYWRhYmxlRGF0ZSc7XG5cbmRlc2NyaWJlKCdmZWNoYXMgbGVnaWJsZXMnLCAoKSA9PiB7XG4gIGNvbnN0IG5vdyA9IG5ldyBEYXRlKCcyMDI2LTEwLTE3VDE4OjAwOjAwWicpO1xuICBpdCgnZGlzdGluZ3VlIGhveSwgYXllciB5IGFudGVheWVyIHBvciBkw61hIGRlIGNhbGVuZGFyaW8nLCAoKSA9PiB7XG4gICAgZXhwZWN0KHJlYWRhYmxlRGF0ZSgnMjAyNi0xMC0xNycsIGZhbHNlLCBub3cpKS50b0JlKCdIb3knKTtcbiAgICBleHBlY3QocmVhZGFibGVEYXRlKCcyMDI2LTEwLTE2JywgZmFsc2UsIG5vdykpLnRvQmUoJ0F5ZXInKTtcbiAgICBleHBlY3QocmVhZGFibGVEYXRlKCcyMDI2LTEwLTE1JywgZmFsc2UsIG5vdykpLnRvQmUoJ0FudGVheWVyJyk7XG4gIH0pO1xuICBpdCgnaWRlbnRpZmljYSBsYSBzZW1hbmEgYW50ZXJpb3IgZGUgbHVuZXMgYSBkb21pbmdvIHkgZXNwZWNpZmljYSBlbCBkw61hJywgKCkgPT4ge1xuICAgIGV4cGVjdChyZWFkYWJsZURhdGUoJzIwMjYtMTAtMTEnLCBmYWxzZSwgbm93KSkudG9CZSgnU2VtYW5hIHBhc2FkYSDCtyBkb21pbmdvLCAxMSBkZSBvY3R1YnJlJyk7XG4gICAgZXhwZWN0KHJlYWRhYmxlRGF0ZSgnMjAyNi0xMC0wNScsIGZhbHNlLCBub3cpKS50b0NvbnRhaW4oJ1NlbWFuYSBwYXNhZGEnKTtcbiAgICBleHBlY3QocmVhZGFibGVEYXRlKCcyMDI2LTEwLTA0JywgZmFsc2UsIG5vdykpLnRvQmUoJzQgZGUgb2N0dWJyZScpO1xuICAgIGV4cGVjdChyZWFkYWJsZURhdGUoJzIwMjYtMTAtMTQnLCBmYWxzZSwgbm93KSkudG9CZSgnbWnDqXJjb2xlcywgMTQgZGUgb2N0dWJyZScpO1xuICB9KTtcbiAgaXQoJ2luY2x1eWUgZWwgYcOxbyBhbnRpZ3VvIHkgbWFuZWphIGZlY2hhcyBpbnbDoWxpZGFzIHkgZnV0dXJhcycsICgpID0+IHtcbiAgICBleHBlY3QocmVhZGFibGVEYXRlKCcyMDI1LTEwLTE3JywgZmFsc2UsIG5vdykpLnRvQmUoJzE3IGRlIG9jdHVicmUgZGUgMjAyNScpO1xuICAgIGV4cGVjdChyZWFkYWJsZURhdGUoJzIwMjYtMTAtMTgnLCBmYWxzZSwgbm93KSkudG9CZSgnTWHDsWFuYScpO1xuICAgIGV4cGVjdChyZWFkYWJsZURhdGUoJ2ludmFsaWQnLCB0cnVlLCBub3cpKS50b0JlKCdGZWNoYSBubyBkaXNwb25pYmxlJyk7XG4gIH0pO1xuICBpdCgnb21pdGUgc2VndW5kb3MgeSBjb21wYXJhIGZlY2hhcyBjb24gbGEgem9uYSBkZSBsYSBhcGxpY2FjacOzbicsICgpID0+IHtcbiAgICBjb25zdCB0aW1lc3RhbXAgPSAnMjAyNi0xMC0xOFQwMTo1MDowNVonO1xuICAgIGNvbnN0IGxhYmVsID0gcmVhZGFibGVEYXRlKHRpbWVzdGFtcCwgdHJ1ZSwgbmV3IERhdGUodGltZXN0YW1wKSk7XG4gICAgZXhwZWN0KGxhYmVsKS50b01hdGNoKC9eSG95IMK3IFxcZHsyfTpcXGR7Mn0kLyk7XG4gIH0pO1xufSk7XG4iXSwiZmlsZSI6Ii9zcmMvbGliL3JlYWRhYmxlRGF0ZS50ZXN0LnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9saWIvcmVhZGFibGVEYXRlLnRlc3QudHMiLCIvc3JjL2xpYi9yZWFkYWJsZURhdGUudGVzdC50cyIsW10sWyI2IiwiNyJdLFtdLCIvbm9kZV9tb2R1bGVzL3ZpdGVzdC9kaXN0L2luZGV4LmpzIiwiL3NyYy9saWIvcmVhZGFibGVEYXRlLnRzIl0=

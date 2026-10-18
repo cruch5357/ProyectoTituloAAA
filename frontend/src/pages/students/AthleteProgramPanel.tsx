@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { usePrograms } from '../../api/programs';
@@ -24,7 +25,7 @@ export function AthleteProgramPanel({ studentId }: { studentId: string }) {
     <Link className="button" to="/programs">Ver programas y asignaciones</Link>
   </Card>
   {programId && <>{assignments.isLoading && <Skeleton label="Consultando asignaciones…" />}{assignments.isError && <ErrorState retry={() => void assignments.refetch()} />}
-    {assignments.isSuccess && (ownAssignments.length ? <><Card><h2>Asignación confirmada</h2>{ownAssignments.map(a => <p key={a.id}><AssignmentStatusBadge status={a.status} /> · Asignado el {new Date(a.assignedAt).toLocaleDateString()}</p>)}<Link to={`/programs/${programId}`}>Gestionar programa y asignación →</Link></Card><ProgramBoard programId={programId} /></> : <Card><EmptyState title="Este programa no está asignado al alumno" description="Puedes gestionar la asignación desde el programa." action={<Link className="button" to={`/programs/${programId}`}>Gestionar asignación</Link>} /></Card>)}
+    {assignments.isSuccess && (ownAssignments.length ? <><Card><h2>Asignación confirmada</h2>{ownAssignments.map(a => <p key={a.id}><AssignmentStatusBadge status={a.status} /> · Asignado el {readableDate(a.assignedAt, false)}</p>)}<Link to={`/programs/${programId}`}>Gestionar programa y asignación →</Link></Card><ProgramBoard programId={programId} /></> : <Card><EmptyState title="Este programa no está asignado al alumno" description="Puedes gestionar la asignación desde el programa." action={<Link className="button" to={`/programs/${programId}`}>Gestionar asignación</Link>} /></Card>)}
   </>}
   </>;
 }

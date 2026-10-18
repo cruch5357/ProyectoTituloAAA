@@ -1,3 +1,5 @@
+import { readableDate } from '../../lib/readableDate';
+import { ExerciseMuscles } from '../../components/exercises/ExerciseMuscles';
 import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { EmptyState, Skeleton } from '../../components/ui/Primitives';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -111,6 +113,9 @@ export function StudentSessionPage() {
         </div>
       )}
 
+      <section aria-label="Zonas musculares de la sesión" className="student-muscle-grid">
+        {session.exercises.map((item) => <ExerciseMuscles key={item.id} exercise={item.exercise} />)}
+      </section>
       <SessionWorkoutLogsSection sessionId={session.id} />
     </section>
   );
@@ -147,7 +152,7 @@ function SessionWorkoutLogsSection({ sessionId }: { sessionId: string }) {
           {workoutLogsQuery.data.map((log) => (
             <li key={log.id}>
               <Link to={`/workout-logs/${log.id}`}>
-                {new Date(log.performedAt).toLocaleString()}
+                {readableDate(log.performedAt)}
               </Link>{' '}
               <WorkoutCompletionStatusBadge status={log.completionStatus} />
               {log.durationMinutes === null && ' (en curso)'}

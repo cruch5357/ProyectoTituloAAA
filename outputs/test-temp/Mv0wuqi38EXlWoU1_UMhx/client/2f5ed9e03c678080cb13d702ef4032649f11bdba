@@ -1,0 +1,272 @@
+__vite_ssr_exportName__("ExerciseFormDialog", () => { try { return ExerciseFormDialog } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/components/ui/ExerciseVideo.tsx", {"importedNames":["ExerciseVideo"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/exerciseVideo.ts", {"importedNames":["parseExerciseVideo"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/node_modules/react/index.js", {"importedNames":["useRef","useState"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/src/lib/useBackdropClose.ts", {"importedNames":["useBackdropClose"]});
+const __vite_ssr_import_4__ = await __vite_ssr_import__("/src/api/exercises.ts", {"importedNames":["useCreateExercise"]});
+const __vite_ssr_import_5__ = await __vite_ssr_import__("/src/lib/apiClient.ts", {"importedNames":["ApiError"]});
+const __vite_ssr_import_6__ = await __vite_ssr_import__("/src/components/exercises/MuscleGroupPicker.tsx", {"importedNames":["MuscleGroupPicker","MuscleGroupPreview","SportPicker"]});
+const __vite_ssr_import_7__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV","Fragment"]});
+
+
+
+
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/pages/exercises/ExerciseFormDialog.tsx";
+
+// Formulario de creación de ejercicio (PROMPT 07, "crear ejercicio"). Mismo
+// patrón exacto que InviteStudentDialog.tsx (PROMPT 04): elemento nativo
+// <dialog> en vez de una librería de modales, para no agregar una
+// dependencia nueva solo para esto.
+//
+// Solo cubre CREACIÓN: la edición vive en ExerciseDetailPage (un ejercicio
+// ya existente se edita en su propia página, no en este diálogo).
+function ExerciseFormDialog() {
+	const dialogRef = (0,__vite_ssr_import_2__.useRef)(null);
+	const backdropClose = (0,__vite_ssr_import_3__.useBackdropClose)(dialogRef);
+	const [name, setName] = (0,__vite_ssr_import_2__.useState)("");
+	const [muscleGroups, setMuscleGroups] = (0,__vite_ssr_import_2__.useState)([]);
+	const [sports, setSports] = (0,__vite_ssr_import_2__.useState)([]);
+	// Cambia en cada apertura para remontar el selector con sus filas vacías.
+	const [formKey, setFormKey] = (0,__vite_ssr_import_2__.useState)(0);
+	const [instructions, setInstructions] = (0,__vite_ssr_import_2__.useState)("");
+	const [videoUrl, setVideoUrl] = (0,__vite_ssr_import_2__.useState)("");
+	const createMutation = (0,__vite_ssr_import_4__.useCreateExercise)();
+	function resetForm() {
+		setName("");
+		setMuscleGroups([]);
+		setSports([]);
+		setFormKey((key) => key + 1);
+		setInstructions("");
+		setVideoUrl("");
+	}
+	function openDialog() {
+		resetForm();
+		createMutation.reset();
+		dialogRef.current?.showModal();
+	}
+	function closeDialog() {
+		dialogRef.current?.close();
+	}
+	async function handleSubmit(event) {
+		event.preventDefault();
+		if (videoUrl.trim() && !(0,__vite_ssr_import_1__.parseExerciseVideo)(videoUrl)) return;
+		try {
+			await createMutation.mutateAsync({
+				name,
+				muscleGroups,
+				sports,
+				instructions: instructions.trim() || undefined,
+				videoUrl: videoUrl.trim() || undefined
+			});
+			closeDialog();
+		} catch {}
+	}
+	return /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)((0,__vite_ssr_import_7__.Fragment), { children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("button", {
+		type: "button",
+		onClick: openDialog,
+		children: "Nuevo ejercicio"
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 72,
+		columnNumber: 7
+	}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("dialog", {
+		ref: dialogRef,
+		...backdropClose,
+		className: "invite-dialog exercise-dialog",
+		"aria-label": "Nuevo ejercicio",
+		children: /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("form", {
+			onSubmit: handleSubmit,
+			children: [
+				/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("h2", { children: "Nuevo ejercicio" }, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 83,
+					columnNumber: 11
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("div", {
+					className: "exercise-form-layout",
+					children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("div", {
+						className: "exercise-form-layout__fields",
+						children: [
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("label", {
+								className: "field",
+								children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("span", { children: "Nombre" }, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 88,
+									columnNumber: 17
+								}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("input", {
+									type: "text",
+									required: true,
+									minLength: 2,
+									maxLength: 160,
+									value: name,
+									onChange: (event) => setName(event.target.value),
+									disabled: createMutation.isPending
+								}, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 89,
+									columnNumber: 17
+								}, this)]
+							}, void 0, true, {
+								fileName: _jsxFileName,
+								lineNumber: 87,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)((0,__vite_ssr_import_6__.MuscleGroupPicker), {
+								initialValue: [],
+								onChange: setMuscleGroups,
+								disabled: createMutation.isPending
+							}, formKey, false, {
+								fileName: _jsxFileName,
+								lineNumber: 100,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)((0,__vite_ssr_import_6__.SportPicker), {
+								value: sports,
+								onChange: setSports,
+								disabled: createMutation.isPending
+							}, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 107,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("label", {
+								className: "field",
+								children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("span", { children: "Indicaciones (opcional)" }, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 114,
+									columnNumber: 17
+								}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("textarea", {
+									maxLength: 2e3,
+									rows: 3,
+									value: instructions,
+									onChange: (event) => setInstructions(event.target.value),
+									disabled: createMutation.isPending
+								}, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 115,
+									columnNumber: 17
+								}, this)]
+							}, void 0, true, {
+								fileName: _jsxFileName,
+								lineNumber: 113,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("label", {
+								className: "field",
+								children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("span", { children: "Video demostrativo (opcional)" }, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 125,
+									columnNumber: 17
+								}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("input", {
+									type: "url",
+									maxLength: 500,
+									placeholder: "https://www.youtube.com/watch?v=...",
+									value: videoUrl,
+									onChange: (event) => setVideoUrl(event.target.value),
+									disabled: createMutation.isPending
+								}, void 0, false, {
+									fileName: _jsxFileName,
+									lineNumber: 126,
+									columnNumber: 17
+								}, this)]
+							}, void 0, true, {
+								fileName: _jsxFileName,
+								lineNumber: 124,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)((0,__vite_ssr_import_0__.ExerciseVideo), {
+								videoUrl: videoUrl.trim(),
+								name: name || "Ejercicio",
+								label: "Vista previa"
+							}, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 136,
+								columnNumber: 15
+							}, this),
+							/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("p", {
+								className: "muted",
+								children: "YouTube público o no listado, con reproducción embebida habilitada."
+							}, void 0, false, {
+								fileName: _jsxFileName,
+								lineNumber: 141,
+								columnNumber: 15
+							}, this)
+						]
+					}, void 0, true, {
+						fileName: _jsxFileName,
+						lineNumber: 86,
+						columnNumber: 13
+					}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("aside", {
+						className: "exercise-form-layout__preview",
+						children: /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)((0,__vite_ssr_import_6__.MuscleGroupPreview), { keys: muscleGroups }, void 0, false, {
+							fileName: _jsxFileName,
+							lineNumber: 147,
+							columnNumber: 15
+						}, this)
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 146,
+						columnNumber: 13
+					}, this)]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 85,
+					columnNumber: 11
+				}, this),
+				createMutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("p", {
+					role: "alert",
+					className: "field-error",
+					children: createMutation.error instanceof __vite_ssr_import_5__.ApiError ? createMutation.error.message : "No se pudo crear el ejercicio."
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 151,
+					columnNumber: 13
+				}, this),
+				/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("div", {
+					className: "dialog-actions",
+					children: [/* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("button", {
+						type: "submit",
+						disabled: createMutation.isPending || name.trim().length === 0 || !!videoUrl.trim() && !(0,__vite_ssr_import_1__.parseExerciseVideo)(videoUrl),
+						children: createMutation.isPending ? "Creando…" : "Crear ejercicio"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 159,
+						columnNumber: 13
+					}, this), /* @__PURE__ */ (0,__vite_ssr_import_7__.jsxDEV)("button", {
+						type: "button",
+						className: "button--neutral",
+						onClick: closeDialog,
+						children: "Cerrar"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 169,
+						columnNumber: 13
+					}, this)]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 158,
+					columnNumber: 11
+				}, this)
+			]
+		}, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 82,
+			columnNumber: 9
+		}, this)
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 76,
+		columnNumber: 7
+	}, this)] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 71,
+		columnNumber: 5
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUFBO0FBQ0E7QUFDQTtBQUNBO0FBRUE7QUFDQTtBQUNBOzs7Ozs7Ozs7Ozs7Ozs7Ozs7QUFhTyxTQUFTLHFCQUFxQjtDQUNuQyxNQUFNLFlBQVksaUNBQTBCLElBQUk7Q0FDaEQsTUFBTSxnQkFBZ0IsMkNBQWlCLFNBQVM7Q0FDaEQsTUFBTSxDQUFDLE1BQU0sV0FBVyxtQ0FBUyxFQUFFO0NBQ25DLE1BQU0sQ0FBQyxjQUFjLG1CQUFtQixtQ0FBbUIsQ0FBQyxDQUFDO0NBQzdELE1BQU0sQ0FBQyxRQUFRLGFBQWEsbUNBQW1CLENBQUMsQ0FBQzs7Q0FFakQsTUFBTSxDQUFDLFNBQVMsY0FBYyxtQ0FBUyxDQUFDO0NBQ3hDLE1BQU0sQ0FBQyxjQUFjLG1CQUFtQixtQ0FBUyxFQUFFO0NBQ25ELE1BQU0sQ0FBQyxVQUFVLGVBQWUsbUNBQVMsRUFBRTtDQUMzQyxNQUFNLGlCQUFpQiw2Q0FBa0I7Q0FFekMsU0FBUyxZQUFZO0VBQ25CLFFBQVEsRUFBRTtFQUNWLGdCQUFnQixDQUFDLENBQUM7RUFDbEIsVUFBVSxDQUFDLENBQUM7RUFDWixZQUFZLFFBQVEsTUFBTSxDQUFDO0VBQzNCLGdCQUFnQixFQUFFO0VBQ2xCLFlBQVksRUFBRTtDQUNoQjtDQUVBLFNBQVMsYUFBYTtFQUNwQixVQUFVO0VBQ1YsZUFBZSxNQUFNO0VBQ3JCLFVBQVUsU0FBUyxVQUFVO0NBQy9CO0NBRUEsU0FBUyxjQUFjO0VBQ3JCLFVBQVUsU0FBUyxNQUFNO0NBQzNCO0NBRUEsZUFBZSxhQUFhLE9BQW1DO0VBQzdELE1BQU0sZUFBZTtFQUNyQixJQUFJLFNBQVMsS0FBSyxLQUFLLENBQUMsNkNBQW1CLFFBQVEsR0FBRztFQUN0RCxJQUFJO0dBQ0YsTUFBTSxlQUFlLFlBQVk7SUFDL0I7SUFDQTtJQUNBO0lBQ0EsY0FBYyxhQUFhLEtBQUssS0FBSztJQUNyQyxVQUFVLFNBQVMsS0FBSyxLQUFLO0dBQy9CLENBQUM7R0FDRCxZQUFZO0VBQ2QsUUFBUSxDQUdSO0NBQ0Y7Q0FFQSxPQUNFLGtHQUNFLGlEQUFDLFVBQUQ7RUFBUSxNQUFLO0VBQVMsU0FBUztZQUFZO0NBRW5DOzs7O1dBRVIsaURBQUMsVUFBRDtFQUNFLEtBQUs7RUFDTCxHQUFJO0VBQ0osV0FBVTtFQUNWLGNBQVc7WUFFWCxpREFBQyxRQUFEO0dBQU0sVUFBVTthQUFoQjtJQUNFLGlEQUFDLE1BQUQsWUFBSSxrQkFBbUI7Ozs7O0lBRXZCLGlEQUFDLE9BQUQ7S0FBSyxXQUFVO2VBQWYsQ0FDRSxpREFBQyxPQUFEO01BQUssV0FBVTtnQkFBZjtPQUNFLGlEQUFDLFNBQUQ7UUFBTyxXQUFVO2tCQUFqQixDQUNFLGlEQUFDLFFBQUQsWUFBTSxTQUFZOzs7O2tCQUNsQixpREFBQyxTQUFEO1NBQ0UsTUFBSztTQUNMO1NBQ0EsV0FBVztTQUNYLFdBQVc7U0FDWCxPQUFPO1NBQ1AsV0FBVyxVQUFVLFFBQVEsTUFBTSxPQUFPLEtBQUs7U0FDL0MsVUFBVSxlQUFlO1FBQzFCOzs7O2dCQUNJOzs7Ozs7T0FFUCxvREFBQywwQ0FBRDtRQUVFLGNBQWMsQ0FBQztRQUNmLFVBQVU7UUFDVixVQUFVLGVBQWU7T0FDMUIsR0FKTTs7OztjQUlOO09BRUQsb0RBQUMsb0NBQUQ7UUFDRSxPQUFPO1FBQ1AsVUFBVTtRQUNWLFVBQVUsZUFBZTtPQUMxQjs7Ozs7T0FFRCxpREFBQyxTQUFEO1FBQU8sV0FBVTtrQkFBakIsQ0FDRSxpREFBQyxRQUFELFlBQU0sMEJBQTZCOzs7O2tCQUNuQyxpREFBQyxZQUFEO1NBQ0UsV0FBVztTQUNYLE1BQU07U0FDTixPQUFPO1NBQ1AsV0FBVyxVQUFVLGdCQUFnQixNQUFNLE9BQU8sS0FBSztTQUN2RCxVQUFVLGVBQWU7UUFDMUI7Ozs7Z0JBQ0k7Ozs7OztPQUVQLGlEQUFDLFNBQUQ7UUFBTyxXQUFVO2tCQUFqQixDQUNFLGlEQUFDLFFBQUQsWUFBTSxnQ0FBbUM7Ozs7a0JBQ3pDLGlEQUFDLFNBQUQ7U0FDRSxNQUFLO1NBQ0wsV0FBVztTQUNYLGFBQVk7U0FDWixPQUFPO1NBQ1AsV0FBVyxVQUFVLFlBQVksTUFBTSxPQUFPLEtBQUs7U0FDbkQsVUFBVSxlQUFlO1FBQzFCOzs7O2dCQUNJOzs7Ozs7T0FFUCxvREFBQyxzQ0FBRDtRQUNFLFVBQVUsU0FBUyxLQUFLO1FBQ3hCLE1BQU0sUUFBUTtRQUNkLE9BQU07T0FDUDs7Ozs7T0FDRCxpREFBQyxLQUFEO1FBQUcsV0FBVTtrQkFBUTtPQUdsQjs7Ozs7TUFDQTs7Ozs7ZUFDTCxpREFBQyxTQUFEO01BQU8sV0FBVTtnQkFDZixvREFBQywyQ0FBRCxFQUFvQixNQUFNLGFBQWU7Ozs7O0tBQ3BDOzs7O2FBQ0o7Ozs7OztJQUNKLGVBQWUsV0FDZCxpREFBQyxLQUFEO0tBQUcsTUFBSztLQUFRLFdBQVU7ZUFDdkIsZUFBZSxpQkFBaUIsaUNBQzdCLGVBQWUsTUFBTSxVQUNyQjtJQUNIOzs7OztJQUdMLGlEQUFDLE9BQUQ7S0FBSyxXQUFVO2VBQWYsQ0FDRSxpREFBQyxVQUFEO01BQ0UsTUFBSztNQUNMLFVBQ0UsZUFBZSxhQUNmLEtBQUssS0FBSyxDQUFDLENBQUMsV0FBVyxLQUN0QixDQUFDLENBQUMsU0FBUyxLQUFLLEtBQUssQ0FBQyw2Q0FBbUIsUUFBUTtnQkFHbkQsZUFBZSxZQUFZLGFBQWE7S0FDbkM7Ozs7ZUFDUixpREFBQyxVQUFEO01BQ0UsTUFBSztNQUNMLFdBQVU7TUFDVixTQUFTO2dCQUNWO0tBRU87Ozs7YUFDTDs7Ozs7O0dBQ0Q7Ozs7OztDQUNBOzs7O1NBQ1I7Ozs7O0FBRU4iLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkV4ZXJjaXNlRm9ybURpYWxvZy50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHsgRXhlcmNpc2VWaWRlbyB9IGZyb20gJy4uLy4uL2NvbXBvbmVudHMvdWkvRXhlcmNpc2VWaWRlbyc7XHJcbmltcG9ydCB7IHBhcnNlRXhlcmNpc2VWaWRlbyB9IGZyb20gJy4uLy4uL2xpYi9leGVyY2lzZVZpZGVvJztcclxuaW1wb3J0IHsgdXNlUmVmLCB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHsgdXNlQmFja2Ryb3BDbG9zZSB9IGZyb20gJy4uLy4uL2xpYi91c2VCYWNrZHJvcENsb3NlJztcclxuaW1wb3J0IHR5cGUgeyBGb3JtRXZlbnQgfSBmcm9tICdyZWFjdCc7XHJcbmltcG9ydCB7IHVzZUNyZWF0ZUV4ZXJjaXNlIH0gZnJvbSAnLi4vLi4vYXBpL2V4ZXJjaXNlcyc7XHJcbmltcG9ydCB7IEFwaUVycm9yIH0gZnJvbSAnLi4vLi4vbGliL2FwaUNsaWVudCc7XHJcbmltcG9ydCB7XHJcbiAgTXVzY2xlR3JvdXBQaWNrZXIsXHJcbiAgTXVzY2xlR3JvdXBQcmV2aWV3LFxyXG4gIFNwb3J0UGlja2VyLFxyXG59IGZyb20gJy4uLy4uL2NvbXBvbmVudHMvZXhlcmNpc2VzL011c2NsZUdyb3VwUGlja2VyJztcclxuXHJcbi8vIEZvcm11bGFyaW8gZGUgY3JlYWNpw7NuIGRlIGVqZXJjaWNpbyAoUFJPTVBUIDA3LCBcImNyZWFyIGVqZXJjaWNpb1wiKS4gTWlzbW9cclxuLy8gcGF0csOzbiBleGFjdG8gcXVlIEludml0ZVN0dWRlbnREaWFsb2cudHN4IChQUk9NUFQgMDQpOiBlbGVtZW50byBuYXRpdm9cclxuLy8gPGRpYWxvZz4gZW4gdmV6IGRlIHVuYSBsaWJyZXLDrWEgZGUgbW9kYWxlcywgcGFyYSBubyBhZ3JlZ2FyIHVuYVxyXG4vLyBkZXBlbmRlbmNpYSBudWV2YSBzb2xvIHBhcmEgZXN0by5cclxuLy9cclxuLy8gU29sbyBjdWJyZSBDUkVBQ0nDk046IGxhIGVkaWNpw7NuIHZpdmUgZW4gRXhlcmNpc2VEZXRhaWxQYWdlICh1biBlamVyY2ljaW9cclxuLy8geWEgZXhpc3RlbnRlIHNlIGVkaXRhIGVuIHN1IHByb3BpYSBww6FnaW5hLCBubyBlbiBlc3RlIGRpw6Fsb2dvKS5cclxuZXhwb3J0IGZ1bmN0aW9uIEV4ZXJjaXNlRm9ybURpYWxvZygpIHtcclxuICBjb25zdCBkaWFsb2dSZWYgPSB1c2VSZWY8SFRNTERpYWxvZ0VsZW1lbnQ+KG51bGwpO1xyXG4gIGNvbnN0IGJhY2tkcm9wQ2xvc2UgPSB1c2VCYWNrZHJvcENsb3NlKGRpYWxvZ1JlZik7XHJcbiAgY29uc3QgW25hbWUsIHNldE5hbWVdID0gdXNlU3RhdGUoJycpO1xyXG4gIGNvbnN0IFttdXNjbGVHcm91cHMsIHNldE11c2NsZUdyb3Vwc10gPSB1c2VTdGF0ZTxzdHJpbmdbXT4oW10pO1xyXG4gIGNvbnN0IFtzcG9ydHMsIHNldFNwb3J0c10gPSB1c2VTdGF0ZTxzdHJpbmdbXT4oW10pO1xyXG4gIC8vIENhbWJpYSBlbiBjYWRhIGFwZXJ0dXJhIHBhcmEgcmVtb250YXIgZWwgc2VsZWN0b3IgY29uIHN1cyBmaWxhcyB2YWPDrWFzLlxyXG4gIGNvbnN0IFtmb3JtS2V5LCBzZXRGb3JtS2V5XSA9IHVzZVN0YXRlKDApO1xyXG4gIGNvbnN0IFtpbnN0cnVjdGlvbnMsIHNldEluc3RydWN0aW9uc10gPSB1c2VTdGF0ZSgnJyk7XHJcbiAgY29uc3QgW3ZpZGVvVXJsLCBzZXRWaWRlb1VybF0gPSB1c2VTdGF0ZSgnJyk7XHJcbiAgY29uc3QgY3JlYXRlTXV0YXRpb24gPSB1c2VDcmVhdGVFeGVyY2lzZSgpO1xyXG5cclxuICBmdW5jdGlvbiByZXNldEZvcm0oKSB7XHJcbiAgICBzZXROYW1lKCcnKTtcclxuICAgIHNldE11c2NsZUdyb3VwcyhbXSk7XHJcbiAgICBzZXRTcG9ydHMoW10pO1xyXG4gICAgc2V0Rm9ybUtleSgoa2V5KSA9PiBrZXkgKyAxKTtcclxuICAgIHNldEluc3RydWN0aW9ucygnJyk7XHJcbiAgICBzZXRWaWRlb1VybCgnJyk7XHJcbiAgfVxyXG5cclxuICBmdW5jdGlvbiBvcGVuRGlhbG9nKCkge1xyXG4gICAgcmVzZXRGb3JtKCk7XHJcbiAgICBjcmVhdGVNdXRhdGlvbi5yZXNldCgpO1xyXG4gICAgZGlhbG9nUmVmLmN1cnJlbnQ/LnNob3dNb2RhbCgpO1xyXG4gIH1cclxuXHJcbiAgZnVuY3Rpb24gY2xvc2VEaWFsb2coKSB7XHJcbiAgICBkaWFsb2dSZWYuY3VycmVudD8uY2xvc2UoKTtcclxuICB9XHJcblxyXG4gIGFzeW5jIGZ1bmN0aW9uIGhhbmRsZVN1Ym1pdChldmVudDogRm9ybUV2ZW50PEhUTUxGb3JtRWxlbWVudD4pIHtcclxuICAgIGV2ZW50LnByZXZlbnREZWZhdWx0KCk7XHJcbiAgICBpZiAodmlkZW9VcmwudHJpbSgpICYmICFwYXJzZUV4ZXJjaXNlVmlkZW8odmlkZW9VcmwpKSByZXR1cm47XHJcbiAgICB0cnkge1xyXG4gICAgICBhd2FpdCBjcmVhdGVNdXRhdGlvbi5tdXRhdGVBc3luYyh7XHJcbiAgICAgICAgbmFtZSxcclxuICAgICAgICBtdXNjbGVHcm91cHMsXHJcbiAgICAgICAgc3BvcnRzLFxyXG4gICAgICAgIGluc3RydWN0aW9uczogaW5zdHJ1Y3Rpb25zLnRyaW0oKSB8fCB1bmRlZmluZWQsXHJcbiAgICAgICAgdmlkZW9Vcmw6IHZpZGVvVXJsLnRyaW0oKSB8fCB1bmRlZmluZWQsXHJcbiAgICAgIH0pO1xyXG4gICAgICBjbG9zZURpYWxvZygpO1xyXG4gICAgfSBjYXRjaCB7XHJcbiAgICAgIC8vIEVsIGVycm9yIHlhIHF1ZWRhIGRpc3BvbmlibGUgZW4gY3JlYXRlTXV0YXRpb24uZXJyb3IgcGFyYVxyXG4gICAgICAvLyBtb3N0cmFyc2UgZW4gZWwgcmVuZGVyOyBubyBoYXkgbmFkYSBhZGljaW9uYWwgcXVlIGhhY2VyIGFjw6EuXHJcbiAgICB9XHJcbiAgfVxyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPD5cclxuICAgICAgPGJ1dHRvbiB0eXBlPVwiYnV0dG9uXCIgb25DbGljaz17b3BlbkRpYWxvZ30+XHJcbiAgICAgICAgTnVldm8gZWplcmNpY2lvXHJcbiAgICAgIDwvYnV0dG9uPlxyXG5cclxuICAgICAgPGRpYWxvZ1xyXG4gICAgICAgIHJlZj17ZGlhbG9nUmVmfVxyXG4gICAgICAgIHsuLi5iYWNrZHJvcENsb3NlfVxyXG4gICAgICAgIGNsYXNzTmFtZT1cImludml0ZS1kaWFsb2cgZXhlcmNpc2UtZGlhbG9nXCJcclxuICAgICAgICBhcmlhLWxhYmVsPVwiTnVldm8gZWplcmNpY2lvXCJcclxuICAgICAgPlxyXG4gICAgICAgIDxmb3JtIG9uU3VibWl0PXtoYW5kbGVTdWJtaXR9PlxyXG4gICAgICAgICAgPGgyPk51ZXZvIGVqZXJjaWNpbzwvaDI+XHJcblxyXG4gICAgICAgICAgPGRpdiBjbGFzc05hbWU9XCJleGVyY2lzZS1mb3JtLWxheW91dFwiPlxyXG4gICAgICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cImV4ZXJjaXNlLWZvcm0tbGF5b3V0X19maWVsZHNcIj5cclxuICAgICAgICAgICAgICA8bGFiZWwgY2xhc3NOYW1lPVwiZmllbGRcIj5cclxuICAgICAgICAgICAgICAgIDxzcGFuPk5vbWJyZTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxpbnB1dFxyXG4gICAgICAgICAgICAgICAgICB0eXBlPVwidGV4dFwiXHJcbiAgICAgICAgICAgICAgICAgIHJlcXVpcmVkXHJcbiAgICAgICAgICAgICAgICAgIG1pbkxlbmd0aD17Mn1cclxuICAgICAgICAgICAgICAgICAgbWF4TGVuZ3RoPXsxNjB9XHJcbiAgICAgICAgICAgICAgICAgIHZhbHVlPXtuYW1lfVxyXG4gICAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PiBzZXROYW1lKGV2ZW50LnRhcmdldC52YWx1ZSl9XHJcbiAgICAgICAgICAgICAgICAgIGRpc2FibGVkPXtjcmVhdGVNdXRhdGlvbi5pc1BlbmRpbmd9XHJcbiAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgIDwvbGFiZWw+XHJcblxyXG4gICAgICAgICAgICAgIDxNdXNjbGVHcm91cFBpY2tlclxyXG4gICAgICAgICAgICAgICAga2V5PXtmb3JtS2V5fVxyXG4gICAgICAgICAgICAgICAgaW5pdGlhbFZhbHVlPXtbXX1cclxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtzZXRNdXNjbGVHcm91cHN9XHJcbiAgICAgICAgICAgICAgICBkaXNhYmxlZD17Y3JlYXRlTXV0YXRpb24uaXNQZW5kaW5nfVxyXG4gICAgICAgICAgICAgIC8+XHJcblxyXG4gICAgICAgICAgICAgIDxTcG9ydFBpY2tlclxyXG4gICAgICAgICAgICAgICAgdmFsdWU9e3Nwb3J0c31cclxuICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXtzZXRTcG9ydHN9XHJcbiAgICAgICAgICAgICAgICBkaXNhYmxlZD17Y3JlYXRlTXV0YXRpb24uaXNQZW5kaW5nfVxyXG4gICAgICAgICAgICAgIC8+XHJcblxyXG4gICAgICAgICAgICAgIDxsYWJlbCBjbGFzc05hbWU9XCJmaWVsZFwiPlxyXG4gICAgICAgICAgICAgICAgPHNwYW4+SW5kaWNhY2lvbmVzIChvcGNpb25hbCk8L3NwYW4+XHJcbiAgICAgICAgICAgICAgICA8dGV4dGFyZWFcclxuICAgICAgICAgICAgICAgICAgbWF4TGVuZ3RoPXsyMDAwfVxyXG4gICAgICAgICAgICAgICAgICByb3dzPXszfVxyXG4gICAgICAgICAgICAgICAgICB2YWx1ZT17aW5zdHJ1Y3Rpb25zfVxyXG4gICAgICAgICAgICAgICAgICBvbkNoYW5nZT17KGV2ZW50KSA9PiBzZXRJbnN0cnVjdGlvbnMoZXZlbnQudGFyZ2V0LnZhbHVlKX1cclxuICAgICAgICAgICAgICAgICAgZGlzYWJsZWQ9e2NyZWF0ZU11dGF0aW9uLmlzUGVuZGluZ31cclxuICAgICAgICAgICAgICAgIC8+XHJcbiAgICAgICAgICAgICAgPC9sYWJlbD5cclxuXHJcbiAgICAgICAgICAgICAgPGxhYmVsIGNsYXNzTmFtZT1cImZpZWxkXCI+XHJcbiAgICAgICAgICAgICAgICA8c3Bhbj5WaWRlbyBkZW1vc3RyYXRpdm8gKG9wY2lvbmFsKTwvc3Bhbj5cclxuICAgICAgICAgICAgICAgIDxpbnB1dFxyXG4gICAgICAgICAgICAgICAgICB0eXBlPVwidXJsXCJcclxuICAgICAgICAgICAgICAgICAgbWF4TGVuZ3RoPXs1MDB9XHJcbiAgICAgICAgICAgICAgICAgIHBsYWNlaG9sZGVyPVwiaHR0cHM6Ly93d3cueW91dHViZS5jb20vd2F0Y2g/dj0uLi5cIlxyXG4gICAgICAgICAgICAgICAgICB2YWx1ZT17dmlkZW9Vcmx9XHJcbiAgICAgICAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+IHNldFZpZGVvVXJsKGV2ZW50LnRhcmdldC52YWx1ZSl9XHJcbiAgICAgICAgICAgICAgICAgIGRpc2FibGVkPXtjcmVhdGVNdXRhdGlvbi5pc1BlbmRpbmd9XHJcbiAgICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgIDwvbGFiZWw+XHJcblxyXG4gICAgICAgICAgICAgIDxFeGVyY2lzZVZpZGVvXHJcbiAgICAgICAgICAgICAgICB2aWRlb1VybD17dmlkZW9VcmwudHJpbSgpfVxyXG4gICAgICAgICAgICAgICAgbmFtZT17bmFtZSB8fCAnRWplcmNpY2lvJ31cclxuICAgICAgICAgICAgICAgIGxhYmVsPVwiVmlzdGEgcHJldmlhXCJcclxuICAgICAgICAgICAgICAvPlxyXG4gICAgICAgICAgICAgIDxwIGNsYXNzTmFtZT1cIm11dGVkXCI+XHJcbiAgICAgICAgICAgICAgICBZb3VUdWJlIHDDumJsaWNvIG8gbm8gbGlzdGFkbywgY29uIHJlcHJvZHVjY2nDs24gZW1iZWJpZGFcclxuICAgICAgICAgICAgICAgIGhhYmlsaXRhZGEuXHJcbiAgICAgICAgICAgICAgPC9wPlxyXG4gICAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgICAgPGFzaWRlIGNsYXNzTmFtZT1cImV4ZXJjaXNlLWZvcm0tbGF5b3V0X19wcmV2aWV3XCI+XHJcbiAgICAgICAgICAgICAgPE11c2NsZUdyb3VwUHJldmlldyBrZXlzPXttdXNjbGVHcm91cHN9IC8+XHJcbiAgICAgICAgICAgIDwvYXNpZGU+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICAgIHtjcmVhdGVNdXRhdGlvbi5pc0Vycm9yICYmIChcclxuICAgICAgICAgICAgPHAgcm9sZT1cImFsZXJ0XCIgY2xhc3NOYW1lPVwiZmllbGQtZXJyb3JcIj5cclxuICAgICAgICAgICAgICB7Y3JlYXRlTXV0YXRpb24uZXJyb3IgaW5zdGFuY2VvZiBBcGlFcnJvclxyXG4gICAgICAgICAgICAgICAgPyBjcmVhdGVNdXRhdGlvbi5lcnJvci5tZXNzYWdlXHJcbiAgICAgICAgICAgICAgICA6ICdObyBzZSBwdWRvIGNyZWFyIGVsIGVqZXJjaWNpby4nfVxyXG4gICAgICAgICAgICA8L3A+XHJcbiAgICAgICAgICApfVxyXG5cclxuICAgICAgICAgIDxkaXYgY2xhc3NOYW1lPVwiZGlhbG9nLWFjdGlvbnNcIj5cclxuICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgIHR5cGU9XCJzdWJtaXRcIlxyXG4gICAgICAgICAgICAgIGRpc2FibGVkPXtcclxuICAgICAgICAgICAgICAgIGNyZWF0ZU11dGF0aW9uLmlzUGVuZGluZyB8fFxyXG4gICAgICAgICAgICAgICAgbmFtZS50cmltKCkubGVuZ3RoID09PSAwIHx8XHJcbiAgICAgICAgICAgICAgICAoISF2aWRlb1VybC50cmltKCkgJiYgIXBhcnNlRXhlcmNpc2VWaWRlbyh2aWRlb1VybCkpXHJcbiAgICAgICAgICAgICAgfVxyXG4gICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAge2NyZWF0ZU11dGF0aW9uLmlzUGVuZGluZyA/ICdDcmVhbmRv4oCmJyA6ICdDcmVhciBlamVyY2ljaW8nfVxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICAgPGJ1dHRvblxyXG4gICAgICAgICAgICAgIHR5cGU9XCJidXR0b25cIlxyXG4gICAgICAgICAgICAgIGNsYXNzTmFtZT1cImJ1dHRvbi0tbmV1dHJhbFwiXHJcbiAgICAgICAgICAgICAgb25DbGljaz17Y2xvc2VEaWFsb2d9XHJcbiAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICBDZXJyYXJcclxuICAgICAgICAgICAgPC9idXR0b24+XHJcbiAgICAgICAgICA8L2Rpdj5cclxuICAgICAgICA8L2Zvcm0+XHJcbiAgICAgIDwvZGlhbG9nPlxyXG4gICAgPC8+XHJcbiAgKTtcclxufVxyXG4iXSwiZmlsZSI6Ii9zcmMvcGFnZXMvZXhlcmNpc2VzL0V4ZXJjaXNlRm9ybURpYWxvZy50c3gifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9wYWdlcy9leGVyY2lzZXMvRXhlcmNpc2VGb3JtRGlhbG9nLnRzeCIsIi9zcmMvcGFnZXMvZXhlcmNpc2VzL0V4ZXJjaXNlRm9ybURpYWxvZy50c3giLFtdLFsiNiIsIjciLCI4IiwiOSIsIjEwIiwiMTEiLCIxMiIsIjEzIl0sW10sIi9zcmMvY29tcG9uZW50cy91aS9FeGVyY2lzZVZpZGVvLnRzeCIsIi9zcmMvbGliL2V4ZXJjaXNlVmlkZW8udHMiLCIvbm9kZV9tb2R1bGVzL3JlYWN0L2luZGV4LmpzIiwiL3NyYy9saWIvdXNlQmFja2Ryb3BDbG9zZS50cyIsIi9zcmMvYXBpL2V4ZXJjaXNlcy50cyIsIi9zcmMvbGliL2FwaUNsaWVudC50cyIsIi9zcmMvY29tcG9uZW50cy9leGVyY2lzZXMvTXVzY2xlR3JvdXBQaWNrZXIudHN4IiwiL25vZGVfbW9kdWxlcy9yZWFjdC9qc3gtZGV2LXJ1bnRpbWUuanMiXQ==

@@ -1,0 +1,39 @@
+__vite_ssr_exportName__("ExerciseMuscles", () => { try { return ExerciseMuscles } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/lib/exerciseTaxonomy.ts", {"importedNames":["MUSCLE_GROUPS","findMuscleGroup"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/components/exercises/MuscleGroupPicker.tsx", {"importedNames":["MuscleGroupPreview"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/components/exercises/ExerciseMuscles.tsx";
+
+function ExerciseMuscles({ exercise }) {
+	// Los registros antiguos pueden tener solo el nombre en español.
+	const keys = [...new Set(exercise.muscleGroups?.length ? exercise.muscleGroups.filter((key) => (0,__vite_ssr_import_0__.findMuscleGroup)(key)) : __vite_ssr_import_0__.MUSCLE_GROUPS.filter((group) => group.label.toLocaleLowerCase("es") === exercise.muscleGroup?.toLocaleLowerCase("es")).map((group) => group.key))];
+	return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("section", {
+		"aria-label": `Zonas trabajadas: ${exercise.name}`,
+		children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("h3", { children: ["Zonas trabajadas · ", exercise.name] }, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 11,
+			columnNumber: 5
+		}, this), keys.length ? /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)((0,__vite_ssr_import_1__.MuscleGroupPreview), { keys }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 12,
+			columnNumber: 20
+		}, this) : /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("p", {
+			className: "muted",
+			children: exercise.muscleGroup ?? "Zona muscular no especificada por el coach."
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 12,
+			columnNumber: 57
+		}, this)]
+	}, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 10,
+		columnNumber: 10
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUNBO0FBQ0E7Ozs7OztBQUVPLFNBQVMsZ0JBQWdCLEVBQUUsWUFBNkc7O0NBRTdJLE1BQU0sT0FBTyxDQUFDLEdBQUcsSUFBSSxJQUFJLFNBQVMsY0FBYyxTQUM1QyxTQUFTLGFBQWEsUUFBUSxRQUFRLDBDQUFnQixHQUFHLENBQUMsSUFDMUQsb0NBQWMsUUFBUSxVQUFVLE1BQU0sTUFBTSxrQkFBa0IsSUFBSSxNQUFNLFNBQVMsYUFBYSxrQkFBa0IsSUFBSSxDQUFDLENBQUMsQ0FBQyxLQUFLLFVBQVUsTUFBTSxHQUFHLENBQUMsQ0FBQztDQUNySixPQUFPLGlEQUFDLFdBQUQ7RUFBUyxjQUFZLHFCQUFxQixTQUFTO1lBQW5ELENBQ0wsaURBQUMsTUFBRCxhQUFJLHVCQUFvQixTQUFTLElBQVM7Ozs7WUFDekMsS0FBSyxTQUFTLG9EQUFDLDJDQUFELEVBQTBCLEtBQU87Ozs7YUFBSSxpREFBQyxLQUFEO0dBQUcsV0FBVTthQUFTLFNBQVMsZUFBZTtFQUFpRDs7OztVQUM1STs7Ozs7O0FBQ1giLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIkV4ZXJjaXNlTXVzY2xlcy50c3giXSwic291cmNlc0NvbnRlbnQiOlsiaW1wb3J0IHR5cGUgeyBFbWJlZGRlZEV4ZXJjaXNlIH0gZnJvbSAnLi4vLi4vdHlwZXMvc2Vzc2lvbkV4ZXJjaXNlJztcbmltcG9ydCB7IE1VU0NMRV9HUk9VUFMsIGZpbmRNdXNjbGVHcm91cCB9IGZyb20gJy4uLy4uL2xpYi9leGVyY2lzZVRheG9ub215JztcbmltcG9ydCB7IE11c2NsZUdyb3VwUHJldmlldyB9IGZyb20gJy4vTXVzY2xlR3JvdXBQaWNrZXInO1xuXG5leHBvcnQgZnVuY3Rpb24gRXhlcmNpc2VNdXNjbGVzKHsgZXhlcmNpc2UgfTogeyBleGVyY2lzZTogUGljazxFbWJlZGRlZEV4ZXJjaXNlLCAnbmFtZScgfCAnbXVzY2xlR3JvdXBzJz4gJiB7IG11c2NsZUdyb3VwPzogc3RyaW5nIHwgbnVsbCB9IH0pIHtcbiAgLy8gTG9zIHJlZ2lzdHJvcyBhbnRpZ3VvcyBwdWVkZW4gdGVuZXIgc29sbyBlbCBub21icmUgZW4gZXNwYcOxb2wuXG4gIGNvbnN0IGtleXMgPSBbLi4ubmV3IFNldChleGVyY2lzZS5tdXNjbGVHcm91cHM/Lmxlbmd0aFxuICAgID8gZXhlcmNpc2UubXVzY2xlR3JvdXBzLmZpbHRlcigoa2V5KSA9PiBmaW5kTXVzY2xlR3JvdXAoa2V5KSlcbiAgICA6IE1VU0NMRV9HUk9VUFMuZmlsdGVyKChncm91cCkgPT4gZ3JvdXAubGFiZWwudG9Mb2NhbGVMb3dlckNhc2UoJ2VzJykgPT09IGV4ZXJjaXNlLm11c2NsZUdyb3VwPy50b0xvY2FsZUxvd2VyQ2FzZSgnZXMnKSkubWFwKChncm91cCkgPT4gZ3JvdXAua2V5KSldO1xuICByZXR1cm4gPHNlY3Rpb24gYXJpYS1sYWJlbD17YFpvbmFzIHRyYWJhamFkYXM6ICR7ZXhlcmNpc2UubmFtZX1gfT5cbiAgICA8aDM+Wm9uYXMgdHJhYmFqYWRhcyDCtyB7ZXhlcmNpc2UubmFtZX08L2gzPlxuICAgIHtrZXlzLmxlbmd0aCA/IDxNdXNjbGVHcm91cFByZXZpZXcga2V5cz17a2V5c30gLz4gOiA8cCBjbGFzc05hbWU9XCJtdXRlZFwiPntleGVyY2lzZS5tdXNjbGVHcm91cCA/PyAnWm9uYSBtdXNjdWxhciBubyBlc3BlY2lmaWNhZGEgcG9yIGVsIGNvYWNoLid9PC9wPn1cbiAgPC9zZWN0aW9uPjtcbn1cbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9FeGVyY2lzZU11c2NsZXMudHN4In0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9FeGVyY2lzZU11c2NsZXMudHN4IiwiL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9FeGVyY2lzZU11c2NsZXMudHN4IixbXSxbIjYiLCI3IiwiOCJdLFtdLCIvc3JjL2xpYi9leGVyY2lzZVRheG9ub215LnRzIiwiL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9NdXNjbGVHcm91cFBpY2tlci50c3giLCIvbm9kZV9tb2R1bGVzL3JlYWN0L2pzeC1kZXYtcnVudGltZS5qcyJd

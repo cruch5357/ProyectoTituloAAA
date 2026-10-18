@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { EvolutionChart } from './EvolutionChart';
 import type {
   RecentPerformance,
@@ -46,7 +47,7 @@ export function PersonalPerformance({
           label="Última actividad"
           value={
             recent?.lastActivityAt
-              ? new Date(recent.lastActivityAt).toLocaleString()
+              ? readableDate(recent.lastActivityAt)
               : 'Sin datos suficientes'
           }
         />
@@ -77,7 +78,7 @@ function EffortChart({
         <ul>
           {points.map((point, i) => (
             <li key={i}>
-              {new Date(point.performedAt).toLocaleString()}: {point.overallRpe}{' '}
+              {readableDate(point.performedAt)}: {point.overallRpe}{' '}
               / 10
             </li>
           ))}

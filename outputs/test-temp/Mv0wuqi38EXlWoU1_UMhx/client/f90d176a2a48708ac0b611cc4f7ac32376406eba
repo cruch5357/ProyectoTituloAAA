@@ -1,0 +1,45 @@
+__vite_ssr_exportName__("readableDate", () => { try { return readableDate } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/src/lib/calendarDate.ts", {"importedNames":["APP_TIMEZONE","todayDate"]});
+
+// Compara días de calendario en la zona de la aplicación, incluso con DST.
+function readableDate(value, withTime = true, now = new Date()) {
+	const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value);
+	const date = new Date(dateOnly ? `${value}T12:00:00Z` : value);
+	if (!Number.isFinite(date.getTime())) return "Fecha no disponible";
+	const day = dateOnly ? value : (0,__vite_ssr_import_0__.todayDate)(date);
+	const current = (0,__vite_ssr_import_0__.todayDate)(now);
+	const dayNumber = (v) => Date.parse(`${v}T00:00:00Z`) / 864e5;
+	const difference = dayNumber(current) - dayNumber(day);
+	const weekday = new Date(`${current}T12:00:00Z`).getUTCDay();
+	const monday = dayNumber(current) - (weekday + 6) % 7;
+	const options = { timeZone: dateOnly ? "UTC" : __vite_ssr_import_0__.APP_TIMEZONE };
+	const exact = date.toLocaleDateString("es-CL", {
+		...options,
+		day: "numeric",
+		month: "long",
+		...day.slice(0, 4) !== current.slice(0, 4) ? { year: "numeric" } : {}
+	});
+	let label = exact;
+	if (difference === 0) label = "Hoy";
+	else if (difference === 1) label = "Ayer";
+	else if (difference === 2) label = "Anteayer";
+	else if (difference === -1) label = "Mañana";
+	else if (difference > 2 && dayNumber(day) >= monday) label = `${date.toLocaleDateString("es-CL", {
+		...options,
+		weekday: "long"
+	})}, ${exact}`;
+	else if (dayNumber(day) >= monday - 7 && dayNumber(day) < monday) label = `Semana pasada · ${date.toLocaleDateString("es-CL", {
+		...options,
+		weekday: "long"
+	})}, ${exact}`;
+	return withTime && !dateOnly ? `${label} · ${date.toLocaleTimeString("es-CL", {
+		timeZone: __vite_ssr_import_0__.APP_TIMEZONE,
+		hour: "2-digit",
+		minute: "2-digit",
+		hour12: false
+	})}` : label;
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUFBOzs7QUFHTyxTQUFTLGFBQWEsT0FBZSxXQUFXLE1BQU0sTUFBTSxJQUFJLEtBQUssR0FBVztDQUNyRixNQUFNLFdBQVcsc0JBQXNCLEtBQUssS0FBSztDQUNqRCxNQUFNLE9BQU8sSUFBSSxLQUFLLFdBQVcsR0FBRyxNQUFNLGNBQWMsS0FBSztDQUM3RCxJQUFJLENBQUMsT0FBTyxTQUFTLEtBQUssUUFBUSxDQUFDLEdBQUcsT0FBTztDQUM3QyxNQUFNLE1BQU0sV0FBVyxRQUFRLG9DQUFVLElBQUk7Q0FDN0MsTUFBTSxVQUFVLG9DQUFVLEdBQUc7Q0FDN0IsTUFBTSxhQUFhLE1BQWMsS0FBSyxNQUFNLEdBQUcsRUFBRSxXQUFXLElBQUk7Q0FDaEUsTUFBTSxhQUFhLFVBQVUsT0FBTyxJQUFJLFVBQVUsR0FBRztDQUNyRCxNQUFNLFVBQVUsSUFBSSxLQUFLLEdBQUcsUUFBUSxXQUFXLENBQUMsQ0FBQyxVQUFVO0NBQzNELE1BQU0sU0FBUyxVQUFVLE9BQU8sS0FBSyxVQUFVLEtBQUs7Q0FDcEQsTUFBTSxVQUFVLEVBQUUsVUFBVSxXQUFXLFFBQVEsbUNBQWE7Q0FDNUQsTUFBTSxRQUFRLEtBQUssbUJBQW1CLFNBQVM7RUFDN0MsR0FBRztFQUFTLEtBQUs7RUFBVyxPQUFPO0VBQ25DLEdBQUksSUFBSSxNQUFNLEdBQUcsQ0FBQyxNQUFNLFFBQVEsTUFBTSxHQUFHLENBQUMsSUFBSSxFQUFFLE1BQU0sVUFBbUIsSUFBSSxDQUFDO0NBQ2hGLENBQUM7Q0FDRCxJQUFJLFFBQVE7Q0FDWixJQUFJLGVBQWUsR0FBRyxRQUFRO01BQ3pCLElBQUksZUFBZSxHQUFHLFFBQVE7TUFDOUIsSUFBSSxlQUFlLEdBQUcsUUFBUTtNQUM5QixJQUFJLGVBQWUsQ0FBQyxHQUFHLFFBQVE7TUFDL0IsSUFBSSxhQUFhLEtBQUssVUFBVSxHQUFHLEtBQUssUUFBUSxRQUFRLEdBQUcsS0FBSyxtQkFBbUIsU0FBUztFQUFFLEdBQUc7RUFBUyxTQUFTO0NBQU8sQ0FBQyxFQUFFLElBQUk7TUFDakksSUFBSSxVQUFVLEdBQUcsS0FBSyxTQUFTLEtBQUssVUFBVSxHQUFHLElBQUksUUFBUSxRQUFRLG1CQUFtQixLQUFLLG1CQUFtQixTQUFTO0VBQUUsR0FBRztFQUFTLFNBQVM7Q0FBTyxDQUFDLEVBQUUsSUFBSTtDQUNuSyxPQUFPLFlBQVksQ0FBQyxXQUNoQixHQUFHLE1BQU0sS0FBSyxLQUFLLG1CQUFtQixTQUFTO0VBQUUsVUFBVTtFQUFjLE1BQU07RUFBVyxRQUFRO0VBQVcsUUFBUTtDQUFNLENBQUMsTUFDNUg7QUFDTiIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsicmVhZGFibGVEYXRlLnRzIl0sInNvdXJjZXNDb250ZW50IjpbImltcG9ydCB7IEFQUF9USU1FWk9ORSwgdG9kYXlEYXRlIH0gZnJvbSAnLi9jYWxlbmRhckRhdGUnO1xuXG4vLyBDb21wYXJhIGTDrWFzIGRlIGNhbGVuZGFyaW8gZW4gbGEgem9uYSBkZSBsYSBhcGxpY2FjacOzbiwgaW5jbHVzbyBjb24gRFNULlxuZXhwb3J0IGZ1bmN0aW9uIHJlYWRhYmxlRGF0ZSh2YWx1ZTogc3RyaW5nLCB3aXRoVGltZSA9IHRydWUsIG5vdyA9IG5ldyBEYXRlKCkpOiBzdHJpbmcge1xuICBjb25zdCBkYXRlT25seSA9IC9eXFxkezR9LVxcZHsyfS1cXGR7Mn0kLy50ZXN0KHZhbHVlKTtcbiAgY29uc3QgZGF0ZSA9IG5ldyBEYXRlKGRhdGVPbmx5ID8gYCR7dmFsdWV9VDEyOjAwOjAwWmAgOiB2YWx1ZSk7XG4gIGlmICghTnVtYmVyLmlzRmluaXRlKGRhdGUuZ2V0VGltZSgpKSkgcmV0dXJuICdGZWNoYSBubyBkaXNwb25pYmxlJztcbiAgY29uc3QgZGF5ID0gZGF0ZU9ubHkgPyB2YWx1ZSA6IHRvZGF5RGF0ZShkYXRlKTtcbiAgY29uc3QgY3VycmVudCA9IHRvZGF5RGF0ZShub3cpO1xuICBjb25zdCBkYXlOdW1iZXIgPSAodjogc3RyaW5nKSA9PiBEYXRlLnBhcnNlKGAke3Z9VDAwOjAwOjAwWmApIC8gODY0MDAwMDA7XG4gIGNvbnN0IGRpZmZlcmVuY2UgPSBkYXlOdW1iZXIoY3VycmVudCkgLSBkYXlOdW1iZXIoZGF5KTtcbiAgY29uc3Qgd2Vla2RheSA9IG5ldyBEYXRlKGAke2N1cnJlbnR9VDEyOjAwOjAwWmApLmdldFVUQ0RheSgpO1xuICBjb25zdCBtb25kYXkgPSBkYXlOdW1iZXIoY3VycmVudCkgLSAod2Vla2RheSArIDYpICUgNztcbiAgY29uc3Qgb3B0aW9ucyA9IHsgdGltZVpvbmU6IGRhdGVPbmx5ID8gJ1VUQycgOiBBUFBfVElNRVpPTkUgfTtcbiAgY29uc3QgZXhhY3QgPSBkYXRlLnRvTG9jYWxlRGF0ZVN0cmluZygnZXMtQ0wnLCB7XG4gICAgLi4ub3B0aW9ucywgZGF5OiAnbnVtZXJpYycsIG1vbnRoOiAnbG9uZycsXG4gICAgLi4uKGRheS5zbGljZSgwLCA0KSAhPT0gY3VycmVudC5zbGljZSgwLCA0KSA/IHsgeWVhcjogJ251bWVyaWMnIGFzIGNvbnN0IH0gOiB7fSksXG4gIH0pO1xuICBsZXQgbGFiZWwgPSBleGFjdDtcbiAgaWYgKGRpZmZlcmVuY2UgPT09IDApIGxhYmVsID0gJ0hveSc7XG4gIGVsc2UgaWYgKGRpZmZlcmVuY2UgPT09IDEpIGxhYmVsID0gJ0F5ZXInO1xuICBlbHNlIGlmIChkaWZmZXJlbmNlID09PSAyKSBsYWJlbCA9ICdBbnRlYXllcic7XG4gIGVsc2UgaWYgKGRpZmZlcmVuY2UgPT09IC0xKSBsYWJlbCA9ICdNYcOxYW5hJztcbiAgZWxzZSBpZiAoZGlmZmVyZW5jZSA+IDIgJiYgZGF5TnVtYmVyKGRheSkgPj0gbW9uZGF5KSBsYWJlbCA9IGAke2RhdGUudG9Mb2NhbGVEYXRlU3RyaW5nKCdlcy1DTCcsIHsgLi4ub3B0aW9ucywgd2Vla2RheTogJ2xvbmcnIH0pfSwgJHtleGFjdH1gO1xuICBlbHNlIGlmIChkYXlOdW1iZXIoZGF5KSA+PSBtb25kYXkgLSA3ICYmIGRheU51bWJlcihkYXkpIDwgbW9uZGF5KSBsYWJlbCA9IGBTZW1hbmEgcGFzYWRhIMK3ICR7ZGF0ZS50b0xvY2FsZURhdGVTdHJpbmcoJ2VzLUNMJywgeyAuLi5vcHRpb25zLCB3ZWVrZGF5OiAnbG9uZycgfSl9LCAke2V4YWN0fWA7XG4gIHJldHVybiB3aXRoVGltZSAmJiAhZGF0ZU9ubHlcbiAgICA/IGAke2xhYmVsfSDCtyAke2RhdGUudG9Mb2NhbGVUaW1lU3RyaW5nKCdlcy1DTCcsIHsgdGltZVpvbmU6IEFQUF9USU1FWk9ORSwgaG91cjogJzItZGlnaXQnLCBtaW51dGU6ICcyLWRpZ2l0JywgaG91cjEyOiBmYWxzZSB9KX1gXG4gICAgOiBsYWJlbDtcbn1cbiJdLCJmaWxlIjoiL3NyYy9saWIvcmVhZGFibGVEYXRlLnRzIn0=
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9saWIvcmVhZGFibGVEYXRlLnRzIiwiL3NyYy9saWIvcmVhZGFibGVEYXRlLnRzIixbXSxbIjYiXSxbXSwiL3NyYy9saWIvY2FsZW5kYXJEYXRlLnRzIl0=

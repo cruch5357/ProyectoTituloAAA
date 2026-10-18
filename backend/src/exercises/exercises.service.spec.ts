@@ -316,7 +316,10 @@ describe('ExercisesService - grupos musculares y deportes', () => {
   it('al crear sin claves conserva el texto libre heredado y listas vacías', async () => {
     prisma.exercise.create.mockResolvedValue(buildExercise());
 
-    await service.create(COACH_ID, { name: 'Sentadilla', muscleGroup: 'Piernas' });
+    await service.create(COACH_ID, {
+      name: 'Sentadilla',
+      muscleGroup: 'Piernas',
+    });
 
     expect(prisma.exercise.create).toHaveBeenCalledWith({
       data: expect.objectContaining({

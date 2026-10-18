@@ -10,9 +10,7 @@ const DEFAULT_TARGET_REPS = 8;
 const REQUEST_TIMEOUT_MS = 3000;
 
 export type SuggestedLoadUnavailableReason =
-  | 'disabled'
-  | 'service_unavailable'
-  | 'insufficient_history';
+  'disabled' | 'service_unavailable' | 'insufficient_history';
 
 export interface SuggestedLoadResult {
   available: boolean;

@@ -34,7 +34,7 @@ FRONTEND_URL=http://localhost:5173
 CHAT_STORAGE_DIR=storage/chat
 ```
 
-Generar un JWT_ACCESS_SECRET propio del entorno con `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"` y guardarlo en .env. No subirlo a Git. Mantener las vigencias, límites y demás variables del ejemplo. Frontend usa `VITE_API_URL=http://localhost:3000/api/v1`.
+Generar un JWT_ACCESS_SECRET propio del entorno con `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"` y guardarlo en .env. No subirlo a Git. Mantener las vigencias, límites y demás variables del ejemplo. Frontend usa `VITE_API_URL=/api/v1`.
 
 La validación exige SMTP configurado fuera de tests. Para una demo **sin envío de correo**, usar SMTP_HOST=localhost, SMTP_PORT=587, SMTP_SECURE=false, SMTP_USER=demo, SMTP_PASSWORD=demo, EMAIL_FROM=demo@example.com y EMAIL_FROM_NAME=Demo local. No invocar invitaciones/reset durante esa modalidad: el relay no existe y el envío no funcionará. El login de cuentas sembradas y el resto de la demo no requieren SMTP. Para demostrar email real, seguir [email-setup.md](email-setup.md) con credenciales propias; nunca usar NODE_ENV=test como configuración de la presentación.
 
@@ -99,3 +99,5 @@ APP_TIMEZONE=America/Santiago en backend/.env (default). Una zona por entorno: r
 npm run storage:check compara referencias DB con storage: no borra nada. Exit 0 si está consistente; 1 si encuentra diferencias o no puede comprobar. Detener escrituras de chat durante una revisión de mantenimiento para evitar diferencias transitorias. No existe cleanup automático; revisar manualmente los hallazgos tras hacer backup. El reporte puede contener claves privadas y no debe publicarse.
 
 npm run validate ejecuta lint sin --fix, tests de backend/frontend/scripts y builds. E2E HTTP y browser se ejecutan aparte con su PostgreSQL de pruebas; ver testing.md. No modifica fuentes, aunque los builds producen artefactos ignorados.
+
+Para acceder desde iPhone por Wi-Fi y probar HTTPS/PWA, ver [acceso móvil local](mobile-ios.md).

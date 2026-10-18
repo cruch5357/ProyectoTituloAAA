@@ -37,14 +37,14 @@ beforeEach(() => {
   vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {}, error: null, meta: {} });
 });
 describe('Evolución coaching', () => {
-  it('dirige el alumno a Inicio y muestra sesión de hoy, competición y coach reales', async () => {
+  it('dirige el alumno a Inicio y prioriza rendimiento, competición y coach reales', async () => {
     expect(getHomePathForRole('STUDENT')).toBe('/home');
     renderUser(<StudentHomePage />);
-    expect(await screen.findByText('Entrenamiento de hoy')).toBeInTheDocument();
-    expect(await screen.findByText('Sentadilla')).toBeInTheDocument();
+    expect(await screen.findByText('Rendimiento reciente')).toBeInTheDocument();
+    expect(screen.queryByText('Entrenamiento de hoy')).not.toBeInTheDocument();
     expect(screen.getByText('Open Santiago')).toBeInTheDocument();
     expect(screen.getByText('Mi entrenador')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Iniciar entrenamiento' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
   });
   it('muestra sesiones futuras como consulta sin iniciar desde Home', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { ...calendar, nextSession: { ...session, date: '2026-10-08' } }, error: null, meta: {} });

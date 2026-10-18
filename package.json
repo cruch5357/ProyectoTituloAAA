@@ -17,6 +17,7 @@
     "test:all": "npm test && npm run test:e2e --prefix backend -- --runInBand",
     "build": "npm run build:backend && npm run build:frontend",
     "demo:seed": "npm run seed:demo --prefix backend",
+    "demo:showcase": "npm run seed:showcase --prefix backend",
     "backup:local": "node scripts/backup-local.cjs",
     "restore:local": "node scripts/restore-local.cjs",
     "test:e2e:browser": "playwright test",
@@ -25,7 +26,12 @@
     "performance:demo": "node scripts/performance-demo.cjs",
     "storage:check": "node scripts/storage-check.cjs",
     "test:scripts": "node --test scripts/storage-check.test.cjs",
-    "validate": "npm run lint && npm test && npm run test:scripts && npm run build"
+    "validate": "npm run lint && npm test && npm run test:scripts && npm run build",
+    "dev:mobile": "npm run dev --prefix frontend",
+    "preview:mobile": "npm run build:frontend && npm run preview --prefix frontend",
+    "mobile:https:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-mobile-https.ps1",
+    "pwa:mobile": "npm run build:frontend && node scripts/preview-mobile.cjs",
+    "test:pwa": "node scripts/check-pwa.cjs"
   },
   "engines": {
     "node": ">=24.21.0 <25"

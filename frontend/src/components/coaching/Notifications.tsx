@@ -1,15 +1,10 @@
+import { readableDate } from '../../lib/readableDate';
 import { Icon } from '../ui/Icon';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { useCoachingQuery, useCoachingMutation, type Notice } from '../../api/coaching';
 import { ErrorState, Skeleton } from '../ui/Primitives';
-
-function relativeTime(value: string) {
-  const minutes = Math.round((new Date(value).getTime() - Date.now()) / 60000);
-  const format = new Intl.RelativeTimeFormat('es', { numeric: 'auto' });
-  return Math.abs(minutes) < 60 ? format.format(minutes, 'minute') : Math.abs(minutes) < 1440 ? format.format(Math.round(minutes / 60), 'hour') : format.format(Math.round(minutes / 1440), 'day');
-}
 
 function NoticeLink({ notice, onRead }: { notice: Notice; onRead: () => void }) {
   const { user } = useAuth();
@@ -33,7 +28,7 @@ export function NotificationBell() {
       {query.data?.length === 0 && <p>Sin notificaciones.</p>}
       <ul className="nested-list">{query.data?.map((n) => <li key={n.id} className={!n.readAt ? 'notice-unread' : ''}>
         <NoticeLink notice={n} onRead={() => { mutation.mutate({ path: `/notifications/${n.id}/read` }); setOpen(false); }} />
-        {n.body !== n.title && <p>{n.body}</p>}<small><time dateTime={n.createdAt} title={new Date(n.createdAt).toLocaleString('es-CL')}>{relativeTime(n.createdAt)}</time> · {n.readAt ? 'Leída' : 'Sin leer'}</small>
+        {n.body !== n.title && <p>{n.body}</p>}<small><time dateTime={n.createdAt} title={new Date(n.createdAt).toISOString()}>{readableDate(n.createdAt)}</time> · {n.readAt ? 'Leída' : 'Sin leer'}</small>
       </li>)}</ul>
       <div className="pagination"><button disabled={page === 1} onClick={() => setPage(page - 1)}>Anterior</button><button disabled={(query.data?.length ?? 0) < 20} onClick={() => setPage(page + 1)}>Siguiente</button></div>
     </section>}

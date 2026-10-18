@@ -1,0 +1,82 @@
+__vite_ssr_exportName__("DuplicateButton", () => { try { return DuplicateButton } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/@tanstack/react-query/build/modern/index.js", {"importedNames":["useMutation","useQueryClient"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/node_modules/react-router-dom/dist/main.js", {"importedNames":["Link"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/src/lib/apiClient.ts", {"importedNames":["apiClient"]});
+const __vite_ssr_import_3__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/components/program/DuplicateButton.tsx";
+
+function DuplicateButton({ kind, id }) {
+	const client = (0,__vite_ssr_import_0__.useQueryClient)();
+	const label = {
+		programs: "programa",
+		weeks: "semana",
+		sessions: "sesión"
+	}[kind];
+	const success = {
+		programs: "Programa duplicado",
+		weeks: "Semana duplicada",
+		sessions: "Sesión duplicada"
+	}[kind];
+	const mutation = (0,__vite_ssr_import_0__.useMutation)({
+		mutationFn: async () => (await __vite_ssr_import_2__.apiClient.post(`/${kind}/${id}/duplicate`, {})).data,
+		onSuccess: async () => {
+			await Promise.all([
+				kind,
+				"coaching",
+				"studentTraining"
+			].map((key) => client.invalidateQueries({ queryKey: [key] })));
+		}
+	});
+	return /* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)("div", { children: [
+		/* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)("button", {
+			type: "button",
+			className: "button button--secondary",
+			disabled: mutation.isPending,
+			onClick: () => mutation.mutate(),
+			children: mutation.isPending ? "Duplicando..." : `Duplicar ${label}`
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 16,
+			columnNumber: 5
+		}, this),
+		mutation.isSuccess && /* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)("p", {
+			role: "status",
+			children: [
+				success,
+				". ",
+				/* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)((0,__vite_ssr_import_1__.Link), {
+					to: `/${kind}/${mutation.data.id}`,
+					children: "Abrir copia"
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 19,
+					columnNumber: 56
+				}, this),
+				kind === "sessions" && " · Conserva el mismo día; puedes editarlo en la copia."
+			]
+		}, void 0, true, {
+			fileName: _jsxFileName,
+			lineNumber: 19,
+			columnNumber: 28
+		}, this),
+		mutation.isError && /* @__PURE__ */ (0,__vite_ssr_import_3__.jsxDEV)("p", {
+			role: "alert",
+			children: mutation.error.message
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 20,
+			columnNumber: 26
+		}, this)
+	] }, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 15,
+		columnNumber: 10
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,eyJ2ZXJzaW9uIjozLCJtYXBwaW5ncyI6IkFBQUEsQ0FBQTtBQUFBO0FBQ0E7QUFDQTs7Ozs7OztBQUVPLFNBQVMsZ0JBQWdCLEVBQUUsTUFBTSxNQUErRDtDQUNyRyxNQUFNLFNBQVMsMENBQWU7Q0FDOUIsTUFBTSxRQUFRO0VBQUUsVUFBVTtFQUFZLE9BQU87RUFBVSxVQUFVO0NBQVMsRUFBRTtDQUM1RSxNQUFNLFVBQVU7RUFBRSxVQUFVO0VBQXNCLE9BQU87RUFBb0IsVUFBVTtDQUFtQixFQUFFO0NBQzVHLE1BQU0sV0FBVyxzQ0FBWTtFQUMzQixZQUFZLGFBQWEsTUFBTSxnQ0FBVSxLQUFxQixJQUFJLEtBQUssR0FBRyxHQUFHLGFBQWEsQ0FBQyxDQUFDLEVBQUMsQ0FBRTtFQUMvRixXQUFXLFlBQVk7R0FDckIsTUFBTSxRQUFRLElBQUk7SUFBQztJQUFNO0lBQVk7R0FBaUIsQ0FBQyxDQUFDLEtBQUssUUFBUSxPQUFPLGtCQUFrQixFQUFFLFVBQVUsQ0FBQyxHQUFHLEVBQUUsQ0FBQyxDQUFDLENBQUM7RUFDckg7Q0FDRixDQUFDO0NBQ0QsT0FBTyxpREFBQyxPQUFEO0VBQ0wsaURBQUMsVUFBRDtHQUFRLE1BQUs7R0FBUyxXQUFVO0dBQTJCLFVBQVUsU0FBUztHQUFXLGVBQWUsU0FBUyxPQUFPO2FBQ3JILFNBQVMsWUFBWSxrQkFBa0IsWUFBWTtFQUM5Qzs7Ozs7RUFDUCxTQUFTLGFBQWEsaURBQUMsS0FBRDtHQUFHLE1BQUs7YUFBUjtJQUFrQjtJQUFRO0lBQUUsb0RBQUMsNkJBQUQ7S0FBTSxJQUFJLElBQUksS0FBSyxHQUFHLFNBQVMsS0FBSztlQUFNO0lBQWlCOzs7OztJQUFFLFNBQVMsY0FBYztHQUE0RDs7Ozs7O0VBQ2xNLFNBQVMsV0FBVyxpREFBQyxLQUFEO0dBQUcsTUFBSzthQUFTLFNBQVMsTUFBTTtFQUFXOzs7OztDQUM3RDs7Ozs7QUFDUCIsIm5hbWVzIjpbXSwiaWdub3JlTGlzdCI6W10sInNvdXJjZXMiOlsiRHVwbGljYXRlQnV0dG9uLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VNdXRhdGlvbiwgdXNlUXVlcnlDbGllbnQgfSBmcm9tICdAdGFuc3RhY2svcmVhY3QtcXVlcnknO1xuaW1wb3J0IHsgTGluayB9IGZyb20gJ3JlYWN0LXJvdXRlci1kb20nO1xuaW1wb3J0IHsgYXBpQ2xpZW50IH0gZnJvbSAnLi4vLi4vbGliL2FwaUNsaWVudCc7XG5cbmV4cG9ydCBmdW5jdGlvbiBEdXBsaWNhdGVCdXR0b24oeyBraW5kLCBpZCB9OiB7IGtpbmQ6ICdwcm9ncmFtcycgfCAnd2Vla3MnIHwgJ3Nlc3Npb25zJzsgaWQ6IHN0cmluZyB9KSB7XG4gIGNvbnN0IGNsaWVudCA9IHVzZVF1ZXJ5Q2xpZW50KCk7XG4gIGNvbnN0IGxhYmVsID0geyBwcm9ncmFtczogJ3Byb2dyYW1hJywgd2Vla3M6ICdzZW1hbmEnLCBzZXNzaW9uczogJ3Nlc2nDs24nIH1ba2luZF07XG4gIGNvbnN0IHN1Y2Nlc3MgPSB7IHByb2dyYW1zOiAnUHJvZ3JhbWEgZHVwbGljYWRvJywgd2Vla3M6ICdTZW1hbmEgZHVwbGljYWRhJywgc2Vzc2lvbnM6ICdTZXNpw7NuIGR1cGxpY2FkYScgfVtraW5kXTtcbiAgY29uc3QgbXV0YXRpb24gPSB1c2VNdXRhdGlvbih7XG4gICAgbXV0YXRpb25GbjogYXN5bmMgKCkgPT4gKGF3YWl0IGFwaUNsaWVudC5wb3N0PHsgaWQ6IHN0cmluZyB9PihgLyR7a2luZH0vJHtpZH0vZHVwbGljYXRlYCwge30pKS5kYXRhLFxuICAgIG9uU3VjY2VzczogYXN5bmMgKCkgPT4ge1xuICAgICAgYXdhaXQgUHJvbWlzZS5hbGwoW2tpbmQsICdjb2FjaGluZycsICdzdHVkZW50VHJhaW5pbmcnXS5tYXAoKGtleSkgPT4gY2xpZW50LmludmFsaWRhdGVRdWVyaWVzKHsgcXVlcnlLZXk6IFtrZXldIH0pKSk7XG4gICAgfSxcbiAgfSk7XG4gIHJldHVybiA8ZGl2PlxuICAgIDxidXR0b24gdHlwZT1cImJ1dHRvblwiIGNsYXNzTmFtZT1cImJ1dHRvbiBidXR0b24tLXNlY29uZGFyeVwiIGRpc2FibGVkPXttdXRhdGlvbi5pc1BlbmRpbmd9IG9uQ2xpY2s9eygpID0+IG11dGF0aW9uLm11dGF0ZSgpfT5cbiAgICAgIHttdXRhdGlvbi5pc1BlbmRpbmcgPyAnRHVwbGljYW5kby4uLicgOiBgRHVwbGljYXIgJHtsYWJlbH1gfVxuICAgIDwvYnV0dG9uPlxuICAgIHttdXRhdGlvbi5pc1N1Y2Nlc3MgJiYgPHAgcm9sZT1cInN0YXR1c1wiPntzdWNjZXNzfS4gPExpbmsgdG89e2AvJHtraW5kfS8ke211dGF0aW9uLmRhdGEuaWR9YH0+QWJyaXIgY29waWE8L0xpbms+e2tpbmQgPT09ICdzZXNzaW9ucycgJiYgJyDCtyBDb25zZXJ2YSBlbCBtaXNtbyBkw61hOyBwdWVkZXMgZWRpdGFybG8gZW4gbGEgY29waWEuJ308L3A+fVxuICAgIHttdXRhdGlvbi5pc0Vycm9yICYmIDxwIHJvbGU9XCJhbGVydFwiPnttdXRhdGlvbi5lcnJvci5tZXNzYWdlfTwvcD59XG4gIDwvZGl2Pjtcbn1cbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL3Byb2dyYW0vRHVwbGljYXRlQnV0dG9uLnRzeCJ9
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9jb21wb25lbnRzL3Byb2dyYW0vRHVwbGljYXRlQnV0dG9uLnRzeCIsIi9zcmMvY29tcG9uZW50cy9wcm9ncmFtL0R1cGxpY2F0ZUJ1dHRvbi50c3giLFtdLFsiNiIsIjciLCI4IiwiOSJdLFtdLCIvbm9kZV9tb2R1bGVzL0B0YW5zdGFjay9yZWFjdC1xdWVyeS9idWlsZC9tb2Rlcm4vaW5kZXguanMiLCIvbm9kZV9tb2R1bGVzL3JlYWN0LXJvdXRlci1kb20vZGlzdC9tYWluLmpzIiwiL3NyYy9saWIvYXBpQ2xpZW50LnRzIiwiL25vZGVfbW9kdWxlcy9yZWFjdC9qc3gtZGV2LXJ1bnRpbWUuanMiXQ==

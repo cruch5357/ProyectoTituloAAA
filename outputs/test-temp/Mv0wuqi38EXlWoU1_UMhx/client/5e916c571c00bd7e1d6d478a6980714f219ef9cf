@@ -1,0 +1,193 @@
+__vite_ssr_exportName__("MuscleGroupPicker", () => { try { return MuscleGroupPicker } catch {} });
+__vite_ssr_exportName__("MuscleGroupPreview", () => { try { return MuscleGroupPreview } catch {} });
+__vite_ssr_exportName__("SportPicker", () => { try { return SportPicker } catch {} });
+const __vite_ssr_import_0__ = await __vite_ssr_import__("/node_modules/react/index.js", {"importedNames":["useState"]});
+const __vite_ssr_import_1__ = await __vite_ssr_import__("/src/lib/exerciseTaxonomy.ts", {"importedNames":["MUSCLE_GROUPS","SPORTS","findMuscleGroup"]});
+const __vite_ssr_import_2__ = await __vite_ssr_import__("/node_modules/react/jsx-dev-runtime.js", {"importedNames":["jsxDEV"]});
+
+
+var _jsxFileName = "C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend/src/components/exercises/MuscleGroupPicker.tsx";
+
+// Selector de grupos musculares: un desplegable por grupo y un botón "+"
+// para agregar otro. Mantiene internamente las filas (incluida una fila
+// vacía recién agregada) y notifica al padre solo las claves elegidas. Para
+// reiniciarlo, el padre lo vuelve a montar con otra `key`.
+function MuscleGroupPicker({ initialValue, onChange, disabled }) {
+	const [slots, setSlots] = (0,__vite_ssr_import_0__.useState)(initialValue.length > 0 ? initialValue : [""]);
+	function update(next) {
+		setSlots(next);
+		onChange(next.filter(Boolean));
+	}
+	const canAdd = !disabled && slots.every(Boolean) && slots.length < __vite_ssr_import_1__.MUSCLE_GROUPS.length;
+	return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("fieldset", {
+		className: "muscle-picker",
+		disabled,
+		children: [
+			/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("legend", { children: "Grupo muscular (opcional)" }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 35,
+				columnNumber: 7
+			}, this),
+			slots.map((slot, index) => /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("div", {
+				className: "muscle-picker__row",
+				children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("select", {
+					"aria-label": `Grupo muscular ${index + 1}`,
+					value: slot,
+					onChange: (event) => update(slots.map((s, i) => i === index ? event.target.value : s)),
+					children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("option", {
+						value: "",
+						children: "Selecciona un grupo…"
+					}, void 0, false, {
+						fileName: _jsxFileName,
+						lineNumber: 47,
+						columnNumber: 13
+					}, this), __vite_ssr_import_1__.MUSCLE_GROUPS.filter((group) => group.key === slot || !slots.includes(group.key)).map((group) => /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("option", {
+						value: group.key,
+						children: group.label
+					}, group.key, false, {
+						fileName: _jsxFileName,
+						lineNumber: 51,
+						columnNumber: 15
+					}, this))]
+				}, void 0, true, {
+					fileName: _jsxFileName,
+					lineNumber: 38,
+					columnNumber: 11
+				}, this), (slots.length > 1 || slot) && /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("button", {
+					type: "button",
+					className: "button--neutral muscle-picker__remove",
+					"aria-label": `Quitar ${(0,__vite_ssr_import_1__.findMuscleGroup)(slot)?.label ?? `grupo ${index + 1}`}`,
+					onClick: () => {
+						const next = slots.filter((_, i) => i !== index);
+						update(next.length > 0 ? next : [""]);
+					},
+					children: "×"
+				}, void 0, false, {
+					fileName: _jsxFileName,
+					lineNumber: 57,
+					columnNumber: 13
+				}, this)]
+			}, index, true, {
+				fileName: _jsxFileName,
+				lineNumber: 37,
+				columnNumber: 9
+			}, this)),
+			/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("button", {
+				type: "button",
+				className: "button--neutral muscle-picker__add",
+				onClick: () => setSlots([...slots, ""]),
+				disabled: !canAdd,
+				children: "+ Agregar grupo muscular"
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 71,
+				columnNumber: 7
+			}, this)
+		]
+	}, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 34,
+		columnNumber: 5
+	}, this);
+};
+// Columnas según cuántas imágenes haya: 1 grande; de 2 a 6 en 2 columnas
+// (la 3.ª baja a una nueva fila y la 4.ª queda a su lado); 7 o más en 3
+// columnas para que el panel no crezca demasiado en alto.
+function columnsFor(count) {
+	if (count <= 1) return 1;
+	if (count <= 6) return 2;
+	return 3;
+}
+function MuscleGroupPreview({ keys }) {
+	const groups = keys.map((0,__vite_ssr_import_1__.findMuscleGroup)).filter((group) => Boolean(group));
+	if (groups.length === 0) {
+		return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("div", {
+			className: "muscle-preview muscle-preview--empty",
+			children: /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("p", { children: "Selecciona un grupo muscular para ver la zona que trabaja el ejercicio." }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 100,
+				columnNumber: 9
+			}, this)
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 99,
+			columnNumber: 7
+		}, this);
+	};
+	return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("div", {
+		className: "muscle-preview",
+		"data-count": groups.length,
+		style: { gridTemplateColumns: `repeat(${columnsFor(groups.length)}, minmax(0, 1fr))` },
+		"aria-label": "Zonas musculares trabajadas",
+		children: groups.map((group) => /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("figure", {
+			className: "muscle-preview__item",
+			children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("img", {
+				src: group.image,
+				alt: `Zona muscular: ${group.label}`
+			}, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 119,
+				columnNumber: 11
+			}, this), /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("figcaption", { children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("strong", { children: group.label }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 121,
+				columnNumber: 13
+			}, this), /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("span", { children: group.detail }, void 0, false, {
+				fileName: _jsxFileName,
+				lineNumber: 122,
+				columnNumber: 13
+			}, this)] }, void 0, true, {
+				fileName: _jsxFileName,
+				lineNumber: 120,
+				columnNumber: 11
+			}, this)]
+		}, group.key, true, {
+			fileName: _jsxFileName,
+			lineNumber: 118,
+			columnNumber: 9
+		}, this))
+	}, void 0, false, {
+		fileName: _jsxFileName,
+		lineNumber: 109,
+		columnNumber: 5
+	}, this);
+};
+// Deportes opcionales como botones de selección múltiple.
+function SportPicker({ value, onChange, disabled }) {
+	return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("fieldset", {
+		className: "sport-picker",
+		disabled,
+		children: [/* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("legend", { children: "Deporte (opcional)" }, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 142,
+			columnNumber: 7
+		}, this), /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("div", {
+			className: "sport-picker__options",
+			children: __vite_ssr_import_1__.SPORTS.map((sport) => {
+				const selected = value.includes(sport.key);
+				return /* @__PURE__ */ (0,__vite_ssr_import_2__.jsxDEV)("button", {
+					type: "button",
+					"aria-pressed": selected,
+					onClick: () => onChange(selected ? value.filter((key) => key !== sport.key) : [...value, sport.key]),
+					children: sport.label
+				}, sport.key, false, {
+					fileName: _jsxFileName,
+					lineNumber: 147,
+					columnNumber: 13
+				}, this);
+			})
+		}, void 0, false, {
+			fileName: _jsxFileName,
+			lineNumber: 143,
+			columnNumber: 7
+		}, this)]
+	}, void 0, true, {
+		fileName: _jsxFileName,
+		lineNumber: 141,
+		columnNumber: 5
+	}, this);
+}
+//# sourceMappingSource=vite-generated
+//# sourceMappingURL=data:application/json;base64,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QVksRUFDMUIsT0FDQSxVQUNBLFlBS0M7Q0FDRCxPQUNFLGlEQUFDLFlBQUQ7RUFBVSxXQUFVO0VBQXlCO1lBQTdDLENBQ0UsaURBQUMsVUFBRCxZQUFRLHFCQUEwQjs7OztZQUNsQyxpREFBQyxPQUFEO0dBQUssV0FBVTthQUNaLDZCQUFPLEtBQUssVUFBVTtJQUNyQixNQUFNLFdBQVcsTUFBTSxTQUFTLE1BQU0sR0FBRztJQUN6QyxPQUNFLGlEQUFDLFVBQUQ7S0FFRSxNQUFLO0tBQ0wsZ0JBQWM7S0FDZCxlQUNFLFNBQ0UsV0FDSSxNQUFNLFFBQVEsUUFBUSxRQUFRLE1BQU0sR0FBRyxJQUN2QyxDQUFDLEdBQUcsT0FBTyxNQUFNLEdBQUcsQ0FDMUI7ZUFHRCxNQUFNO0lBQ0QsR0FaRCxNQUFNOzs7O1dBWUw7R0FFWixDQUFDO0VBQ0U7Ozs7VUFDRzs7Ozs7O0FBRWQiLCJuYW1lcyI6W10sImlnbm9yZUxpc3QiOltdLCJzb3VyY2VzIjpbIk11c2NsZUdyb3VwUGlja2VyLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6WyJpbXBvcnQgeyB1c2VTdGF0ZSB9IGZyb20gJ3JlYWN0JztcclxuaW1wb3J0IHtcclxuICBNVVNDTEVfR1JPVVBTLFxyXG4gIFNQT1JUUyxcclxuICBmaW5kTXVzY2xlR3JvdXAsXHJcbn0gZnJvbSAnLi4vLi4vbGliL2V4ZXJjaXNlVGF4b25vbXknO1xyXG5cclxuLy8gU2VsZWN0b3IgZGUgZ3J1cG9zIG11c2N1bGFyZXM6IHVuIGRlc3BsZWdhYmxlIHBvciBncnVwbyB5IHVuIGJvdMOzbiBcIitcIlxyXG4vLyBwYXJhIGFncmVnYXIgb3Ryby4gTWFudGllbmUgaW50ZXJuYW1lbnRlIGxhcyBmaWxhcyAoaW5jbHVpZGEgdW5hIGZpbGFcclxuLy8gdmFjw61hIHJlY2nDqW4gYWdyZWdhZGEpIHkgbm90aWZpY2EgYWwgcGFkcmUgc29sbyBsYXMgY2xhdmVzIGVsZWdpZGFzLiBQYXJhXHJcbi8vIHJlaW5pY2lhcmxvLCBlbCBwYWRyZSBsbyB2dWVsdmUgYSBtb250YXIgY29uIG90cmEgYGtleWAuXHJcbmV4cG9ydCBmdW5jdGlvbiBNdXNjbGVHcm91cFBpY2tlcih7XHJcbiAgaW5pdGlhbFZhbHVlLFxyXG4gIG9uQ2hhbmdlLFxyXG4gIGRpc2FibGVkLFxyXG59OiB7XHJcbiAgaW5pdGlhbFZhbHVlOiBzdHJpbmdbXTtcclxuICBvbkNoYW5nZTogKGtleXM6IHN0cmluZ1tdKSA9PiB2b2lkO1xyXG4gIGRpc2FibGVkPzogYm9vbGVhbjtcclxufSkge1xyXG4gIGNvbnN0IFtzbG90cywgc2V0U2xvdHNdID0gdXNlU3RhdGU8c3RyaW5nW10+KFxyXG4gICAgaW5pdGlhbFZhbHVlLmxlbmd0aCA+IDAgPyBpbml0aWFsVmFsdWUgOiBbJyddLFxyXG4gICk7XHJcblxyXG4gIGZ1bmN0aW9uIHVwZGF0ZShuZXh0OiBzdHJpbmdbXSkge1xyXG4gICAgc2V0U2xvdHMobmV4dCk7XHJcbiAgICBvbkNoYW5nZShuZXh0LmZpbHRlcihCb29sZWFuKSk7XHJcbiAgfVxyXG5cclxuICBjb25zdCBjYW5BZGQgPVxyXG4gICAgIWRpc2FibGVkICYmIHNsb3RzLmV2ZXJ5KEJvb2xlYW4pICYmIHNsb3RzLmxlbmd0aCA8IE1VU0NMRV9HUk9VUFMubGVuZ3RoO1xyXG5cclxuICByZXR1cm4gKFxyXG4gICAgPGZpZWxkc2V0IGNsYXNzTmFtZT1cIm11c2NsZS1waWNrZXJcIiBkaXNhYmxlZD17ZGlzYWJsZWR9PlxyXG4gICAgICA8bGVnZW5kPkdydXBvIG11c2N1bGFyIChvcGNpb25hbCk8L2xlZ2VuZD5cclxuICAgICAge3Nsb3RzLm1hcCgoc2xvdCwgaW5kZXgpID0+IChcclxuICAgICAgICA8ZGl2IGNsYXNzTmFtZT1cIm11c2NsZS1waWNrZXJfX3Jvd1wiIGtleT17aW5kZXh9PlxyXG4gICAgICAgICAgPHNlbGVjdFxyXG4gICAgICAgICAgICBhcmlhLWxhYmVsPXtgR3J1cG8gbXVzY3VsYXIgJHtpbmRleCArIDF9YH1cclxuICAgICAgICAgICAgdmFsdWU9e3Nsb3R9XHJcbiAgICAgICAgICAgIG9uQ2hhbmdlPXsoZXZlbnQpID0+XHJcbiAgICAgICAgICAgICAgdXBkYXRlKFxyXG4gICAgICAgICAgICAgICAgc2xvdHMubWFwKChzLCBpKSA9PiAoaSA9PT0gaW5kZXggPyBldmVudC50YXJnZXQudmFsdWUgOiBzKSksXHJcbiAgICAgICAgICAgICAgKVxyXG4gICAgICAgICAgICB9XHJcbiAgICAgICAgICA+XHJcbiAgICAgICAgICAgIDxvcHRpb24gdmFsdWU9XCJcIj5TZWxlY2Npb25hIHVuIGdydXBv4oCmPC9vcHRpb24+XHJcbiAgICAgICAgICAgIHtNVVNDTEVfR1JPVVBTLmZpbHRlcihcclxuICAgICAgICAgICAgICAoZ3JvdXApID0+IGdyb3VwLmtleSA9PT0gc2xvdCB8fCAhc2xvdHMuaW5jbHVkZXMoZ3JvdXAua2V5KSxcclxuICAgICAgICAgICAgKS5tYXAoKGdyb3VwKSA9PiAoXHJcbiAgICAgICAgICAgICAgPG9wdGlvbiBrZXk9e2dyb3VwLmtleX0gdmFsdWU9e2dyb3VwLmtleX0+XHJcbiAgICAgICAgICAgICAgICB7Z3JvdXAubGFiZWx9XHJcbiAgICAgICAgICAgICAgPC9vcHRpb24+XHJcbiAgICAgICAgICAgICkpfVxyXG4gICAgICAgICAgPC9zZWxlY3Q+XHJcbiAgICAgICAgICB7KHNsb3RzLmxlbmd0aCA+IDEgfHwgc2xvdCkgJiYgKFxyXG4gICAgICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgICAgY2xhc3NOYW1lPVwiYnV0dG9uLS1uZXV0cmFsIG11c2NsZS1waWNrZXJfX3JlbW92ZVwiXHJcbiAgICAgICAgICAgICAgYXJpYS1sYWJlbD17YFF1aXRhciAke2ZpbmRNdXNjbGVHcm91cChzbG90KT8ubGFiZWwgPz8gYGdydXBvICR7aW5kZXggKyAxfWB9YH1cclxuICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PiB7XHJcbiAgICAgICAgICAgICAgICBjb25zdCBuZXh0ID0gc2xvdHMuZmlsdGVyKChfLCBpKSA9PiBpICE9PSBpbmRleCk7XHJcbiAgICAgICAgICAgICAgICB1cGRhdGUobmV4dC5sZW5ndGggPiAwID8gbmV4dCA6IFsnJ10pO1xyXG4gICAgICAgICAgICAgIH19XHJcbiAgICAgICAgICAgID5cclxuICAgICAgICAgICAgICDDl1xyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICl9XHJcbiAgICAgICAgPC9kaXY+XHJcbiAgICAgICkpfVxyXG4gICAgICA8YnV0dG9uXHJcbiAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgY2xhc3NOYW1lPVwiYnV0dG9uLS1uZXV0cmFsIG11c2NsZS1waWNrZXJfX2FkZFwiXHJcbiAgICAgICAgb25DbGljaz17KCkgPT4gc2V0U2xvdHMoWy4uLnNsb3RzLCAnJ10pfVxyXG4gICAgICAgIGRpc2FibGVkPXshY2FuQWRkfVxyXG4gICAgICA+XHJcbiAgICAgICAgKyBBZ3JlZ2FyIGdydXBvIG11c2N1bGFyXHJcbiAgICAgIDwvYnV0dG9uPlxyXG4gICAgPC9maWVsZHNldD5cclxuICApO1xyXG59XHJcblxyXG4vLyBDb2x1bW5hcyBzZWfDum4gY3XDoW50YXMgaW3DoWdlbmVzIGhheWE6IDEgZ3JhbmRlOyBkZSAyIGEgNiBlbiAyIGNvbHVtbmFzXHJcbi8vIChsYSAzLsKqIGJhamEgYSB1bmEgbnVldmEgZmlsYSB5IGxhIDQuwqogcXVlZGEgYSBzdSBsYWRvKTsgNyBvIG3DoXMgZW4gM1xyXG4vLyBjb2x1bW5hcyBwYXJhIHF1ZSBlbCBwYW5lbCBubyBjcmV6Y2EgZGVtYXNpYWRvIGVuIGFsdG8uXHJcbmZ1bmN0aW9uIGNvbHVtbnNGb3IoY291bnQ6IG51bWJlcik6IG51bWJlciB7XHJcbiAgaWYgKGNvdW50IDw9IDEpIHJldHVybiAxO1xyXG4gIGlmIChjb3VudCA8PSA2KSByZXR1cm4gMjtcclxuICByZXR1cm4gMztcclxufVxyXG5cclxuZXhwb3J0IGZ1bmN0aW9uIE11c2NsZUdyb3VwUHJldmlldyh7IGtleXMgfTogeyBrZXlzOiBzdHJpbmdbXSB9KSB7XHJcbiAgY29uc3QgZ3JvdXBzID0ga2V5c1xyXG4gICAgLm1hcChmaW5kTXVzY2xlR3JvdXApXHJcbiAgICAuZmlsdGVyKChncm91cCk6IGdyb3VwIGlzIE5vbk51bGxhYmxlPHR5cGVvZiBncm91cD4gPT4gQm9vbGVhbihncm91cCkpO1xyXG5cclxuICBpZiAoZ3JvdXBzLmxlbmd0aCA9PT0gMCkge1xyXG4gICAgcmV0dXJuIChcclxuICAgICAgPGRpdiBjbGFzc05hbWU9XCJtdXNjbGUtcHJldmlldyBtdXNjbGUtcHJldmlldy0tZW1wdHlcIj5cclxuICAgICAgICA8cD5cclxuICAgICAgICAgIFNlbGVjY2lvbmEgdW4gZ3J1cG8gbXVzY3VsYXIgcGFyYSB2ZXIgbGEgem9uYSBxdWUgdHJhYmFqYSBlbFxyXG4gICAgICAgICAgZWplcmNpY2lvLlxyXG4gICAgICAgIDwvcD5cclxuICAgICAgPC9kaXY+XHJcbiAgICApO1xyXG4gIH1cclxuXHJcbiAgcmV0dXJuIChcclxuICAgIDxkaXZcclxuICAgICAgY2xhc3NOYW1lPVwibXVzY2xlLXByZXZpZXdcIlxyXG4gICAgICBkYXRhLWNvdW50PXtncm91cHMubGVuZ3RofVxyXG4gICAgICBzdHlsZT17e1xyXG4gICAgICAgIGdyaWRUZW1wbGF0ZUNvbHVtbnM6IGByZXBlYXQoJHtjb2x1bW5zRm9yKGdyb3Vwcy5sZW5ndGgpfSwgbWlubWF4KDAsIDFmcikpYCxcclxuICAgICAgfX1cclxuICAgICAgYXJpYS1sYWJlbD1cIlpvbmFzIG11c2N1bGFyZXMgdHJhYmFqYWRhc1wiXHJcbiAgICA+XHJcbiAgICAgIHtncm91cHMubWFwKChncm91cCkgPT4gKFxyXG4gICAgICAgIDxmaWd1cmUga2V5PXtncm91cC5rZXl9IGNsYXNzTmFtZT1cIm11c2NsZS1wcmV2aWV3X19pdGVtXCI+XHJcbiAgICAgICAgICA8aW1nIHNyYz17Z3JvdXAuaW1hZ2V9IGFsdD17YFpvbmEgbXVzY3VsYXI6ICR7Z3JvdXAubGFiZWx9YH0gLz5cclxuICAgICAgICAgIDxmaWdjYXB0aW9uPlxyXG4gICAgICAgICAgICA8c3Ryb25nPntncm91cC5sYWJlbH08L3N0cm9uZz5cclxuICAgICAgICAgICAgPHNwYW4+e2dyb3VwLmRldGFpbH08L3NwYW4+XHJcbiAgICAgICAgICA8L2ZpZ2NhcHRpb24+XHJcbiAgICAgICAgPC9maWd1cmU+XHJcbiAgICAgICkpfVxyXG4gICAgPC9kaXY+XHJcbiAgKTtcclxufVxyXG5cclxuLy8gRGVwb3J0ZXMgb3BjaW9uYWxlcyBjb21vIGJvdG9uZXMgZGUgc2VsZWNjacOzbiBtw7psdGlwbGUuXHJcbmV4cG9ydCBmdW5jdGlvbiBTcG9ydFBpY2tlcih7XHJcbiAgdmFsdWUsXHJcbiAgb25DaGFuZ2UsXHJcbiAgZGlzYWJsZWQsXHJcbn06IHtcclxuICB2YWx1ZTogc3RyaW5nW107XHJcbiAgb25DaGFuZ2U6IChrZXlzOiBzdHJpbmdbXSkgPT4gdm9pZDtcclxuICBkaXNhYmxlZD86IGJvb2xlYW47XHJcbn0pIHtcclxuICByZXR1cm4gKFxyXG4gICAgPGZpZWxkc2V0IGNsYXNzTmFtZT1cInNwb3J0LXBpY2tlclwiIGRpc2FibGVkPXtkaXNhYmxlZH0+XHJcbiAgICAgIDxsZWdlbmQ+RGVwb3J0ZSAob3BjaW9uYWwpPC9sZWdlbmQ+XHJcbiAgICAgIDxkaXYgY2xhc3NOYW1lPVwic3BvcnQtcGlja2VyX19vcHRpb25zXCI+XHJcbiAgICAgICAge1NQT1JUUy5tYXAoKHNwb3J0KSA9PiB7XHJcbiAgICAgICAgICBjb25zdCBzZWxlY3RlZCA9IHZhbHVlLmluY2x1ZGVzKHNwb3J0LmtleSk7XHJcbiAgICAgICAgICByZXR1cm4gKFxyXG4gICAgICAgICAgICA8YnV0dG9uXHJcbiAgICAgICAgICAgICAga2V5PXtzcG9ydC5rZXl9XHJcbiAgICAgICAgICAgICAgdHlwZT1cImJ1dHRvblwiXHJcbiAgICAgICAgICAgICAgYXJpYS1wcmVzc2VkPXtzZWxlY3RlZH1cclxuICAgICAgICAgICAgICBvbkNsaWNrPXsoKSA9PlxyXG4gICAgICAgICAgICAgICAgb25DaGFuZ2UoXHJcbiAgICAgICAgICAgICAgICAgIHNlbGVjdGVkXHJcbiAgICAgICAgICAgICAgICAgICAgPyB2YWx1ZS5maWx0ZXIoKGtleSkgPT4ga2V5ICE9PSBzcG9ydC5rZXkpXHJcbiAgICAgICAgICAgICAgICAgICAgOiBbLi4udmFsdWUsIHNwb3J0LmtleV0sXHJcbiAgICAgICAgICAgICAgICApXHJcbiAgICAgICAgICAgICAgfVxyXG4gICAgICAgICAgICA+XHJcbiAgICAgICAgICAgICAge3Nwb3J0LmxhYmVsfVxyXG4gICAgICAgICAgICA8L2J1dHRvbj5cclxuICAgICAgICAgICk7XHJcbiAgICAgICAgfSl9XHJcbiAgICAgIDwvZGl2PlxyXG4gICAgPC9maWVsZHNldD5cclxuICApO1xyXG59XHJcbiJdLCJmaWxlIjoiL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9NdXNjbGVHcm91cFBpY2tlci50c3gifQ==
+
+//# vitestCache=W3siZmlsZSI6IjEiLCJpZCI6IjEiLCJ1cmwiOiIyIiwiaW1wb3J0ZWRVcmxzIjoiMyIsIm1hcHBpbmdzIjpmYWxzZSwiZGVwcyI6IjQiLCJkeW5hbWljRGVwcyI6IjUiLCJzdGF0aWNNb2NrcyI6bnVsbH0sIkM6L1VzZXJzL2Fsb25zL09uZURyaXZlL0RvY3VtZW50b3MvR2l0SHViL1Byb3llY3RvVGl0dWxvQUFBL2Zyb250ZW5kL3NyYy9jb21wb25lbnRzL2V4ZXJjaXNlcy9NdXNjbGVHcm91cFBpY2tlci50c3giLCIvc3JjL2NvbXBvbmVudHMvZXhlcmNpc2VzL011c2NsZUdyb3VwUGlja2VyLnRzeCIsW10sWyI2IiwiNyIsIjgiXSxbXSwiL25vZGVfbW9kdWxlcy9yZWFjdC9pbmRleC5qcyIsIi9zcmMvbGliL2V4ZXJjaXNlVGF4b25vbXkudHMiLCIvbm9kZV9tb2R1bGVzL3JlYWN0L2pzeC1kZXYtcnVudGltZS5qcyJd

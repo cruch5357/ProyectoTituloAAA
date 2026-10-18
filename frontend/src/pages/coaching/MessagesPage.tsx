@@ -1,3 +1,4 @@
+import { readableDate } from '../../lib/readableDate';
 import { useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
@@ -37,8 +38,8 @@ function CoachContacts() {
 export function MessagesPage() {
   const { user } = useAuth(); const [params] = useSearchParams(); const profile = useProfile();
   const peer = params.get('peer') ?? profile.data?.coach?.id;
-  return <section><h1>Mensajes</h1><div className={user?.role === 'COACH' ? 'chat-layout' : ''}>{user?.role === 'COACH' && <CoachContacts />}
-    {peer ? <Conversation key={peer} peer={peer} /> : <p>Selecciona una conversación con tu {user?.role === 'COACH' ? 'alumno' : 'coach'}.</p>}</div></section>;
+  return <section><h1>Mensajes</h1>{!peer && <p className="muted">Selecciona una conversación con tu {user?.role === 'COACH' ? 'alumno' : 'coach'}.</p>}<div className={user?.role === 'COACH' ? 'chat-layout' : ''}>{user?.role === 'COACH' && <CoachContacts />}
+    {peer && <Conversation key={peer} peer={peer} />}</div></section>;
 }
 function Conversation({ peer }: { peer: string }) {
   const { user } = useAuth(); const client = useQueryClient();
@@ -59,7 +60,7 @@ function Conversation({ peer }: { peer: string }) {
   }, onSuccess: () => { setBody(''); chooseFile(undefined); setPage(1); void client.invalidateQueries({ queryKey: ['coaching'] }); } });
   return <Card><h2>Chat Coach ↔ Alumno</h2>{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
     <div className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
-      <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {new Date(m.createdAt).toLocaleString('es-CL')}</small><p>{m.body}</p>
+      <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small><p>{m.body}</p>
       {m.attachments.map((a) => <PrivateAttachment key={a.id} attachment={a} />)}<small>{m.senderId === user?.id ? m.readAt ? 'Leído' : 'Enviado' : ''}</small>
     </article>)}</div>
     {query.isSuccess && query.data.length === 0 && <p>Comienza la conversación.</p>}
