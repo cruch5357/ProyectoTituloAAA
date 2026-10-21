@@ -146,6 +146,7 @@ export interface EmbeddedStudentSummary {
 }
 
 export interface PublicWorkoutLog {
+  structuredExecution?: boolean;
   prescriptionSource: 'snapshot' | 'legacy-current';
   prescriptions?: Array<
     Omit<WorkoutPrescription, 'targetRpe'> & { targetRpe: number | null }
@@ -204,6 +205,7 @@ export function toPublicWorkoutLog(
           })),
         }
       : {}),
+    structuredExecution: workoutLog.structuredExecution,
     id: workoutLog.id,
     sessionId: workoutLog.sessionId,
     studentId: workoutLog.studentId,

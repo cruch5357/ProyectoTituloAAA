@@ -16,7 +16,7 @@ const student = {
 beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(apiClient, 'get').mockImplementation(async (path) => ({
-      data: path.includes('/calendar') ? { today: '2026-10-07', assignments: [], sessions: [], nextSession: null, pendingSession: null, nextCompetition: null } : path.includes('/competitions') ? [] : path.startsWith('/programs') ? [] : path.startsWith('/students/')
+      data: (path.includes('/calendar') || path.endsWith('/training')) ? { today: '2026-10-07', assignments: [], sessions: [], nextSession: null, pendingSession: null, nextCompetition: null } : path.includes('/competitions') ? [] : (path.startsWith('/programs') || path.startsWith('/block-library')) ? [] : path.startsWith('/students/')
       ? student
       : {
           student,
@@ -43,7 +43,7 @@ describe('Workspace del atleta', () => {
         .map((a) => a.textContent),
     ).toEqual([
       'Resumen',
-      'Programa',
+      'Bloque',
       'Calendario',
       'Formularios',
       'Perfil Estadístico',
@@ -68,8 +68,8 @@ describe('Workspace del atleta', () => {
       route: '/students/s1?tab=program',
     });
     expect(
-      await screen.findByRole('link', { name: 'Ver programas y asignaciones' }),
-    ).toHaveAttribute('href', '/programs');
+      await screen.findByRole('button', { name: 'Asignar bloque' }),
+    ).toBeInTheDocument();
   });
   it('muestra carga y error recuperable sin revelar datos', async () => {
     vi.mocked(apiClient.get).mockRejectedValue(

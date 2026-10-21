@@ -1,0 +1,374 @@
+.library-toolbar,
+.library-actions,
+.week-stepper,
+.editor-header,
+.week-header,
+.day-header,
+.planned-exercise header,
+.planned-exercise footer,
+.mobile-week-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+.library-toolbar,
+.editor-header {
+  justify-content: space-between;
+  margin: 1rem 0;
+}
+.library-toolbar form {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.library-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1rem;
+}
+.library-actions {
+  margin: 0.5rem 0;
+}
+.library-actions button,
+.exercise-actions button {
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+}
+.week-stepper {
+  justify-content: center;
+  margin: 1rem;
+}
+.week-stepper output {
+  font-size: 1.6rem;
+  min-width: 3rem;
+  text-align: center;
+}
+.editor-header {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: var(--color-background);
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+.editor-header input {
+  font-size: 1.3rem;
+  font-weight: 650;
+}
+.editor-header .field {
+  margin-bottom: 0.5rem;
+}
+.editor-header p[role="status"] {
+  font-size: 0.85rem;
+  margin: 0.4rem 0;
+  color: var(--color-text-muted);
+}
+.editor-content {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.block-editor {
+  min-width: 0;
+  max-width: 100%;
+}
+.block-weeks {
+  display: flex;
+  overflow-x: auto;
+  align-items: flex-start;
+  gap: 1.2rem;
+  padding-bottom: 1.5rem;
+}
+.block-week {
+  flex: 0 0 480px;
+  min-width: 0;
+}
+.week-header {
+  justify-content: space-between;
+  border-bottom: 1px solid var(--color-border);
+}
+.week-header h2 {
+  font-size: 1.1rem;
+}
+.planned-day {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin: 1rem 0;
+  overflow: hidden;
+}
+.day-header {
+  padding: 0.7rem;
+  background: var(--color-surface-raised);
+  justify-content: space-between;
+}
+.day-header label {
+  flex: 1;
+  min-width: 0;
+}
+.day-header input {
+  width: 100%;
+  font-weight: 650;
+}
+.planned-day > .library-actions {
+  padding: 0 0.6rem;
+}
+.planned-day > footer {
+  padding: 0.7rem;
+  border-top: 1px solid var(--color-border);
+}
+.planned-exercise {
+  padding: 1rem 0.7rem;
+  border-top: 1px solid var(--color-border);
+}
+.planned-exercise header {
+  flex-wrap: nowrap;
+}
+.exercise-name {
+  flex: 1;
+  text-align: left;
+  background: none;
+  color: var(--color-text);
+  padding: 0.2rem;
+  white-space: normal;
+}
+.exercise-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.drag-handle {
+  cursor: grab;
+  color: var(--color-primary);
+  padding: 0.3rem;
+  font-size: 1.4rem;
+}
+.order-buttons {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+.order-buttons button,
+.set-tools button {
+  background: none;
+  color: var(--color-text-secondary);
+  min-width: 28px;
+  padding: 0.25rem;
+}
+.set-head,
+.set-row {
+  display: grid;
+  grid-template-columns: 28px repeat(3, minmax(0, 1fr)) 134px;
+  gap: 5px;
+  align-items: center;
+  margin: 0.3rem 0;
+}
+.set-head {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-align: center;
+  text-transform: uppercase;
+}
+.set-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 0.4rem;
+  text-align: center;
+  min-height: 38px;
+}
+.set-tools {
+  display: flex;
+  align-items: center;
+}
+.set-tools .drag-handle {
+  padding: 0.1rem;
+}
+.set-priority {
+  background: transparent;
+  padding: 0;
+  min-height: 38px;
+}
+.set-priority span {
+  display: block;
+  width: 13px;
+  height: 13px;
+  margin: auto;
+  border-radius: 50%;
+  background: var(--priority-color);
+}
+.priority-low {
+  --priority-color: var(--color-success);
+}
+.priority-medium {
+  --priority-color: var(--color-warning);
+}
+.priority-high {
+  --priority-color: var(--color-danger);
+}
+.planned-exercise footer {
+  justify-content: space-between;
+  margin-top: 0.6rem;
+}
+.planned-exercise footer button {
+  background: none;
+  color: var(--color-primary);
+  padding: 0.4rem;
+}
+.week-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+.add-day {
+  width: 100%;
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+.exercise-picker {
+  width: min(920px, 95vw);
+  max-width: 95vw;
+  max-height: 90dvh;
+  padding: 1.4rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+.exercise-picker::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+.exercise-picker h2 {
+  font-size: 1.2rem;
+}
+.picker-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.4rem;
+  margin: 1rem 0;
+}
+.picker-columns > section {
+  min-width: 0;
+}
+.picker-options {
+  height: 290px;
+  overflow-y: auto;
+  margin-bottom: 0.7rem;
+}
+.picker-options h3 {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+}
+.picker-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.picker-chips button {
+  background: var(--color-surface-raised);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+  padding: 0.5rem 0.7rem;
+}
+.picker-chips button[aria-pressed="true"] {
+  background: var(--color-primary-soft);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+.mobile-week-nav {
+  display: none;
+}
+.leave-block {
+  position: fixed;
+  z-index: 30;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(480px, 90vw);
+  padding: 2rem;
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 55%);
+}
+.leave-block button {
+  margin: 0.3rem;
+}
+@media (max-width: 650px) {
+  .editor-header {
+    position: static;
+  }
+  .editor-header > div {
+    width: 100%;
+  }
+  .editor-header input {
+    width: 100%;
+  }
+  .mobile-week-nav {
+    display: flex;
+    justify-content: space-between;
+    margin: 1rem 0;
+  }
+  .block-weeks {
+    display: block;
+    overflow: visible;
+  }
+  .block-week {
+    display: none;
+    width: 100%;
+  }
+  .block-week.is-current {
+    display: block;
+  }
+  .set-head,
+  .set-row {
+    grid-template-columns: 24px repeat(3, minmax(0, 1fr));
+  }
+  .set-head > :last-child {
+    display: none;
+  }
+  .set-tools {
+    grid-column: 2 / 5;
+    justify-content: flex-end;
+  }
+  .set-row {
+    margin: 0.7rem 0;
+  }
+  .set-row input {
+    min-height: 44px;
+  }
+  .set-tools button,
+  .order-buttons button {
+    min-width: 34px;
+    min-height: 34px;
+  }
+  .picker-columns {
+    gap: 0.7rem;
+  }
+  .picker-options {
+    height: 240px;
+  }
+  .exercise-picker {
+    padding: 0.8rem;
+  }
+  .picker-columns button {
+    font-size: 0.85rem;
+  }
+}
+.app-shell__content > .block-editor > form:not(.search-form):not(.inline-create-form),
+.block-library .library-toolbar form {
+  max-width: none;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.block-library .library-toolbar form { width: auto; }
+.block-editor .exercise-name { justify-content: flex-start; border: 0; }
+.block-editor .set-priority,
+.block-editor .set-tools button,
+.block-editor .order-buttons button,
+.block-editor .exercise-actions button { border-color: transparent; }

@@ -50,7 +50,11 @@ export class ProgramsService {
   // Verifica que el programa exista y pertenezca al coach autenticado.
   // Lanza 404 (nunca 403) sin distinguir "no existe" de "es de otro coach".
   ensureOwnedProgram(coachId: string, program: Program | null): Program {
-    if (!program || program.coachId !== coachId) {
+    if (
+      !program ||
+      program.coachId !== coachId ||
+      program.isAssignmentSnapshot
+    ) {
       throw new NotFoundException(GENERIC_PROGRAM_NOT_FOUND);
     }
     return program;
@@ -77,6 +81,7 @@ export class ProgramsService {
 
     const where: Prisma.ProgramWhereInput = {
       coachId,
+      isAssignmentSnapshot: false,
       ...(search
         ? { name: { contains: search, mode: 'insensitive' as const } }
         : {}),

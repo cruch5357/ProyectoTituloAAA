@@ -9,7 +9,7 @@ export interface Competition {
 }
 export interface CalendarSession {
   id: string; sessionId: string; assignmentId: string; name: string; date: string | null;
-  rescheduled?: boolean; originalDate?: string | null;
+  status?: 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'SKIPPED'; rescheduled?: boolean; originalDate?: string | null;
   programName: string; blockId: string; blockName: string; weekNumber: number; blockIndex: number; completed: boolean;
 }
 export interface CalendarData {
@@ -36,7 +36,7 @@ export function useCoachingMutation() {
   const client = useQueryClient();
   return useMutation({ mutationFn: async ({ path, data, method = 'patch' }: { path: string; data?: unknown; method?: 'post' | 'patch' }) =>
     (await apiClient[method](path, data)).data,
-    onSuccess: () => { void client.invalidateQueries({ queryKey: ['coaching'] }); void client.invalidateQueries({ queryKey: ['programAssignments'] }); } });
+    onSuccess: () => { void client.invalidateQueries({ queryKey: ['coaching'] }); void client.invalidateQueries({ queryKey: ['training'] }); void client.invalidateQueries({ queryKey: ['programAssignments'] }); } });
 }
 export const useCalendar = (studentId?: string, month?: string) => useCoachingQuery<CalendarData>((studentId ? `/students/${studentId}/calendar` : '/calendar/me') + (month ? `?month=${month}` : ''));
 export const useProfile = () => useCoachingQuery<ProfileData>('/profile/me');

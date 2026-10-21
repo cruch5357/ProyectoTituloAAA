@@ -57,6 +57,7 @@ export class StudentTrainingService {
     studentId: string,
     programId: string,
   ): Promise<boolean> {
+    if (!programId) return false;
     const assignment = await this.prisma.programAssignment.findFirst({
       where: { programId, studentId },
       select: { id: true },
@@ -173,7 +174,7 @@ export class StudentTrainingService {
       where: { id: sessionId },
       include: { week: { include: { block: { include: { program: true } } } } },
     });
-    if (!session) {
+    if (!session || !session.week.block.program) {
       throw new NotFoundException(GENERIC_SESSION_NOT_FOUND);
     }
 

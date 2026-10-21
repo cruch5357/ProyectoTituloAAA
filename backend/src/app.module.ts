@@ -1,4 +1,5 @@
 import { RequestLoggingMiddleware } from './common/request-logging.middleware';
+import { BlockAssignmentsModule } from './block-assignments/block-assignments.module';
 import { MessagesModule } from './messages/messages.module';
 import { CoachingModule } from './coaching/coaching.module';
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
@@ -32,6 +33,7 @@ import { StudentsController } from './students/students.controller';
 
 @Module({
   imports: [
+    BlockAssignmentsModule,
     ConfigModule.forRoot({
       isGlobal: true,
       validate: validateEnv,

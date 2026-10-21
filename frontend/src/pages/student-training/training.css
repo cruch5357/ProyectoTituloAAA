@@ -1,0 +1,257 @@
+.training-home,
+.training-recorder {
+  max-width: 1000px;
+  margin: auto;
+}
+.training-hero,
+.training-cycle,
+.training-exercise,
+.training-muscles {
+  padding: clamp(18px, 3vw, 30px);
+  margin: 20px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  background: var(--color-surface);
+}
+.training-hero {
+  background: linear-gradient(
+    125deg,
+    rgba(42, 164, 156, 0.19),
+    rgba(76, 113, 200, 0.08)
+  );
+  padding: 32px;
+}
+.training-hero h2 {
+  font-size: clamp(26px, 4vw, 38px);
+  margin: 12px 0;
+}
+.training-home progress,
+.training-panel progress,
+.training-recorder progress {
+  width: 100%;
+  height: 7px;
+  accent-color: var(--color-primary);
+}
+.training-session-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.training-session-list > a {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.training-session-list > a:hover,
+.training-session-list > a[aria-current] {
+  border-color: var(--color-primary);
+  background: rgba(54, 172, 160, 0.07);
+}
+.training-session-list small,
+.training-muscle-grid small {
+  display: block;
+  margin-top: 5px;
+  opacity: 0.75;
+}
+.training-status {
+  font-size: 0.85rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.training-status--COMPLETED {
+  color: var(--color-success);
+}
+.training-status--PARTIAL {
+  color: var(--color-warning);
+}
+.training-status--SKIPPED {
+  color: var(--color-danger);
+}
+.training-status--NOT_STARTED {
+  opacity: 0.75;
+}
+.training-links {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+.training-muscle-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+  gap: 15px;
+}
+.training-muscle-grid figure {
+  margin: 0;
+  overflow: hidden;
+  border-radius: 14px;
+  background: rgba(100, 130, 130, 0.08);
+}
+.training-muscle-grid img {
+  display: block;
+  width: 100%;
+  height: 170px;
+  object-fit: contain;
+}
+.training-muscle-grid figcaption {
+  padding: 14px;
+}
+.training-notice {
+  border-left: 3px solid var(--color-primary);
+  padding: 12px 16px;
+  background: rgba(54, 172, 160, 0.08);
+}
+.training-session-header {
+  margin: 26px 0;
+}
+.training-exercise > header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.training-exercise h2 {
+  font-size: 1.2rem;
+  margin: 0;
+}
+.training-exercise header p {
+  margin: 6px 0;
+}
+.training-exercise-number {
+  font-size: 1.5rem;
+  opacity: 0.5;
+}
+.performed-set {
+  min-width: 0;
+  padding: 16px;
+  margin: 16px 0;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+}
+.performed-set legend {
+  padding: 0 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+.performed-set--RECORDED {
+  border-color: var(--color-primary);
+}
+.performed-set--SKIPPED {
+  border-style: dashed;
+}
+.set-prescription {
+  font-size: 0.9rem;
+  margin: 0 0 14px;
+  opacity: 0.75;
+}
+.performed-set-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.performed-set-fields label {
+  font-size: 0.8rem;
+}
+.performed-set-fields input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  margin-top: 6px;
+  padding: 12px;
+  font-size: 1rem;
+}
+.set-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.set-actions button {
+  font-size: 0.85rem;
+  padding: 8px 12px;
+}
+.training-save-bar {
+  padding: 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface);
+  margin: 20px 0;
+}
+.training-save-bar > .field {
+  max-width: 260px;
+  margin-bottom: 14px;
+}
+.training-confirm {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  width: min(500px, calc(100vw - 40px));
+  box-sizing: border-box;
+  padding: 24px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary);
+  border-radius: 18px;
+  box-shadow: 0 0 0 100vmax #0009;
+  z-index: 1000;
+}
+.assign-block-dialog {
+  width: min(560px, calc(100vw - 36px));
+  max-height: 85vh;
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 26px;
+  border-radius: 18px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: inherit;
+}
+.assign-block-dialog::backdrop {
+  background: #0009;
+}
+.assign-block-dialog .field {
+  margin: 16px 0;
+}
+.replace-cycle {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 18px 0;
+}
+.replace-cycle input {
+  width: auto;
+}
+.assignment-preview {
+  padding: 12px;
+  background: rgba(54, 172, 160, 0.08);
+  border-radius: 12px;
+}
+@media (max-width: 600px) {
+  .training-session-list > a {
+    padding: 12px;
+    gap: 8px;
+  }
+  .training-status {
+    font-size: 0.75rem;
+  }
+  .training-exercise {
+    padding: 14px;
+  }
+  .performed-set {
+    padding: 12px;
+  }
+  .training-hero {
+    padding: 22px;
+  }
+  .training-save-bar .dialog-actions {
+    display: grid;
+  }
+  .training-muscle-grid img {
+    height: 140px;
+  }
+}

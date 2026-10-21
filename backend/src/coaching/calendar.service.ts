@@ -1,184 +1,44 @@
-import { computeAdherence } from '../common/training/adherence';
+import { TrainingService } from '../block-assignments/training.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
-import { StudentAccessService } from './student-access.service';
+
 import { CompetitionsService } from '../competitions/competitions.service';
-import {
-  dateOnly,
-  effectiveSessionDate,
-  todayDate,
-} from '../common/training/calendar-date';
+import { dateOnly, todayDate } from '../common/training/calendar-date';
 
 @Injectable()
 export class CalendarService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly access: StudentAccessService,
+    private readonly training: TrainingService,
     private readonly competitions: CompetitionsService,
   ) {}
   async overview(user: AuthenticatedUser, studentId: string, month?: string) {
-    await this.access.require(user, studentId);
+    const training = await this.training.overview(user, studentId, true);
     const today = todayDate();
     const monthStart = dateOnly(`${month ?? today.slice(0, 7)}-01`);
     const monthEnd = new Date(monthStart);
     monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
-    const [assignments, nextCompetition, recentLogs, competitions] =
-      await Promise.all([
-        this.prisma.programAssignment.findMany({
-          where: { studentId, status: 'ACTIVE', program: { isActive: true } },
-          orderBy: { assignedAt: 'desc' },
-          include: {
-            scheduleOverrides: true,
-            program: {
-              select: {
-                id: true,
-                name: true,
-                blocks: {
-                  orderBy: { order: 'asc' },
-                  select: {
-                    id: true,
-                    name: true,
-                    weeks: {
-                      orderBy: { order: 'asc' },
-                      select: {
-                        id: true,
-                        number: true,
-                        sessions: {
-                          orderBy: { order: 'asc' },
-                          select: { id: true, name: true, dayOfWeek: true },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        }),
-        this.prisma.competition.findFirst({
-          where: this.competitions.upcomingWhere({ id: studentId }),
-          orderBy: [{ eventDate: 'asc' }, { id: 'asc' }],
-        }),
-        this.prisma.workoutLog.groupBy({
-          by: ['programAssignmentId', 'sessionId'],
-          where: {
-            studentId,
-            session: {
-              week: {
-                block: {
-                  program: {
-                    isActive: true,
-                    assignments: { some: { studentId, status: 'ACTIVE' } },
-                  },
-                },
-              },
-            },
-          },
-          _max: { durationMinutes: true },
-        }),
-        this.prisma.competition.findMany({
-          where: { studentId, eventDate: { gte: monthStart, lt: monthEnd } },
-          orderBy: { eventDate: 'asc' },
-          take: 201,
-        }),
-      ]);
-    const completedSessions = new Set(
-      recentLogs
-        .filter((log) => log._max.durationMinutes !== null)
-        .map((log) => `${log.programAssignmentId}:${log.sessionId}`),
-    );
-    const sessions = assignments
-      .flatMap((assignment) => {
-        let weekIndex = 0;
-        return assignment.program.blocks.flatMap((block, blockIndex) =>
-          block.weeks.flatMap((week) => {
-            const index = weekIndex++;
-            return week.sessions.map((session) => {
-              const override = assignment.scheduleOverrides.find(
-                (o) => o.sessionId === session.id,
-              );
-              const date = effectiveSessionDate(
-                assignment.startDate,
-                index,
-                session.dayOfWeek,
-                override,
-              );
-              return {
-                id: `${assignment.id}:${session.id}`,
-                assignmentId: assignment.id,
-                sessionId: session.id,
-                name: session.name,
-                programName: assignment.program.name,
-                blockName: block.name,
-                blockId: block.id,
-                blockIndex,
-                weekNumber: week.number,
-                date,
-                rescheduled: Boolean(override),
-                originalDate:
-                  override?.originalDate.toISOString().slice(0, 10) ?? null,
-                completed: completedSessions.has(
-                  `${assignment.id}:${session.id}`,
-                ),
-                historyAmbiguous: completedSessions.has(`null:${session.id}`),
-              };
-            });
-          }),
-        );
-      })
-      .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
-    const nextSession =
-      sessions.find((s) => s.date === today && !s.completed) ??
-      sessions.find((s) => s.date !== null && s.date > today) ??
-      null;
-    const pendingSession =
-      [...sessions]
-        .reverse()
-        .find(
-          (s) =>
-            s.date !== null &&
-            s.date < today &&
-            s.date >=
-              new Date(dateOnly(today).getTime() - 56 * 86400000)
-                .toISOString()
-                .slice(0, 10) &&
-            !s.completed,
-        ) ?? null;
+    const [nextCompetition, competitions] = await Promise.all([
+      this.prisma.competition.findFirst({
+        where: this.competitions.upcomingWhere({ id: studentId }),
+        orderBy: [{ eventDate: 'asc' }, { id: 'asc' }],
+      }),
+      this.prisma.competition.findMany({
+        where: { studentId, eventDate: { gte: monthStart, lt: monthEnd } },
+        orderBy: { eventDate: 'asc' },
+        take: 201,
+      }),
+    ]);
     return {
-      today,
-      nextSession,
-      pendingSession,
+      ...training,
+      assignments: training.assignments.filter((a) => a.status === 'ACTIVE'),
+      sessions: training.sessions.filter(
+        (s) => s.cycleStatus === 'ACTIVE' || s.workoutLogId,
+      ),
       nextCompetition,
-      sessions,
       competitions: competitions.slice(0, 200),
       competitionsTruncated: competitions.length > 200,
-      assignments: assignments.map((a) => {
-        const index = a.startDate
-          ? Math.floor(
-              (dateOnly(today).getTime() - a.startDate.getTime()) /
-                (7 * 86400000),
-            )
-          : -1;
-        const weeks = a.program.blocks.flatMap((block) =>
-          block.weeks.map((week) => ({
-            blockName: block.name,
-            weekNumber: week.number,
-          })),
-        );
-        return {
-          id: a.id,
-          programId: a.programId,
-          name: a.program.name,
-          startDate: a.startDate,
-          currentWeek: weeks[index] ?? null,
-          adherence: computeAdherence(
-            a.startDate,
-            sessions.filter((s) => s.assignmentId === a.id),
-            today,
-          ),
-        };
-      }),
     };
   }
   async coach(user: AuthenticatedUser) {
@@ -230,7 +90,10 @@ export class CalendarService {
           where: { student: { coachId: user.id }, performedAt: { gte: since } },
         }),
         this.prisma.auditLog.findMany({
-          where: { actorId: user.id, action: 'program_assignments.created' },
+          where: {
+            actorId: user.id,
+            action: { in: ['program_assignments.created', 'BLOCK_ASSIGNED'] },
+          },
           take: 20,
           orderBy: { createdAt: 'desc' },
           select: { id: true, createdAt: true },
@@ -242,7 +105,7 @@ export class CalendarService {
         id: s.id,
         name: s.name,
         reasons: [
-          !s.assignmentsAsStudent.length ? 'Sin programa activo' : null,
+          !s.assignmentsAsStudent.length ? 'Sin ciclo activo' : null,
           !s.workoutLogs.length || s.workoutLogs[0].performedAt < since
             ? 'Sin entrenamiento finalizado en 7 días'
             : null,
@@ -251,7 +114,7 @@ export class CalendarService {
       workoutsThisWeek,
       assignedActivity: assignedActivity.map((entry) => ({
         ...entry,
-        title: 'Asignaste un programa a un alumno',
+        title: 'Asignaste un ciclo a un alumno',
       })),
     };
   }

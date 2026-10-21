@@ -2,6 +2,7 @@ import { capturePrescription } from '../common/training/workout-prescription';
 import { NotificationsService } from '../notifications/notifications.service';
 import {
   ConflictException,
+  BadRequestException,
   UnauthorizedException,
   Injectable,
   NotFoundException,
@@ -109,11 +110,14 @@ export class WorkoutLogsService {
   // sentido registrar ejecución nueva sobre un programa que el coach ya
   // marcó como terminado para este alumno).
   async start(studentId: string, sessionId: string): Promise<PublicWorkoutLog> {
-    await this.studentTrainingService.findAssignedSessionOrThrow(
-      studentId,
-      sessionId,
-      { requireActive: true },
-    );
+    const session =
+      await this.studentTrainingService.findAssignedSessionOrThrow(
+        studentId,
+        sessionId,
+        { requireActive: true },
+      );
+    if (session?.week?.block?.program?.isAssignmentSnapshot)
+      throw new ConflictException('Registra esta sesión desde Entrenamiento');
 
     const created = await this.prisma.$transaction(
       async (tx) => {
@@ -342,6 +346,8 @@ export class WorkoutLogsService {
     if (workoutLog.durationMinutes !== null) {
       throw new ConflictException(WORKOUT_ALREADY_FINISHED);
     }
+    if (workoutLog.structuredExecution)
+      throw new ConflictException('Edita las series desde Entrenamiento');
 
     const sessionExerciseIds = [
       ...new Set(dto.setLogs.map((item) => item.sessionExerciseId)),
@@ -355,10 +361,24 @@ export class WorkoutLogsService {
             id: { in: sessionExerciseIds },
             sessionId: workoutLog.sessionId,
           },
-          select: { id: true },
+          select: { id: true, targetSets: true },
         });
     if (validExercises.length !== sessionExerciseIds.length) {
       throw new NotFoundException(GENERIC_SESSION_EXERCISE_NOT_FOUND);
+    }
+    for (const item of dto.setLogs) {
+      const prescription = validExercises.find(
+        (e) =>
+          ('sessionExerciseId' in e ? e.sessionExerciseId : e.id) ===
+          item.sessionExerciseId,
+      );
+      if (
+        prescription?.targetSets != null &&
+        item.setNumber > prescription.targetSets
+      )
+        throw new BadRequestException(
+          'No puedes registrar más series de las prescritas',
+        );
     }
 
     try {
@@ -404,6 +424,8 @@ export class WorkoutLogsService {
       workoutLogId,
     );
     ensureWithinEditWindow(workoutLog.createdAt);
+    if (workoutLog.structuredExecution)
+      throw new ConflictException('Finaliza esta sesión desde Entrenamiento');
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.workoutLog.update({

@@ -15,7 +15,7 @@ import { CoachOperations } from '../../components/coaching/CoachOperations';
 import { getHomePathForRole } from '../../auth/roleHome';
 
 const competition = { id: 'c1', name: 'Open Santiago', studentId: 's1', eventDate: '2026-10-20T00:00:00.000Z', category: 'Open', status: 'UPCOMING', goal: 'Técnica', coachGoal: null, notes: null, location: null };
-const session = { id: 'a1:ss1', sessionId: 'ss1', assignmentId: 'a1', name: 'Fuerza de hoy', date: '2026-10-07', programName: 'Fuerza', blockId: 'b1', blockName: 'Base', weekNumber: 2, blockIndex: 0, completed: false };
+const session = { id: 'a1:ss1', sessionId: 'ss1', assignmentId: 'a1', name: 'Fuerza de hoy', date: '2026-10-07', programName: 'Fuerza', blockId: 'b1', blockName: 'Base', weekNumber: 2, blockIndex: 0, completed: false, muscleGroups: [], status: 'NOT_STARTED', dayNumber: 1, totalSets: 4, recordedSets: 0, exerciseCount: 1 };
 const calendar = { today: '2026-10-07', nextSession: session, pendingSession: null, nextCompetition: competition, sessions: [session], assignments: [], competitions: [competition] };
 function renderUser(children: ReactNode) {
   return renderWithProviders(<AuthContext.Provider value={{ status: 'authenticated', user: { id: 's1', name: 'Atleta', email: 's@example.com', role: 'STUDENT', coachId: 'coach1', isActive: true, createdAt: '' }, login: vi.fn(), logout: vi.fn() }}>{children}</AuthContext.Provider>);
@@ -24,7 +24,7 @@ beforeEach(() => {
   vi.restoreAllMocks();
   vi.spyOn(apiClient, 'get').mockImplementation(async (path) => {
     let data: unknown = [];
-    if (path.startsWith('/calendar/')) data = calendar;
+    if (path.startsWith('/calendar/') || path === '/training/me') data = calendar;
     else if (path === '/profile/me') data = { id: 's1', name: 'Atleta', role: 'STUDENT', email: 's@example.com', profile: null, coach: { id: 'coach1', name: 'Mi entrenador', email: 'c@example.com' } };
     else if (path.startsWith('/competitions/me')) data = [competition];
     else if (path === '/notifications/unread-count') data = { count: 1 };
@@ -37,22 +37,21 @@ beforeEach(() => {
   vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {}, error: null, meta: {} });
 });
 describe('Evolución coaching', () => {
-  it('dirige el alumno a Inicio y prioriza rendimiento, competición y coach reales', async () => {
+  it('dirige el alumno al entrenamiento actual desde Inicio', async () => {
     expect(getHomePathForRole('STUDENT')).toBe('/home');
     renderUser(<StudentHomePage />);
-    expect(await screen.findByText('Rendimiento reciente')).toBeInTheDocument();
+    expect(await screen.findByText('Tu sesión de hoy')).toBeInTheDocument();
     expect(screen.queryByText('Entrenamiento de hoy')).not.toBeInTheDocument();
-    expect(screen.getByText('Open Santiago')).toBeInTheDocument();
-    expect(screen.getByText('Mi entrenador')).toBeInTheDocument();
+    expect(screen.getByText('Qué vas a trabajar')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
   });
   it('muestra sesiones futuras como consulta sin iniciar desde Home', async () => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: { ...calendar, nextSession: { ...session, date: '2026-10-08' } }, error: null, meta: {} });
     // Exercise the calendar-driven panel through the real Home queries with narrow responses.
-    vi.mocked(apiClient.get).mockImplementation(async (path) => ({ data: path.startsWith('/calendar/') ? { ...calendar, nextSession: { ...session, date: '2026-10-08' } } : path.startsWith('/workout-logs/evolution') ? { summary: { totalWorkouts: 0, totalSetLogs: 0 } } : [], error: null, meta: { total: 0 } }));
+    vi.mocked(apiClient.get).mockImplementation(async (path) => ({ data: path === '/training/me' ? { ...calendar, nextSession: { ...session, date: '2026-10-08' } } : path.startsWith('/workout-logs/evolution') ? { summary: { totalWorkouts: 0, totalSetLogs: 0 } } : [], error: null, meta: { total: 0 } }));
     renderUser(<StudentHomePage training />);
-    expect(await screen.findByText('Próximo entrenamiento')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Ver entrenamiento' })).toHaveAttribute('href', '/student/sessions/ss1');
+    expect(await screen.findByText('Próxima sesión')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Ver entrenamiento/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
     expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
   });
   it('crea competición usando datos del formulario y sin studentId arbitrario', async () => {
@@ -68,7 +67,7 @@ describe('Evolución coaching', () => {
   });
   it('calendario renderiza programación y competición y permite cambiar mes', async () => {
     renderUser(<Calendar />);
-    expect(await screen.findByRole('link', { name: /Fuerza de hoy/ })).toHaveAttribute('href', '/student/sessions/ss1');
+    expect(await screen.findByRole('link', { name: /Fuerza de hoy/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
     expect(screen.getByText('Open Santiago')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringMatching(/\/calendar\/me\?month=/)));

@@ -52,7 +52,7 @@ export async function duplicatePrescription(
       let result: { id: string };
       if (kind === 'program') {
         const source = await tx.program.findFirst({
-          where: { id, coachId },
+          where: { id, coachId, isAssignmentSnapshot: false },
           include: {
             blocks: {
               orderBy: { order: 'asc' },
@@ -93,7 +93,10 @@ export async function duplicatePrescription(
         });
       } else if (kind === 'week') {
         const source = await tx.week.findFirst({
-          where: { id, block: { program: { coachId } } },
+          where: {
+            id,
+            block: { program: { coachId, isAssignmentSnapshot: false } },
+          },
           include: { sessions },
         });
         if (!source) throw new NotFoundException('Semana no encontrada');
@@ -116,7 +119,12 @@ export async function duplicatePrescription(
         });
       } else {
         const source = await tx.session.findFirst({
-          where: { id, week: { block: { program: { coachId } } } },
+          where: {
+            id,
+            week: {
+              block: { program: { coachId, isAssignmentSnapshot: false } },
+            },
+          },
           include: { sessionExercises: { orderBy: { order: 'asc' } } },
         });
         if (!source) throw new NotFoundException('Sesión no encontrada');

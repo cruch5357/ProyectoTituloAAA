@@ -1,0 +1,17 @@
+
+> frontend@0.0.0 test
+> vitest run --maxWorkers=2
+
+
+ RUN  v5.0.2 C:/Users/alons/OneDrive/Documentos/GitHub/ProyectoTituloAAA/frontend
+
+
+ Test Files  35 passed (35)
+      Tests  152 passed (152)
+   Start at  17:08:42
+   Duration  39.12s (environment 50%, tests 31%, setup 11%, import 5%, transform 2%)
+
+Environment  jsdom was created 35 times · 36.39s total, 50% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+

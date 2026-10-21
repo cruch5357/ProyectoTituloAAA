@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -47,6 +51,8 @@ export class SetLogsService {
       throw new NotFoundException(GENERIC_SET_LOG_NOT_FOUND);
     }
     ensureWithinEditWindow(setLog.workoutLog.createdAt);
+    if (setLog.workoutLog.structuredExecution)
+      throw new ConflictException('Edita esta serie desde Entrenamiento');
 
     const data: Prisma.SetLogUpdateInput = {};
     if (dto.actualReps !== undefined) data.actualReps = dto.actualReps;

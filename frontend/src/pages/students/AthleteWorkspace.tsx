@@ -1,4 +1,4 @@
-import { AthletePlan, Calendar } from '../../components/coaching/Planning';
+import { Calendar } from '../../components/coaching/Planning';
 import { CompetitionsPage } from '../coaching/CompetitionsPage';
 import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
@@ -7,7 +7,7 @@ import { useStudentDashboard } from '../../api/dashboard';
 import { StudentDetailPage } from './StudentDetailPage';
 import { StudentDashboardPage } from '../coach-dashboard/StudentDashboardPage';
 import { StudentStatusBadge } from './StudentStatusBadge';
-import { AthleteProgramPanel } from './AthleteProgramPanel';
+import { BlockAssignmentPanel } from './BlockAssignmentPanel';
 import {
   Card,
   EmptyState,
@@ -16,7 +16,7 @@ import {
 } from '../../components/ui/Primitives';
 const tabs = [
   ['overview', 'Resumen'],
-  ['program', 'Programa'],
+  ['program', 'Bloque'],
   ['calendar', 'Calendario'],
   ['forms', 'Formularios'],
   ['statistics', 'Perfil Estadístico'],
@@ -70,7 +70,7 @@ export function AthleteWorkspace({
       {selected === 'statistics' ? (
         <StudentDashboardPage embedded studentIdOverride={id} />
       ) : selected === 'program' ? (
-        <AthleteProgramPanel key={id} studentId={id!} />
+        <BlockAssignmentPanel key={id} studentId={id!} />
       ) : selected === 'calendar' ? (
         <><Calendar studentId={id!} /><CompetitionsPage studentId={id!} /></>
       ) : selected === 'forms' ? (
@@ -82,7 +82,7 @@ export function AthleteWorkspace({
         </Card>
       ) : (
         <>
-          <AthletePlan studentId={id!} /><AthleteSummary id={id!} />
+          <BlockAssignmentPanel studentId={id!} /><AthleteSummary id={id!} />
           <Card>
             <StudentDetailPage embedded />
           </Card>

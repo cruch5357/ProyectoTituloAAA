@@ -58,6 +58,7 @@ describe('duplicatePrescription', () => {
     expect(tx.program.findFirst.mock.calls[0][0].where).toEqual({
       id: 'p',
       coachId: 'coach',
+      isAssignmentSnapshot: false,
     });
     const data = tx.program.create.mock.calls[0][0].data;
     expect(data.name).toBe('Fuerza (copia 2)');

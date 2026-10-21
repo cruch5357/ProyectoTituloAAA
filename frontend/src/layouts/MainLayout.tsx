@@ -10,14 +10,13 @@ import { ErrorState, Skeleton } from '../components/ui/Primitives';
 const coachLinks: { to: string; label: string; icon: IconName }[] = [
   { to: '/dashboard', label: 'Dashboard', icon: 'home' },
   { to: '/students', label: 'Mis alumnos', icon: 'users' },
-  { to: '/programs', label: 'Mis programas', icon: 'program' },
+  { to: '/blocks', label: 'Bloques', icon: 'program' },
   { to: '/exercises', label: 'Ejercicios', icon: 'exercise' },
   { to: '/imports/excel', label: 'Importar Excel', icon: 'upload' },
 ];
 const studentLinks: typeof coachLinks = [
   { to: '/home', label: 'Inicio', icon: 'home' },
   { to: '/training', label: 'Entrenamiento', icon: 'exercise' },
-  { to: '/my-programs', label: 'Mis programas', icon: 'program' },
   { to: '/history', label: 'Historial', icon: 'chart' },
   { to: '/calendar', label: 'Calendario', icon: 'program' },
   { to: '/competitions', label: 'Competiciones', icon: 'activity' },

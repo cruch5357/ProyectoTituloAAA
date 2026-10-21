@@ -1,4 +1,5 @@
 import { ScheduleService } from './schedule.service';
+import { BlockAssignmentsModule } from '../block-assignments/block-assignments.module';
 import { Global, Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CoachingController } from './coaching.controller';
@@ -9,7 +10,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 
 @Global()
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, BlockAssignmentsModule],
   controllers: [CoachingController],
   providers: [
     CalendarService,

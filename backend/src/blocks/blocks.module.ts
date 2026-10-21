@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { BlockLibraryService } from './library.service';
+import { BlockLibraryController } from './library.controller';
 import { ProgramBlocksController, BlocksController } from './blocks.controller';
 import { BlocksService } from './blocks.service';
 import { AuthModule } from '../auth/auth.module';
@@ -10,8 +12,12 @@ import { ProgramsModule } from '../programs/programs.module';
 // para el mismo propósito un nivel más abajo.
 @Module({
   imports: [AuthModule, ProgramsModule],
-  controllers: [ProgramBlocksController, BlocksController],
-  providers: [BlocksService],
+  controllers: [
+    ProgramBlocksController,
+    BlocksController,
+    BlockLibraryController,
+  ],
+  providers: [BlocksService, BlockLibraryService],
   exports: [BlocksService],
 })
 export class BlocksModule {}

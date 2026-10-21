@@ -21,7 +21,11 @@ const GENERIC_SESSION_EXERCISE_NOT_FOUND =
 const GENERIC_EXERCISE_NOT_FOUND = 'Ejercicio no encontrado';
 
 type SessionExerciseWithChain = SessionExercise & {
-  session: { week: { block: { program: { coachId: string } } } };
+  session: {
+    week: {
+      block: { program: { coachId: string; isAssignmentSnapshot?: boolean } };
+    };
+  };
   exercise: Exercise;
 };
 
@@ -57,7 +61,8 @@ export class SessionExercisesService {
   ): SessionExerciseWithChain {
     if (
       !sessionExercise ||
-      sessionExercise.session.week.block.program.coachId !== coachId
+      sessionExercise.session.week.block.program?.coachId !== coachId ||
+      sessionExercise.session.week.block.program?.isAssignmentSnapshot
     ) {
       throw new NotFoundException(GENERIC_SESSION_EXERCISE_NOT_FOUND);
     }
@@ -76,7 +81,11 @@ export class SessionExercisesService {
             week: {
               include: {
                 block: {
-                  include: { program: { select: { coachId: true } } },
+                  include: {
+                    program: {
+                      select: { coachId: true, isAssignmentSnapshot: true },
+                    },
+                  },
                 },
               },
             },

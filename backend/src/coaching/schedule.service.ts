@@ -152,6 +152,10 @@ export class ScheduleService {
         where: { id },
       });
       if (current.startDate?.getTime() !== startDate.getTime()) {
+        if (current.snapshotBlockId)
+          throw new ConflictException(
+            'El inicio del bloque asignado está congelado. Reasigna el bloque o reprograma una sesión.',
+          );
         const [log, override] = await Promise.all([
           tx.workoutLog.findFirst({
             where: {

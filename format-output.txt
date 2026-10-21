@@ -1,0 +1,10 @@
+backend/src/block-assignments/block-assignment.dto.ts 88ms (unchanged)
+backend/src/block-assignments/block-assignments.controller.ts 19ms
+backend/src/block-assignments/block-assignments.module.ts 3ms (unchanged)
+backend/src/block-assignments/block-assignments.service.ts 32ms (unchanged)
+backend/src/block-assignments/training-state.spec.ts 13ms (unchanged)
+backend/src/block-assignments/training-state.ts 14ms (unchanged)
+backend/src/block-assignments/training.service.ts 49ms
+frontend/src/api/training.ts 11ms
+frontend/src/pages/student-training/TrainingSessionPage.tsx 58ms
+frontend/src/pages/student-training/training.css 57ms (unchanged)

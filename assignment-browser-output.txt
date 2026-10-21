@@ -1,0 +1,38 @@
+[WebServer] (node:2088) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:2088) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+[WebServer] (node:17216) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] (node:6028) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+[WebServer] (Use `node --trace-warnings ...` to show where the warning was created)
+
+Running 1 test using 1 worker
+
+(node:23772) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[WebServer] [Nest] 17216  - 21-10-2026, 5:05:59 p. m.   ERROR [AllExceptionsFilter] 1648f497-a98d-4d88-90c5-0d70aaa6af2e POST /api/v1/students/cmvijla6r0002kr3pfqbymutl/block-assignments -> 400
+[WebServer] [Nest] 17216  - 21-10-2026, 5:05:59 p. m.   ERROR [AllExceptionsFilter] 26bf382c-3b2f-4dec-aaf6-94eaa5cfa701 POST /api/v1/students/cmvijla6r0002kr3pfqbymutl/block-assignments -> 400
+[WebServer] [Nest] 17216  - 21-10-2026, 5:05:59 p. m.   ERROR [AllExceptionsFilter] d4a1e1e2-e568-4ea4-83fa-ae7200cffdde POST /api/v1/students/cmvijla6r0002kr3pfqbymutl/block-assignments -> 400
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:00 p. m.   ERROR [AllExceptionsFilter] 072da8cb-81a3-41dd-bc0a-0f6e730cf91e POST /api/v1/auth/refresh -> 403
+[WebServer] 5:06:00 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:01 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:02 p. m.   ERROR [AllExceptionsFilter] 29f75a65-a0c1-4ff4-be2f-6cc70ff67647 POST /api/v1/students/cmvijla6r0002kr3pfqbymutl/block-assignments -> 409
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:02 p. m.   ERROR [AllExceptionsFilter] 666f1fc0-38e3-41ca-b185-57502bf9fc2e GET /api/v1/training/sessions/cmvijlca6000p9peobkrbiuo6 -> 404
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:02 p. m.   ERROR [AllExceptionsFilter] edcb8fcb-3446-494d-be03-9c70d2d8a50d PATCH /api/v1/sessions/cmvijlca6000p9peobkrbiuo6 -> 404
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:02 p. m.   ERROR [AllExceptionsFilter] db75027d-4f9b-4cc3-a9e8-062d213c96db POST /api/v1/auth/refresh -> 403
+[WebServer] 5:06:02 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:03 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:04 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:05 p. m.   ERROR [AllExceptionsFilter] 00805a1a-bc35-4565-89ce-162607cb596b PATCH /api/v1/training/sessions/cmvijlca6000p9peobkrbiuo6 -> 400
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:05 p. m.   ERROR [AllExceptionsFilter] edc65d44-5dac-4c55-8195-346c11a49128 PATCH /api/v1/training/sessions/cmvijlca6000p9peobkrbiuo6 -> 409
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:05 p. m.   ERROR [AllExceptionsFilter] e9ea1b39-082a-40c6-b3b3-e0b802ddd036 POST /api/v1/sessions/cmvijlca6000p9peobkrbiuo6/workout-logs -> 409
+[WebServer] 5:06:05 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:06 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:07 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:07 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] 5:06:08 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+[WebServer] [Nest] 17216  - 21-10-2026, 5:06:10 p. m.   ERROR [AllExceptionsFilter] 24f6b06d-2c23-4d4f-b9f5-cdd4069777f6 PATCH /api/v1/training/sessions/cmvijlca6000p9peobkrbiuo6 -> 409
+[WebServer] 5:06:10 p. m. [vite] (client) [console.warn] ⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
+  ok 1 [chromium] › tests\browser\block-assignment.spec.ts:20:5 › asignar, entrenar, calendario, snapshot, persistencia, restricciones y reemplazo (11.2s)
+
+  1 passed (23.1s)

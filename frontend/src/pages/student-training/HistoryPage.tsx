@@ -133,7 +133,7 @@ export function HistoryPage() {
         </label>
         {programOptions.length > 0 && (
           <label className="field">
-            <span>Programa</span>
+            <span>Ciclo</span>
             <select
               value={programId}
               onChange={(event) => setProgramId(event.target.value)}
@@ -265,7 +265,7 @@ export function HistoryPage() {
                 <tr>
                   <th>Fecha</th>
                   <th>Sesión</th>
-                  <th>Programa</th>
+                  <th>Ciclo</th>
                   <th>Estado</th>
                   <th>Duración</th>
                   <th>Series</th>

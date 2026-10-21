@@ -10,7 +10,9 @@ import { UpdateSessionDto } from './dto/update-session.dto';
 const GENERIC_SESSION_NOT_FOUND = 'Sesión no encontrada';
 
 type SessionWithChain = Session & {
-  week: { block: { program: { coachId: string } } };
+  week: {
+    block: { program: { coachId: string; isAssignmentSnapshot?: boolean } };
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -36,7 +38,11 @@ export class SessionsService {
     coachId: string,
     session: SessionWithChain | null,
   ): SessionWithChain {
-    if (!session || session.week.block.program.coachId !== coachId) {
+    if (
+      !session ||
+      session.week.block.program?.coachId !== coachId ||
+      session.week.block.program?.isAssignmentSnapshot
+    ) {
       throw new NotFoundException(GENERIC_SESSION_NOT_FOUND);
     }
     return session;
@@ -51,7 +57,13 @@ export class SessionsService {
       include: {
         week: {
           include: {
-            block: { include: { program: { select: { coachId: true } } } },
+            block: {
+              include: {
+                program: {
+                  select: { coachId: true, isAssignmentSnapshot: true },
+                },
+              },
+            },
           },
         },
       },

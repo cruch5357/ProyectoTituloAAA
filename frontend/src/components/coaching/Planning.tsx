@@ -1,10 +1,10 @@
 import { todayDate } from '../../lib/calendarDate';
-import { Adherence } from './Adherence';
+import { trainingLabels } from '../../api/training';
 import { RescheduleSession } from './RescheduleSession';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useCalendar, useCoachingMutation, useProfile, displayDate, type Competition, type CalendarSession } from '../../api/coaching';
-import { Card, EmptyState, ErrorState, Skeleton } from '../ui/Primitives';
+import { Card, ErrorState, Skeleton } from '../ui/Primitives';
 
 export function SessionContext({ session }: { session: CalendarSession }) {
   return <><h3>{session.name}</h3><p>{session.programName} · {session.blockName} · Semana {session.weekNumber}</p><p>{session.date && displayDate(session.date)}</p>{session.rescheduled && <p>Reprogramada · Original: {session.originalDate && displayDate(session.originalDate)}</p>}</>;
@@ -30,19 +30,6 @@ export function AssignmentDate({ id, startDate }: { id: string; startDate?: stri
     <button disabled={mutation.isPending}>Guardar fecha</button>{mutation.isError && <ErrorState message={mutation.error.message} />}{mutation.isSuccess && <p role="status">Fecha guardada.</p>}
   </form>;
 }
-export function AthletePlan({ studentId }: { studentId: string }) {
-  const query = useCalendar(studentId);
-  if (query.isLoading) return <Skeleton />;
-  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
-  if (!query.data) return null;
-  const d = query.data;
-  return <Card><Adherence assignments={d.assignments} /><h2>Planificación actual</h2>{!d.assignments.length && <EmptyState title="Sin programa activo" />}
-    {d.assignments.map((a) => <section key={a.id}><Link to={`/programs/${a.programId}`}>{a.name}</Link>{a.currentWeek ? <p>Bloque actual: {a.currentWeek.blockName} · Semana {a.currentWeek.weekNumber}</p> : <p className="muted">Sin semana actual dentro de las fechas del programa.</p>}<AssignmentDate id={a.id} startDate={a.startDate} /></section>)}
-    {d.nextSession ? <><p className="eyebrow">Próxima sesión</p><SessionContext session={d.nextSession} /></> : <p>Sin próxima sesión fechada.</p>}
-    <h3>Próxima competición</h3>{d.nextCompetition ? <p>{d.nextCompetition.name} · {displayDate(d.nextCompetition.eventDate)}</p> : <p>Sin competiciones próximas.</p>}
-    <Link to={`/messages?peer=${studentId}`}>Abrir chat</Link>
-  </Card>;
-}
 export function Calendar({ studentId }: { studentId?: string }) {
   const [offset, setOffset] = useState(0);
   const [baseDate] = useState(() => todayDate());
@@ -63,7 +50,7 @@ export function Calendar({ studentId }: { studentId?: string }) {
       const sessions = d.sessions.filter((s) => s.date === date);
       const competitions = d.competitions?.filter((c) => c.eventDate.slice(0, 10) === date && c.status !== 'CANCELLED') ?? [];
       return <section key={date} aria-label={`${displayDate(date)}${sessions.length ? ', entrenamiento' : ''}${competitions.length ? ', competición' : ''}`} className={`calendar-day ${sessions.length ? `calendar-day--training calendar-block-${sessions[0].blockIndex % 3}` : ''} ${competitions.length ? 'calendar-day--competition' : ''} ${date === d.today ? 'calendar-day--today' : ''}`}><time dateTime={date}>{i + 1} · {new Date(`${date}T12:00:00Z`).toLocaleDateString('es-CL', { weekday: 'short', timeZone: 'UTC' })}</time>
-        {sessions.map((s) => <div key={s.id}><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={studentId ? `/sessions/${s.sessionId}` : `/student/sessions/${s.sessionId}`}>{s.completed ? '✓ ' : '● '}{s.name}<small>{s.blockName} · Semana {s.weekNumber}</small>{s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Nueva: ${s.date && displayDate(s.date)}`}>Reprogramada</small>}</Link>{studentId && <RescheduleSession session={s} />}</div>)}
+        {sessions.map((s) => <div key={s.id}><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>{s.completed ? '✓ ' : '● '}{s.name}{s.status && <small>{trainingLabels[s.status]}</small>}<small>{s.blockName} · Semana {s.weekNumber}</small>{s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Nueva: ${s.date && displayDate(s.date)}`}>Reprogramada</small>}</Link>{studentId && <RescheduleSession session={s} />}</div>)}
         {competitions.map((c) => <p className="calendar-competition" key={c.id}><span aria-hidden="true">◆ </span><strong>Competición</strong><span>{c.name}</span></p>)}
       </section>;
     })}</div>

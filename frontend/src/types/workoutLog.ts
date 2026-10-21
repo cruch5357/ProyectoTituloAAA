@@ -77,6 +77,7 @@ export interface WorkoutPrescription {
   targetRpe: number | null; targetRir: number | null; restSeconds: number | null; notes: string | null;
 }
 export interface WorkoutLog {
+  structuredExecution?: boolean;
   prescriptionSource?: 'snapshot' | 'legacy-current';
   prescriptions?: WorkoutPrescription[];
   id: string;

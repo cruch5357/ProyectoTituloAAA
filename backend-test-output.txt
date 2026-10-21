@@ -1,0 +1,73 @@
+
+> backend@0.0.1 test
+> jest --runInBand
+
+PASS src/workout-logs/workout-logs.service.spec.ts (5.172 s)
+PASS src/common/training/duplicate-prescription.spec.ts
+PASS src/block-assignments/training-state.spec.ts
+PASS src/imports/excel-imports.confirm-reject.service.spec.ts
+PASS src/imports/excel-imports.controller.spec.ts
+PASS src/session-exercises/session-exercises.controller.spec.ts
+PASS src/imports/excel-imports.service.spec.ts
+PASS src/auth/password-reset.spec.ts
+PASS src/auth/password/password.service.spec.ts
+PASS src/program-assignments/program-assignments.controller.spec.ts
+PASS src/dashboard/dashboard.controller.spec.ts
+PASS src/auth/auth.controller.spec.ts
+PASS src/workout-logs/workout-logs.controller.spec.ts
+PASS src/students/students.controller.spec.ts
+PASS src/sessions/sessions.controller.spec.ts
+PASS src/programs/programs.controller.spec.ts
+PASS src/blocks/blocks.controller.spec.ts
+PASS src/set-logs/set-logs.controller.spec.ts
+PASS src/weeks/weeks.controller.spec.ts
+PASS src/exercises/exercises.controller.spec.ts
+PASS src/student-training/student-training.controller.spec.ts
+PASS src/app.controller.spec.ts
+PASS src/auth/auth.service.spec.ts
+PASS src/auth/dto/register.dto.spec.ts
+PASS src/common/imports/excel-row-validation.spec.ts
+PASS src/exercises/dto/exercise-taxonomy.spec.ts
+PASS src/exercises/dto/exercise-video.spec.ts
+PASS src/students/students.service.spec.ts
+PASS src/blocks/library.spec.ts
+PASS src/auth/tokens/token.service.spec.ts
+PASS src/messages/media-validation.spec.ts
+PASS src/dashboard/dashboard-student.service.spec.ts
+PASS src/auth/guards/roles.guard.spec.ts
+PASS src/program-assignments/program-assignments.service.spec.ts
+PASS src/dashboard/suggested-load.service.spec.ts
+[Nest] 27540  - 21-10-2026, 5:06:27 p. m.    WARN [SuggestedLoadService] Servicio de carga sugerida no disponible: ECONNREFUSED
+PASS src/blocks/blocks.service.spec.ts
+PASS src/auth/guards/jwt-auth.guard.spec.ts
+PASS src/sessions/sessions.service.spec.ts
+PASS src/weeks/weeks.service.spec.ts
+PASS src/session-exercises/session-exercises.service.spec.ts
+PASS src/dashboard/dashboard-summary.service.spec.ts
+PASS src/student-training/student-training.service.spec.ts
+PASS src/programs/programs.service.spec.ts
+PASS src/set-logs/set-logs.service.spec.ts
+[Nest] 27540  - 21-10-2026, 5:06:29 p. m.   ERROR [MailService] Fallo al enviar correo: test-secret private SMTP detail
+[Nest] 27540  - 21-10-2026, 5:06:29 p. m.   ERROR [MailService] Fallo al enviar correo: Rejected
+PASS src/mail/mail.service.spec.ts
+PASS src/config/env.validation.spec.ts
+PASS src/exercises/exercises.service.spec.ts
+PASS src/auth/authorization/resource-ownership.spec.ts
+PASS src/common/training/adherence.spec.ts
+PASS src/coaching/schedule.service.spec.ts
+PASS src/common/training/calendar-date.spec.ts
+PASS src/auth/guards/csrf.guard.spec.ts
+PASS src/health/health.controller.spec.ts
+PASS src/notifications/notifications.service.spec.ts
+PASS src/common/request-logging.middleware.spec.ts
+PASS src/common/training/workout-metrics.spec.ts
+PASS src/common/training/recent-performance.spec.ts
+PASS src/common/imports/excel-import-grouping.spec.ts
+PASS src/common/mappers/public-user.mapper.spec.ts
+PASS src/common/imports/excel-file-validation.spec.ts
+
+Test Suites: 60 passed, 60 total
+Tests:       512 passed, 512 total
+Snapshots:   0 total
+Time:        21.561 s, estimated 23 s
+Ran all test suites.

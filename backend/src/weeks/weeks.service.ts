@@ -9,7 +9,9 @@ import { UpdateWeekDto } from './dto/update-week.dto';
 
 const GENERIC_WEEK_NOT_FOUND = 'Semana no encontrada';
 
-type WeekWithChain = Week & { block: { program: { coachId: string } } };
+type WeekWithChain = Week & {
+  block: { program: { coachId: string; isAssignmentSnapshot?: boolean } };
+};
 
 // ---------------------------------------------------------------------------
 // Semanas del Coach (PROMPT 08). Segundo nivel de la cadena de propiedad
@@ -33,7 +35,11 @@ export class WeeksService {
     coachId: string,
     week: WeekWithChain | null,
   ): WeekWithChain {
-    if (!week || week.block.program.coachId !== coachId) {
+    if (
+      !week ||
+      week.block.program?.coachId !== coachId ||
+      week.block.program?.isAssignmentSnapshot
+    ) {
       throw new NotFoundException(GENERIC_WEEK_NOT_FOUND);
     }
     return week;
@@ -46,7 +52,11 @@ export class WeeksService {
     const week = await this.prisma.week.findUnique({
       where: { id: weekId },
       include: {
-        block: { include: { program: { select: { coachId: true } } } },
+        block: {
+          include: {
+            program: { select: { coachId: true, isAssignmentSnapshot: true } },
+          },
+        },
       },
     });
     return this.ensureOwnedWeek(coachId, week as WeekWithChain | null);

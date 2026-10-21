@@ -1,330 +1,156 @@
-import { readableDate } from '../../lib/readableDate';
-import { Adherence } from '../../components/coaching/Adherence';
-import { useCalendar } from '../../api/coaching';
-import { MyCoach, NextCompetition, SessionContext } from '../../components/coaching/Planning';
-import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../auth/useAuth';
-import { useMyProgramAssignments } from '../../api/programAssignments';
+import { Link } from "react-router-dom";
+import { useTraining, trainingLabels } from "../../api/training";
 import {
-  useStudentBlocks,
-  useStudentWeeks,
-  useStudentSessions,
-  useStudentSessionDetail,
-} from '../../api/studentTraining';
-import {
-  useSessionWorkoutLogs,
-  useStartWorkoutLog,
-  useWorkoutLogsHistory,
-  useWorkoutEvolution,
-} from '../../api/workoutLogs';
-import {
-  Card,
   EmptyState,
   ErrorState,
-  PageHeader,
   Skeleton,
-} from '../../components/ui/Primitives';
-
+} from "../../components/ui/Primitives";
+import { MUSCLE_GROUPS } from "../../lib/exerciseTaxonomy";
+import { readableDate } from "../../lib/readableDate";
+import "./training.css";
 export function StudentHomePage({ training = false }: { training?: boolean }) {
-  const { user } = useAuth();
-  const assignments = useMyProgramAssignments();
-  const history = useWorkoutLogsHistory({ page: 1, limit: 5 });
-  const evolution = useWorkoutEvolution({});
-  const inProgress = useWorkoutLogsHistory({
-    page: 1,
-    limit: 1,
-    state: 'in-progress',
-  });
-  const pending = inProgress.data?.items[0];
-  const calendar = useCalendar();
-  const [selected, setSelected] = useState('');
-  const active =
-    assignments.data?.filter(
-      (a) => a.status === 'ACTIVE' && a.program?.isActive,
-    ) ?? [];
-  const program =
-    active.find((a) => a.programId === selected)?.program ?? active[0]?.program;
+  const query = useTraining();
+  if (query.isLoading) return <Skeleton label="Cargando tu entrenamiento…" />;
+  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
+  if (!query.data) return null;
+  const data = query.data;
+  const focus = data.nextSession ?? data.pendingSession;
+  const muscles = MUSCLE_GROUPS.filter((g) =>
+    focus?.muscleGroups.some(
+      (k) =>
+        k === g.key || k.toLocaleLowerCase() === g.label.toLocaleLowerCase(),
+    ),
+  );
   return (
-    <section>
-      <PageHeader
-        title={
-          training ? 'Tu entrenamiento' : `Hola, ${user?.name ?? 'atleta'}`
-        }
-        description={training ? 'Encuentra tu programa y registra tu entrenamiento.' : 'Revisa tu rendimiento reciente y sigue tu progreso.'}
-      />
-      {!training && <>
-          {evolution.isLoading && <Skeleton />}
-          {evolution.isError && (
-            <ErrorState retry={() => void evolution.refetch()} />
-          )}
-          {evolution.data && (
-            <PersonalPerformance
-              summary={evolution.data.summary}
-              recent={evolution.data.recentPerformance}
-              registered={history.data?.meta.total}
-            />
-          )}
-      </>}
-      {inProgress.isLoading && (
-        <Skeleton label="Buscando entrenamientos en curso…" />
-      )}
-      {inProgress.isError && (
-        <ErrorState
-          retry={() => void inProgress.refetch()}
-          message="No pudimos comprobar si tienes un entrenamiento en curso."
+    <section className="training-home">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Tu espacio de entrenamiento</p>
+          <h1>{training ? "Entrenamiento" : "Tu próximo paso"}</h1>
+        </div>
+        <Link to="/calendar">Ver calendario →</Link>
+      </header>
+      {!data.assignments.length && (
+        <EmptyState
+          title="Tu próximo ciclo empieza aquí"
+          description="Cuando tu coach te asigne un bloque, encontrarás tus sesiones y podrás registrar cada serie aquí."
         />
       )}
-      {pending && (
-        <section className="hero-card">
-          <p className="eyebrow">Entrenamiento en curso</p>
-          <h2>{pending.session?.name ?? 'Tu sesión'}</h2>
+      {focus ? (
+        <article className="training-hero">
+          <p className="eyebrow">
+            {focus.date === data.today
+              ? "Tu sesión de hoy"
+              : focus.date && focus.date < data.today
+                ? "Sesión pendiente"
+                : "Próxima sesión"}
+          </p>
+          <h2>{focus.name}</h2>
           <p>
-            {pending.session?.week.block.program.name} ·{' '}
-            {pending.session?.week.block.name} · Semana{' '}
-            {pending.session?.week.number}
+            {focus.blockName} · Semana {focus.weekNumber} · Día{" "}
+            {focus.dayNumber}
           </p>
-          <Link
-            className="button button--primary"
-            to={`/workout-logs/${pending.id}`}
-          >
-            Continuar entrenamiento
+          <p>
+            {focus.date && readableDate(focus.date, false)} ·{" "}
+            {focus.exerciseCount} ejercicios · {focus.totalSets} series
+          </p>
+          <Link className="button" to={`/training/sessions/${focus.sessionId}?assignmentId=${focus.assignmentId}`}>
+            {focus.recordedSets
+              ? "Continuar entrenamiento"
+              : "Ver entrenamiento"}{" "}
+            →
           </Link>
-        </section>
+        </article>
+      ) : (
+        !!data.assignments.length && (
+          <article className="training-cycle">
+            <h2>Estás al día</h2>
+            <p>Consulta tus sesiones abajo o revisa tu historial.</p>
+          </article>
+        )
       )}
-      {training && assignments.isLoading && <Skeleton label="Cargando tu entrenamiento…" />}
-      {training && assignments.isError && (
-        <ErrorState retry={() => void assignments.refetch()} />
-      )}
-      {training && assignments.isSuccess && !program && !pending && (
-        <Card>
-          <EmptyState
-            title="Tu próximo paso empieza aquí"
-            description="Aún no tienes un programa activo. Tu coach podrá asignarte uno para comenzar."
-            action={
-              <Link className="button" to="/my-programs">
-                Ver mis programas
-              </Link>
-            }
-          />
-        </Card>
-      )}
-      {training && !pending && inProgress.isSuccess && calendar.data?.nextSession && <section className="hero-card">
-        <p className="eyebrow">{calendar.data.nextSession.date === calendar.data.today ? 'Entrenamiento de hoy' : 'Próximo entrenamiento'}</p>
-        <SessionContext session={calendar.data.nextSession} />
-        {calendar.data.nextSession.date === calendar.data.today ? <SessionPreview sessionId={calendar.data.nextSession.sessionId} /> : <Link to={`/student/sessions/${calendar.data.nextSession.sessionId}`}>Ver entrenamiento</Link>}
-      </section>}
-      {calendar.data && <Card><Adherence assignments={calendar.data.assignments} /></Card>}
-      {calendar.isError && <ErrorState retry={() => void calendar.refetch()} />}
-      {training && program && !pending && !calendar.data?.nextSession && inProgress.isSuccess && (
-        <section className="hero-card">
-          <p className="eyebrow">Entrenamiento disponible</p>
-          <h2>{program.name}</h2>
-          <p className="muted">
-            Selecciona el bloque, la semana y la sesión que vas a realizar.
-          </p>
-          {active.length > 1 && (
-            <label className="field">
-              Programa
-              <select
-                value={program.id}
-                onChange={(e) => setSelected(e.target.value)}
-              >
-                {active.map((a) => (
-                  <option key={a.id} value={a.programId}>
-                    {a.program?.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          <AvailableBlock key={program.id} programId={program.id} />
-        </section>
-      )}
-      {!training && calendar.data && <NextCompetition competition={calendar.data.nextCompetition} today={calendar.data.today} />}
-      {training && calendar.data?.pendingSession && <Card><h3>Sesión pasada sin finalizar</h3><SessionContext session={calendar.data.pendingSession} /><Link to={`/student/sessions/${calendar.data.pendingSession.sessionId}`}>Ver sesión</Link></Card>}
-      {!training && (
-        <>
-          <MyCoach />
-          <Card>
-            <div className="page-header">
-              <h2>Sesiones recientes</h2>
-              <Link to="/history">Ver historial →</Link>
-            </div>
-            {history.isLoading && <Skeleton />}
-            {history.isError && (
-              <ErrorState retry={() => void history.refetch()} />
-            )}
-            {history.isSuccess && !history.data.items.length && (
-              <EmptyState
-                title="Sin entrenamientos registrados"
-                description="Tus sesiones aparecerán aquí cuando empieces a entrenar."
-              />
-            )}
-            <ul className="nested-list">
-              {history.data?.items.map((log) => (
-                <li key={log.id}>
-                  <Link to={`/workout-logs/${log.id}`}>
-                    {log.session?.name ?? 'Entrenamiento'}
-                  </Link>
-                  <p className="muted">
-                    {readableDate(log.performedAt)} ·{' '}
-                    {log.session?.week.block.program.name} ·{' '}
-                    {log.durationMinutes === null
-                      ? 'En curso'
-                      : `${log.durationMinutes} min`}
-                  </p>
-                  {log.durationMinutes === null && (
-                    <Link to={`/workout-logs/${log.id}`}>
-                      Continuar entrenamiento →
-                    </Link>
-                  )}
-                </li>
+      {!training && focus && (
+        <section className="training-muscles">
+          <h2>Qué vas a trabajar</h2>
+          {muscles.length ? (
+            <div className="training-muscle-grid">
+              {muscles.map((g) => (
+                <figure key={g.key}>
+                  <img src={g.image} alt={`Zona muscular: ${g.label}`} />
+                  <figcaption>
+                    <strong>{g.label}</strong>
+                    <small>{g.detail}</small>
+                  </figcaption>
+                </figure>
               ))}
-            </ul>
-          </Card>
-        </>
-      )}
-    </section>
-  );
-}
-function AvailableBlock({ programId }: { programId: string }) {
-  const query = useStudentBlocks(programId);
-  const [selected, setSelected] = useState('');
-  const block = query.data?.find((b) => b.id === selected) ?? query.data?.[0];
-  if (query.isLoading) return <Skeleton />;
-  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
-  if (!block)
-    return (
-      <EmptyState
-        title="Sin bloques disponibles"
-        description="Tu coach todavía está preparando este programa."
-      />
-    );
-  return (
-    <>
-      <label className="field">
-        Bloque
-        <select value={block.id} onChange={(e) => setSelected(e.target.value)}>
-          {query.data?.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <AvailableWeek key={block.id} blockId={block.id} />
-    </>
-  );
-}
-function AvailableWeek({ blockId }: { blockId: string }) {
-  const query = useStudentWeeks(blockId);
-  const [selected, setSelected] = useState('');
-  const week = query.data?.find((w) => w.id === selected) ?? query.data?.[0];
-  if (query.isLoading) return <Skeleton />;
-  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
-  if (!week) return <EmptyState title="Sin semanas disponibles" />;
-  return (
-    <>
-      <label className="field">
-        Semana
-        <select value={week.id} onChange={(e) => setSelected(e.target.value)}>
-          {query.data?.map((w) => (
-            <option key={w.id} value={w.id}>
-              Semana {w.number}
-            </option>
-          ))}
-        </select>
-      </label>
-      <AvailableSession key={week.id} weekId={week.id} />
-    </>
-  );
-}
-function AvailableSession({ weekId }: { weekId: string }) {
-  const query = useStudentSessions(weekId);
-  const [selected, setSelected] = useState('');
-  const session = query.data?.find((s) => s.id === selected) ?? query.data?.[0];
-  if (query.isLoading) return <Skeleton />;
-  if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
-  if (!session) return <EmptyState title="Sin sesiones disponibles" />;
-  return (
-    <>
-      <label className="field">
-        Sesión
-        <select
-          value={session.id}
-          onChange={(e) => setSelected(e.target.value)}
-        >
-          {query.data?.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <SessionPreview key={session.id} sessionId={session.id} />
-    </>
-  );
-}
-function SessionPreview({ sessionId }: { sessionId: string }) {
-  const query = useStudentSessionDetail(sessionId);
-  const logs = useSessionWorkoutLogs(sessionId);
-  const start = useStartWorkoutLog(sessionId);
-  const navigate = useNavigate();
-  const pending = logs.data?.find((log) => log.durationMinutes === null);
-  return (
-    <>
-      {query.isLoading && <Skeleton />}
-      {query.isError && <ErrorState retry={() => void query.refetch()} />}
-      {query.data && (
-        <>
-          <ul className="nested-list">
-            {query.data.exercises.map((item) => (
-              <li key={item.id}>
-                <strong>{item.exercise.name}</strong>
-                <span className="muted">
-                  {' '}
-                  · {item.targetSets ?? '—'} series ·{' '}
-                  {item.targetRepsMin ?? '—'}–{item.targetRepsMax ?? '—'} reps
-                </span>
-              </li>
-            ))}
-          </ul>
-          {!query.data.exercises.length && (
-            <EmptyState title="Sin ejercicios prescritos" />
+            </div>
+          ) : (
+            <p className="muted">
+              Tu coach aún no ha indicado los grupos musculares de esta sesión.
+            </p>
           )}
-        </>
+        </section>
       )}
-      {logs.isError && <ErrorState retry={() => void logs.refetch()} />}
-      <div className="dialog-actions">
-        {pending ? (
-          <Link
-            className="button button--primary"
-            to={`/workout-logs/${pending.id}`}
-          >
-            Continuar entrenamiento
+      {data.pendingSession && data.nextSession && (
+        <p className="training-notice">
+          Tienes una sesión pendiente:{" "}
+          <Link to={`/training/sessions/${data.pendingSession.sessionId}?assignmentId=${data.pendingSession.assignmentId}`}>
+            {data.pendingSession.name}
           </Link>
-        ) : (
-          <button
-            type="button"
-            className="button--primary"
-            disabled={!logs.isSuccess || !query.isSuccess || start.isPending}
-            onClick={() =>
-              void start
-                .mutateAsync()
-                .then((log) => navigate(`/workout-logs/${log.id}`))
-                .catch(() => {})
-            }
-          >
-            {start.isPending ? 'Iniciando…' : 'Iniciar entrenamiento'}
-          </button>
-        )}
-        <Link to={`/student/sessions/${sessionId}`}>Ver sesión completa →</Link>
-      </div>
-      {start.isError && (
-        <ErrorState message="No pudimos iniciar el entrenamiento. Inténtalo nuevamente." />
+          . Puedes registrarla u omitirla.
+        </p>
       )}
-    </>
+      {data.assignments.map((a) => (
+        <article className="training-cycle" key={a.id}>
+          <p className="eyebrow">Tu ciclo activo</p>
+          <h2>{a.name}</h2>
+          <p>
+            {a.currentWeek
+              ? `Semana ${a.currentWeek.weekNumber} de ${a.weekCount}`
+              : a.startDate
+                ? `Inicio: ${readableDate(a.startDate, false)}`
+                : "Sin fecha de inicio"}
+          </p>
+          <progress max={a.totalSessions || 1} value={a.finishedSessions} />
+          <p>
+            {a.finishedSessions} de {a.totalSessions} sesiones finalizadas
+          </p>
+          <div className="training-session-list">
+            {data.sessions
+              .filter((s) => s.assignmentId === a.id)
+              .map((s) => (
+                <Link
+                  key={s.id}
+                  to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
+                  aria-current={s.id === focus?.id ? "step" : undefined}
+                >
+                  <span>
+                    <strong>{s.name}</strong>
+                    <small>
+                      Semana {s.weekNumber} · Día {s.dayNumber} ·{" "}
+                      {s.date ? readableDate(s.date, false) : "Sin fecha"}
+                    </small>
+                  </span>
+                  <span
+                    className={`training-status training-status--${s.status}`}
+                  >
+                    {trainingLabels[s.status]}
+                    <small>
+                      {s.recordedSets}/{s.totalSets} series
+                    </small>
+                  </span>
+                </Link>
+              ))}
+          </div>
+          {!data.sessions.some((s) => s.assignmentId === a.id) && (
+            <p>Este ciclo no tiene sesiones. Contacta con tu coach.</p>
+          )}
+        </article>
+      ))}
+      <footer className="training-links">
+        <Link to="/history">Historial y progreso →</Link>
+        <Link to="/messages">Hablar con mi coach →</Link>
+      </footer>
+    </section>
   );
 }

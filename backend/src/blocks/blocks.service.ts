@@ -8,12 +8,14 @@ import { UpdateBlockDto } from './dto/update-block.dto';
 
 const GENERIC_BLOCK_NOT_FOUND = 'Bloque no encontrado';
 
-type BlockWithProgram = Block & { program: { coachId: string } };
+type BlockWithProgram = Block & {
+  program: { coachId: string; isAssignmentSnapshot?: boolean };
+};
 
 // ---------------------------------------------------------------------------
 // Bloques del Coach (PROMPT 08). Primer nivel de la cadena de propiedad
 // multi-nivel: un Block no tiene `coachId` propio, pertenece a un Coach de
-// forma INDIRECTA a traves de `Block.program.coachId`. El chequeo de
+// forma INDIRECTA a traves de `Block.program?.coachId`. El chequeo de
 // propiedad (`ensureOwnedBlock`) siempre carga el Block junto con su Program
 // en una unica consulta (`include: { program: true }`) — nunca se confia en
 // que el `programId` recibido del cliente coincida con el Block solicitado
@@ -34,7 +36,11 @@ export class BlocksService {
     coachId: string,
     block: BlockWithProgram | null,
   ): BlockWithProgram {
-    if (!block || block.program.coachId !== coachId) {
+    if (
+      !block ||
+      block.program?.coachId !== coachId ||
+      block.program?.isAssignmentSnapshot
+    ) {
       throw new NotFoundException(GENERIC_BLOCK_NOT_FOUND);
     }
     return block;
@@ -46,7 +52,9 @@ export class BlocksService {
   ): Promise<BlockWithProgram> {
     const block = await this.prisma.block.findUnique({
       where: { id: blockId },
-      include: { program: { select: { coachId: true } } },
+      include: {
+        program: { select: { coachId: true, isAssignmentSnapshot: true } },
+      },
     });
     return this.ensureOwnedBlock(coachId, block as BlockWithProgram | null);
   }
