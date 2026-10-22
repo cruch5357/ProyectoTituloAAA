@@ -87,7 +87,20 @@ export class TrainingService {
     const logs = await this.prisma.workoutLog.findMany({
       where: {
         studentId,
-        programAssignmentId: { in: assignments.map((a) => a.id) },
+        OR: [
+          { programAssignmentId: { in: assignments.map((a) => a.id) } },
+          {
+            programAssignmentId: null,
+            sessionId: {
+              in: assignments.flatMap((a) =>
+                a.program.blocks.flatMap((b) =>
+                  b.weeks.flatMap((w) => w.sessions.map((s) => s.id)),
+                ),
+              ),
+            },
+            durationMinutes: { not: null },
+          },
+        ],
       },
       select: {
         id: true,
@@ -100,6 +113,14 @@ export class TrainingService {
       },
       orderBy: { performedAt: 'desc' },
     });
+    // Unscoped history signals uncertainty; it must never count for a cycle.
+    const ambiguousSessions = new Set(
+      logs
+        .filter(
+          (l) => l.programAssignmentId === null && l.durationMinutes !== null,
+        )
+        .map((l) => l.sessionId),
+    );
     const today = todayDate();
     const sessions = assignments
       .flatMap((a) => {
@@ -108,24 +129,31 @@ export class TrainingService {
           b.weeks.flatMap((w) => {
             const index = wi++;
             return w.sessions.map((s) => {
-              const log = logs.find(
+              const ownLogs = logs.filter(
                 (l) => l.programAssignmentId === a.id && l.sessionId === s.id,
               );
+              // Historical sessions can have multiple logs. A later open log
+              // does not erase an already finalized occurrence in this cycle.
+              const log =
+                ownLogs.find((l) => l.durationMinutes !== null) ?? ownLogs[0];
+              const finished = !!log && log.durationMinutes !== null;
               const total = s.sessionExercises.reduce(
                 (n, e) => n + plannedSets(e).length,
                 0,
               );
               const recorded = log?._count.setLogs ?? 0;
               const status = log
-                ? trainingStatus(
-                    total,
-                    recorded,
-                    recorded +
-                      (Array.isArray(log.omittedSets)
-                        ? log.omittedSets.length
-                        : 0),
-                    log.durationMinutes !== null,
-                  )
+                ? finished
+                  ? log.completionStatus
+                  : trainingStatus(
+                      total,
+                      recorded,
+                      recorded +
+                        (Array.isArray(log.omittedSets)
+                          ? log.omittedSets.length
+                          : 0),
+                      log.durationMinutes !== null,
+                    )
                 : 'NOT_STARTED';
               const override = a.scheduleOverrides.find(
                 (o) => o.sessionId === s.id,
@@ -150,13 +178,12 @@ export class TrainingService {
                 originalDate:
                   override?.originalDate.toISOString().slice(0, 10) ?? null,
                 rescheduled: Boolean(override),
-                completed: status === 'COMPLETED',
+                completed: finished && status === 'COMPLETED',
+                historyAmbiguous: ambiguousSessions.has(s.id),
                 status,
                 recordedSets: recorded,
                 totalSets: total,
-                finished:
-                  log?.durationMinutes !== null &&
-                  log?.durationMinutes !== undefined,
+                finished,
                 workoutLogId: log?.id ?? null,
                 muscleGroups: [
                   ...new Set(
@@ -213,7 +240,13 @@ export class TrainingService {
           currentWeek: weeks[index] ?? null,
           finishedSessions: own.filter((s) => s.finished).length,
           totalSessions: own.length,
-          adherence: computeAdherence(a.startDate, own, today),
+          // Adherence measures finalized scheduled sessions (including partial
+          // and skipped), separately from full prescription completion.
+          adherence: computeAdherence(
+            a.startDate,
+            own.map((s) => ({ ...s, completed: s.finished })),
+            today,
+          ),
         };
       }),
     };

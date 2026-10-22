@@ -7,6 +7,7 @@ import {
 } from "../../components/ui/Primitives";
 import { MUSCLE_GROUPS } from "../../lib/exerciseTaxonomy";
 import { readableDate } from "../../lib/readableDate";
+import { Adherence } from '../../components/coaching/Adherence';
 import "./training.css";
 export function StudentHomePage({ training = false }: { training?: boolean }) {
   const query = useTraining();
@@ -147,6 +148,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           )}
         </article>
       ))}
+      {!training && <Adherence assignments={data.assignments} />}
       <footer className="training-links">
         <Link to="/history">Historial y progreso →</Link>
         <Link to="/messages">Hablar con mi coach →</Link>

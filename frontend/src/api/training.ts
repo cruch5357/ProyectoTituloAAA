@@ -22,6 +22,7 @@ export interface TrainingSessionSummary extends CalendarSession {
 }
 export interface TrainingAssignment {
   id: string;
+  programId: string;
   name: string;
   sourceBlockId: string | null;
   snapshotBlockId: string | null;
@@ -33,6 +34,7 @@ export interface TrainingAssignment {
   finishedSessions: number;
   totalSessions: number;
   adherence: {
+    insufficientReason?: 'legacy-history';
     scheduledSessions: number;
     completedSessions: number;
     adherenceRate: number | null;
