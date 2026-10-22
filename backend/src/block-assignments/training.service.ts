@@ -257,7 +257,7 @@ export class TrainingService {
         programAssignmentId: assignment.id,
       },
       orderBy: { performedAt: 'desc' },
-      include: { setLogs: true },
+      include: { setLogs: true, prescriptions: true },
     });
     const omitted = (
       Array.isArray(log?.omittedSets) ? log.omittedSets : []
@@ -299,7 +299,10 @@ export class TrainingService {
         baseName: info.name,
         modifiers,
         muscleGroups: info.muscleGroups,
-        notes: e.notes,
+        notes: log?.prescriptionCapturedAt
+          ? (log.prescriptions.find((p) => p.sessionExerciseId === e.id)
+              ?.notes ?? null)
+          : e.notes,
         videoUrl: info.videoUrl,
         instructions: info.instructions,
         sets,
@@ -436,18 +439,40 @@ export class TrainingService {
                 },
               },
             });
-        await tx.setLog.deleteMany({ where: { workoutLogId: log.id } });
-        if (performed.length)
-          await tx.setLog.createMany({
-            data: performed.map((s) => ({
-              workoutLogId: log.id,
-              sessionExerciseId: s.sessionExerciseId,
-              setNumber: s.setNumber,
-              actualLoad: s.weight ?? null,
-              actualReps: s.reps ?? null,
-              actualRpe: s.rpe ?? null,
-            })),
+        // Keep identity/creation time of recorded sets when saving another set.
+        // Only an explicit omission or return to pending removes a SetLog.
+        await tx.setLog.deleteMany({
+          where: {
+            workoutLogId: log.id,
+            ...(performed.length
+              ? {
+                  NOT: {
+                    OR: performed.map((s) => ({
+                      sessionExerciseId: s.sessionExerciseId,
+                      setNumber: s.setNumber,
+                    })),
+                  },
+                }
+              : {}),
+          },
+        });
+        for (const s of performed) {
+          const identity = {
+            workoutLogId: log.id,
+            sessionExerciseId: s.sessionExerciseId,
+            setNumber: s.setNumber,
+          };
+          const actual = {
+            actualLoad: s.weight ?? null,
+            actualReps: s.reps ?? null,
+            actualRpe: s.rpe ?? null,
+          };
+          await tx.setLog.upsert({
+            where: { workoutLogId_sessionExerciseId_setNumber: identity },
+            create: { ...identity, ...actual },
+            update: actual,
           });
+        }
       },
       { timeout: 30000 },
     );
