@@ -4,7 +4,7 @@ type PlayerApi = {
   Player: new (
     iframe: HTMLIFrameElement,
     options: {
-      events: { onReady: () => void; onError: () => void };
+      events: { onReady: () => void; onError: (event: { data: number }) => void };
     },
   ) => Player;
 };

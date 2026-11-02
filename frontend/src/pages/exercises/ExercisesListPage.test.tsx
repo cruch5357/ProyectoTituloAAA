@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { apiClient, ApiError } from '../../lib/apiClient';
@@ -113,5 +113,76 @@ describe('ExercisesListPage', () => {
         expect.stringContaining('muscleGroup=glutes&sport=powerlifting'),
       );
     });
+  });
+
+  it('al desactivar un ejercicio usado en bloques avisa y pide confirmar', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(apiClient, 'get').mockImplementation(async (path) =>
+      path.endsWith('/usage')
+        ? {
+            data: { blocks: [{ id: 'b1', name: 'Fuerza base' }] },
+            error: null,
+            meta: {},
+          }
+        : {
+            data: [buildExercise()],
+            error: null,
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          },
+    );
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({
+      data: buildExercise({ isActive: false }),
+      error: null,
+      meta: {},
+    });
+
+    renderWithProviders(<ExercisesListPage />);
+    await user.click(await screen.findByRole('button', { name: 'Desactivar' }));
+
+    const dialog = await screen.findByRole('dialog', {
+      name: 'Confirmar desactivación',
+    });
+    expect(within(dialog).getByText('Fuerza base')).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(/no se podrá asignar a alumnos/),
+    ).toBeInTheDocument();
+    expect(patch).not.toHaveBeenCalled();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Desactivar de todos modos' }),
+    );
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/exercises/exercise-1/status', {
+        isActive: false,
+      }),
+    );
+  });
+
+  it('si el ejercicio no se usa en bloques lo desactiva sin preguntar', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(apiClient, 'get').mockImplementation(async (path) =>
+      path.endsWith('/usage')
+        ? { data: { blocks: [] }, error: null, meta: {} }
+        : {
+            data: [buildExercise()],
+            error: null,
+            meta: { page: 1, limit: 20, total: 1, totalPages: 1 },
+          },
+    );
+    const patch = vi.spyOn(apiClient, 'patch').mockResolvedValue({
+      data: buildExercise({ isActive: false }),
+      error: null,
+      meta: {},
+    });
+
+    renderWithProviders(<ExercisesListPage />);
+    await user.click(await screen.findByRole('button', { name: 'Desactivar' }));
+
+    await waitFor(() =>
+      expect(patch).toHaveBeenCalledWith('/exercises/exercise-1/status', {
+        isActive: false,
+      }),
+    );
+    expect(screen.queryByText('Desactivar de todos modos')).toBeNull();
   });
 });

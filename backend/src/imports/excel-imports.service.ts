@@ -22,12 +22,14 @@ import {
   EXCEL_PROCESSING_TIMEOUT_MS,
 } from '../common/imports/excel-import.constants';
 import {
+  EXCEL_COLUMN_LABELS,
   EXCEL_MANDATORY_COLUMNS,
   EXCEL_TEMPLATE_COLUMNS,
   ExcelTemplateColumn,
-  isKnownTemplateColumn,
-  normalizeHeaderName,
+  resolveTemplateColumn,
 } from '../common/imports/excel-template';
+import { inferMissingOrders } from '../common/imports/excel-order-inference';
+import { buildTemplateWorkbook } from '../common/imports/excel-template-workbook';
 import {
   isBlankExcelRow,
   RawExcelRowValues,
@@ -390,6 +392,19 @@ export class ExcelImportsService {
     );
   }
 
+  // Plantilla .xlsx en español para que el coach complete su planificación.
+  // Incluye los nombres de su catálogo activo (hoja "Mis ejercicios") y usa
+  // algunos de ellos en las filas de ejemplo, para que el ejemplo sea
+  // importable tal cual.
+  async buildTemplate(coachId: string): Promise<Buffer> {
+    const exercises = await this.prisma.exercise.findMany({
+      where: { coachId, isActive: true },
+      select: { name: true },
+      orderBy: { name: 'asc' },
+    });
+    return buildTemplateWorkbook(exercises.map((exercise) => exercise.name));
+  }
+
   async createFromUpload(
     coachId: string,
     file: UploadedExcelFile | undefined,
@@ -501,8 +516,10 @@ export class ExcelImportsService {
   // Lee la fila 1 como encabezado, valida que estén todas las columnas
   // obligatorias, que no haya columnas desconocidas (plantilla cerrada,
   // mismo espíritu que `forbidNonWhitelisted`) y que ninguna columna
-  // reconocida esté duplicada. Devuelve el mapeo índice de columna ->
-  // nombre de columna de la plantilla, para leer las filas de datos.
+  // reconocida esté duplicada. Acepta los encabezados en español de la
+  // plantilla descargable (con o sin tildes) y los nombres técnicos
+  // (`program_name`). Devuelve el mapeo índice de columna -> columna de la
+  // plantilla, para leer las filas de datos.
   private readAndValidateHeaders(
     worksheet: ExcelJS.Worksheet,
   ): Map<number, ExcelTemplateColumn> {
@@ -517,20 +534,21 @@ export class ExcelImportsService {
       headerRow.actualCellCount,
     );
     for (let col = 1; col <= columnCount; col += 1) {
-      const raw = headerRow.getCell(col).value;
-      const normalized = normalizeHeaderName(raw);
-      if (!normalized) continue;
+      const rawHeader = headerRow.getCell(col).value;
+      const headerText = String(rawHeader ?? '').trim();
+      if (!headerText) continue;
 
-      if (!isKnownTemplateColumn(normalized)) {
-        unknownHeaders.push(normalized);
+      const column = resolveTemplateColumn(rawHeader);
+      if (!column) {
+        unknownHeaders.push(headerText);
         continue;
       }
-      if (seenColumns.has(normalized)) {
-        duplicatedHeaders.push(normalized);
+      if (seenColumns.has(column)) {
+        duplicatedHeaders.push(headerText);
         continue;
       }
-      seenColumns.add(normalized);
-      columnsByIndex.set(col, normalized);
+      seenColumns.add(column);
+      columnsByIndex.set(col, column);
     }
 
     const missingMandatory = EXCEL_MANDATORY_COLUMNS.filter(
@@ -542,22 +560,26 @@ export class ExcelImportsService {
       unknownHeaders.length > 0 ||
       duplicatedHeaders.length > 0
     ) {
+      const errors = [
+        ...missingMandatory.map((column) => ({
+          code: 'MISSING_MANDATORY_COLUMN',
+          message: `Falta la columna obligatoria "${EXCEL_COLUMN_LABELS[column]}".`,
+        })),
+        ...unknownHeaders.map((header) => ({
+          code: 'UNKNOWN_COLUMN',
+          message: `La columna "${header}" no pertenece a la plantilla. Columnas válidas: ${EXCEL_TEMPLATE_COLUMNS.map((column) => EXCEL_COLUMN_LABELS[column]).join(', ')}.`,
+        })),
+        ...duplicatedHeaders.map((header) => ({
+          code: 'DUPLICATED_COLUMN',
+          message: `La columna "${header}" está repetida.`,
+        })),
+      ];
+      // El detalle va también en el mensaje: el filtro global de errores
+      // solo entrega `message` al cliente, y sin el detalle el coach no
+      // sabría qué columna corregir.
       throw new BadRequestException({
-        message: 'El archivo no respeta la plantilla de importación esperada.',
-        errors: [
-          ...missingMandatory.map((column) => ({
-            code: 'MISSING_MANDATORY_COLUMN',
-            message: `Falta la columna obligatoria "${column}".`,
-          })),
-          ...unknownHeaders.map((column) => ({
-            code: 'UNKNOWN_COLUMN',
-            message: `La columna "${column}" no pertenece a la plantilla esperada. Columnas válidas: ${EXCEL_TEMPLATE_COLUMNS.join(', ')}.`,
-          })),
-          ...duplicatedHeaders.map((column) => ({
-            code: 'DUPLICATED_COLUMN',
-            message: `La columna "${column}" está repetida.`,
-          })),
-        ],
+        message: `El archivo no respeta la plantilla de importación. ${errors.map((error) => error.message).join(' ')}`,
+        errors,
       });
     }
 
@@ -607,6 +629,7 @@ export class ExcelImportsService {
 
     const deadline = Date.now() + EXCEL_PROCESSING_TIMEOUT_MS;
     let dataRowCount = 0;
+    const dataRows: Array<{ rowNumber: number; raw: RawExcelRowValues }> = [];
 
     for (let rowNumber = 2; rowNumber <= lastRowNumber; rowNumber += 1) {
       if (Date.now() > deadline) {
@@ -631,7 +654,15 @@ export class ExcelImportsService {
           `El archivo supera el máximo de ${EXCEL_MAX_DATA_ROWS} filas de datos permitidas por importación.`,
         );
       }
+      dataRows.push({ rowNumber, raw });
+    }
 
+    // Las columnas de orden vacías se deducen del orden de las filas ANTES
+    // de validar y de guardar las celdas (ver excel-order-inference.ts).
+    const completedRows = inferMissingOrders(dataRows.map((row) => row.raw));
+
+    for (const [index, { rowNumber }] of dataRows.entries()) {
+      const raw = completedRows[index];
       const exerciseName = this.readPlainString(raw.exercise_name);
       const resolvedExerciseId = exerciseName
         ? (exerciseIndex.get(exerciseName.trim().toLowerCase()) ?? null)

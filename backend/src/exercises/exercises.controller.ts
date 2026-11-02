@@ -64,6 +64,19 @@ export class ExercisesController {
     };
   }
 
+  @Get(':id/usage')
+  @ApiOperation({
+    summary:
+      'Bloques de la biblioteca que usan el ejercicio (quedarían desactivados al desactivarlo)',
+  })
+  async usage(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param() params: ExerciseIdParamDto,
+  ) {
+    const data = await this.exercisesService.usage(currentUser.id, params.id);
+    return { data, error: null, meta: {} };
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Detalle de un ejercicio propio' })
   async detail(

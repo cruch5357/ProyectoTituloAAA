@@ -30,6 +30,30 @@ export function fillEmptyActual(set: TrainingSet) {
   };
 }
 
+/** True if the student typed at least one value (zero counts as a value). */
+export function hasActualValues(set: TrainingSet): boolean {
+  return Object.values(set.actual).some((v) => v !== null);
+}
+
+/**
+ * Pending sets with typed values are recorded as if the student had pressed
+ * «Anotar» (empty fields take the prescription), so forgetting to press it
+ * never loses what was entered.
+ */
+export function recordFilledPending(session: TrainingDetail): TrainingDetail {
+  return {
+    ...session,
+    exercises: session.exercises.map((e) => ({
+      ...e,
+      sets: e.sets.map((s) =>
+        s.status === "PENDING" && hasActualValues(s)
+          ? { ...s, status: "RECORDED" as const, actual: fillEmptyActual(s) }
+          : s,
+      ),
+    })),
+  };
+}
+
 export function firstPending(session: TrainingDetail): {
   exerciseId: string | null;
   setNumber: number | null;

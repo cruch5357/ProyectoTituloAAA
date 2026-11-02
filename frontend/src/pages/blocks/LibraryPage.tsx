@@ -140,6 +140,13 @@ export function LibraryPage() {
               <h2>
                 <Link to={`/block-library/${b.id}`}>{b.name}</Link>
               </h2>
+              {!!b.inactiveExercises?.length && (
+                <p className="block-disabled-note">
+                  <span className="badge badge--danger">Desactivado</span> Usa
+                  ejercicios desactivados: {b.inactiveExercises.join(", ")}.
+                  Reemplázalos para volver a asignarlo.
+                </p>
+              )}
               <div className="library-actions">
                 <Link className="button" to={`/block-library/${b.id}`}>
                   Abrir / editar

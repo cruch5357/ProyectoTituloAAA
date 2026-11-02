@@ -75,6 +75,19 @@ function LibraryEditor({ initial }: { initial: LibraryBlock }) {
       weeks: block.weeks.map((w) => (w.id === id ? next : w)),
     });
   }
+  // Se calcula sobre el borrador: el aviso desaparece apenas se reemplaza
+  // el ejercicio, aunque todavía no se haya guardado.
+  const inactiveNames = [
+    ...new Set(
+      block.weeks.flatMap((w) =>
+        w.days.flatMap((d) =>
+          d.exercises
+            .filter((e) => e.exerciseActive === false)
+            .map((e) => e.baseName),
+        ),
+      ),
+    ),
+  ];
   async function save() {
     if (busy.current) return;
     busy.current = true;
@@ -114,6 +127,14 @@ function LibraryEditor({ initial }: { initial: LibraryBlock }) {
           void save();
         }}
       >
+        {inactiveNames.length > 0 && (
+          <p className="training-notice block-disabled-note" role="alert">
+            <span className="badge badge--danger">Desactivado</span> Este
+            bloque usa ejercicios desactivados ({inactiveNames.join(", ")}) y
+            no se puede asignar a alumnos. Reemplázalos por ejercicios activos
+            (o reactívalos en el catálogo) y guarda el bloque.
+          </p>
+        )}
         <header className="editor-header">
           <div>
             <p className="eyebrow">

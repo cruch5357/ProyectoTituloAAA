@@ -24,9 +24,26 @@ export const libraryTree = {
 export type LibraryTree = Prisma.BlockGetPayload<{
   include: typeof libraryTree;
 }>;
+// Nombres (sin repetir) de los ejercicios desactivados que usa el bloque. Un
+// bloque con alguno queda desactivado: no se puede asignar hasta reemplazarlos
+// o reactivarlos. Se calcula siempre desde el catálogo, nunca se guarda.
+export function inactiveExerciseNames(block: LibraryTree): string[] {
+  return [
+    ...new Set(
+      block.weeks.flatMap((w) =>
+        w.sessions.flatMap((d) =>
+          d.sessionExercises
+            .filter((e) => !e.exercise.isActive)
+            .map((e) => e.exercise.name),
+        ),
+      ),
+    ),
+  ];
+}
 export function libraryView(block: LibraryTree) {
   return {
     id: block.id,
+    inactiveExercises: inactiveExerciseNames(block),
     name: block.name,
     folderId: block.folderId,
     revision: block.revision,
@@ -42,6 +59,7 @@ export function libraryView(block: LibraryTree) {
           id: e.id,
           exerciseId: e.exerciseId,
           baseName: e.exercise.name,
+          exerciseActive: e.exercise.isActive,
           modifiers: e.modifiers as unknown as ModifierDto[],
           notes: e.notes ?? '',
           sets: e.programmedSets.map((s) => ({

@@ -151,8 +151,15 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
             >
               <option value="">Selecciona un bloque</option>
               {blocks.data?.map((b) => (
-                <option key={b.id} value={b.id}>
+                <option
+                  key={b.id}
+                  value={b.id}
+                  disabled={!!b.inactiveExercises?.length}
+                >
                   {b.name} · {b.weekCount} semanas
+                  {b.inactiveExercises?.length
+                    ? " · Desactivado (usa ejercicios desactivados)"
+                    : ""}
                 </option>
               ))}
             </select>

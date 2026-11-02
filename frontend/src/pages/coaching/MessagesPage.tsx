@@ -1,11 +1,12 @@
 import { readableDate } from '../../lib/readableDate';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../auth/useAuth';
 import { useStudents } from '../../api/students';
 import { useCoachingQuery, useProfile } from '../../api/coaching';
 import { apiClient } from '../../lib/apiClient';
+import { useBackdropClose } from '../../lib/useBackdropClose';
 import { Card, ErrorState, Skeleton } from '../../components/ui/Primitives';
 
 interface Attachment { id: string; type: 'IMAGE' | 'VIDEO'; originalFilename: string; }
@@ -23,7 +24,25 @@ function PrivateAttachment({ attachment }: { attachment: Attachment }) {
     }).catch(() => { if (!disposed) setError(true); });
     return () => { disposed = true; if (objectUrl) URL.revokeObjectURL(objectUrl); };
   }, [attachment.id]);
-  return error ? <p role="alert">No se pudo cargar el archivo.</p> : url ? <><MediaPreview url={url} video={attachment.type === 'VIDEO'} name={attachment.originalFilename} /><a href={url} download={attachment.originalFilename}>Descargar {attachment.originalFilename}</a></> : <p>Cargando archivo…</p>;
+  return error ? <p role="alert">No se pudo cargar el archivo.</p> : url ? <><ZoomableMedia url={url} video={attachment.type === 'VIDEO'} name={attachment.originalFilename} /><a href={url} download={attachment.originalFilename}>Descargar {attachment.originalFilename}</a></> : <p>Cargando archivo…</p>;
+}
+// Adjunto del chat que se amplía al tocarlo. El video se muestra como
+// miniatura (sin controles, para que tocarlo abra el visor en vez de
+// reproducirse en el hilo) y solo se monta con controles dentro del visor,
+// así se detiene al cerrarlo.
+function ZoomableMedia({ url, video, name }: { url: string; video: boolean; name: string }) {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const backdropClose = useBackdropClose(dialogRef);
+  const [open, setOpen] = useState(false);
+  return <>
+    <button type="button" className="chat-media-button" aria-label={`Ampliar ${name}`} onClick={() => { setOpen(true); dialogRef.current?.showModal(); }}>
+      {video ? <><video className="chat-media" src={url} preload="metadata" muted playsInline aria-hidden="true" /><span className="chat-media-play" aria-hidden="true">▶</span></> : <img className="chat-media" src={url} alt={name} />}
+    </button>
+    <dialog ref={dialogRef} {...backdropClose} className="media-dialog" aria-label={name} onClose={() => setOpen(false)}>
+      <button type="button" className="media-dialog__close button--neutral" aria-label="Cerrar" onClick={() => dialogRef.current?.close()}>×</button>
+      {open && (video ? <video className="media-dialog__media" src={url} controls autoPlay playsInline aria-label={name} /> : <img className="media-dialog__media" src={url} alt={name} />)}
+    </dialog>
+  </>;
 }
 function CoachContacts() {
   const [page, setPage] = useState(1); const [search, setSearch] = useState('');
@@ -37,7 +56,11 @@ function CoachContacts() {
 }
 export function MessagesPage() {
   const { user } = useAuth(); const [params] = useSearchParams(); const profile = useProfile();
-  const peer = params.get('peer') ?? profile.data?.coach?.id;
+  // Un alumno solo conversa con su coach: se ignora `?peer=`, que puede venir
+  // de una URL de otra sesión (ej. la del coach, con el id del propio alumno).
+  const peer = user?.role === 'STUDENT'
+    ? profile.data?.coach?.id
+    : params.get('peer') ?? undefined;
   return <section><h1>Mensajes</h1>{!peer && <p className="muted">Selecciona una conversación con tu {user?.role === 'COACH' ? 'alumno' : 'coach'}.</p>}<div className={user?.role === 'COACH' ? 'chat-layout' : ''}>{user?.role === 'COACH' && <CoachContacts />}
     {peer && <Conversation key={peer} peer={peer} />}</div></section>;
 }
@@ -45,6 +68,22 @@ function Conversation({ peer }: { peer: string }) {
   const { user } = useAuth(); const client = useQueryClient();
   const [page, setPage] = useState(1); const [body, setBody] = useState(''); const [file, setFile] = useState<File>(); const [preview, setPreview] = useState('');
   const query = useCoachingQuery<Message[]>(`/messages/${peer}?page=${page}`, true, 20000);
+  // Desplazamiento al último mensaje: siempre al abrir y al enviar; con
+  // mensajes nuevos solo si el usuario ya estaba abajo (no interrumpe a quien
+  // está leyendo mensajes antiguos). Los datos vienen del más nuevo al más
+  // antiguo, así que `query.data[0]` es el último mensaje.
+  const threadRef = useRef<HTMLDivElement>(null);
+  const stickToBottom = useRef(true);
+  const lastMessageId = query.data?.[0]?.id;
+  function scrollToBottom() {
+    const thread = threadRef.current;
+    if (thread && stickToBottom.current && page === 1) thread.scrollTop = thread.scrollHeight;
+  }
+  function trackScroll() {
+    const thread = threadRef.current;
+    if (thread) stickToBottom.current = thread.scrollHeight - thread.scrollTop - thread.clientHeight < 80;
+  }
+  useEffect(scrollToBottom, [lastMessageId, page]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
   const [fileError, setFileError] = useState('');
   function chooseFile(next?: File) {
@@ -57,9 +96,9 @@ function Conversation({ peer }: { peer: string }) {
   const send = useMutation({ mutationFn: async () => {
     const data = new FormData(); data.append('body', body); if (file) data.append('file', file);
     return apiClient.postFile(`/messages/${peer}`, data);
-  }, onSuccess: () => { setBody(''); chooseFile(undefined); setPage(1); void client.invalidateQueries({ queryKey: ['coaching'] }); } });
+  }, onSuccess: () => { stickToBottom.current = true; setBody(''); chooseFile(undefined); setPage(1); void client.invalidateQueries({ queryKey: ['coaching'] }); } });
   return <Card><h2>Chat Coach ↔ Alumno</h2>{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
-    <div className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
+    <div ref={threadRef} onScroll={trackScroll} onLoadCapture={scrollToBottom} onLoadedMetadataCapture={scrollToBottom} className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
       <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small><p>{m.body}</p>
       {m.attachments.map((a) => <PrivateAttachment key={a.id} attachment={a} />)}<small>{m.senderId === user?.id ? m.readAt ? 'Leído' : 'Enviado' : ''}</small>
     </article>)}</div>

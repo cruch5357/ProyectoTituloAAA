@@ -38,9 +38,9 @@ export class BlockLibraryService {
     if (id && !(await tx.blockFolder.findFirst({ where: { id, coachId } })))
       throw new NotFoundException('Carpeta no encontrada');
   }
-  list(coachId: string) {
-    return this.prisma.block
-      .findMany({
+  async list(coachId: string) {
+    const [rows, inactiveUses] = await Promise.all([
+      this.prisma.block.findMany({
         where: { coachId, programId: null },
         orderBy: { updatedAt: 'desc' },
         select: {
@@ -51,10 +51,32 @@ export class BlockLibraryService {
           updatedAt: true,
           _count: { select: { weeks: true } },
         },
-      })
-      .then((rows) =>
-        rows.map(({ _count, ...b }) => ({ ...b, weekCount: _count.weeks })),
-      );
+      }),
+      // Usos de ejercicios desactivados en bloques de la biblioteca: marcan
+      // esos bloques como desactivados (ver inactiveExerciseNames).
+      this.prisma.sessionExercise.findMany({
+        where: {
+          exercise: { isActive: false },
+          session: { week: { block: { coachId, programId: null } } },
+        },
+        select: {
+          exercise: { select: { name: true } },
+          session: { select: { week: { select: { blockId: true } } } },
+        },
+      }),
+    ]);
+    const inactiveByBlock = new Map<string, Set<string>>();
+    for (const use of inactiveUses) {
+      const blockId = use.session.week.blockId;
+      const names = inactiveByBlock.get(blockId) ?? new Set<string>();
+      names.add(use.exercise.name);
+      inactiveByBlock.set(blockId, names);
+    }
+    return rows.map(({ _count, ...b }) => ({
+      ...b,
+      weekCount: _count.weeks,
+      inactiveExercises: [...(inactiveByBlock.get(b.id) ?? [])],
+    }));
   }
   async get(coachId: string, id: string) {
     return libraryView(await this.owned(this.prisma, coachId, id));

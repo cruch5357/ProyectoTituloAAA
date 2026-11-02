@@ -93,7 +93,10 @@ export class ExercisesService {
     const [items, total] = await Promise.all([
       this.prisma.exercise.findMany({
         where,
-        orderBy: { name: 'asc' },
+        // Activos primero y desactivados al final (cada grupo por nombre). Se
+        // ordena en la base de datos para que el orden se respete también
+        // entre páginas.
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -187,6 +190,37 @@ export class ExercisesService {
       data,
     });
     return toPublicExercise(updated);
+  }
+
+  // -------------------------------------------------------------------
+  // GET /exercises/:id/usage — bloques de la biblioteca que usan el
+  // ejercicio. El frontend lo consulta antes de desactivarlo para avisar que
+  // esos bloques quedarán desactivados (no asignables) hasta reemplazarlo.
+  // -------------------------------------------------------------------
+  async usage(
+    coachId: string,
+    exerciseId: string,
+  ): Promise<{ blocks: { id: string; name: string }[] }> {
+    const exercise = await this.prisma.exercise.findUnique({
+      where: { id: exerciseId },
+    });
+    this.ensureOwnedExercise(coachId, exercise);
+    const blocks = await this.prisma.block.findMany({
+      where: {
+        coachId,
+        programId: null,
+        weeks: {
+          some: {
+            sessions: {
+              some: { sessionExercises: { some: { exerciseId } } },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    return { blocks };
   }
 
   // -------------------------------------------------------------------

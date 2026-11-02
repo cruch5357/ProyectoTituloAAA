@@ -4,6 +4,7 @@ import type { ChangeEvent, FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import {
   useConfirmExcelImport,
+  useDownloadExcelTemplate,
   useRejectExcelImport,
   useUploadExcelImport,
 } from '../../api/imports';
@@ -18,6 +19,12 @@ import { ExcelImportRowsTable } from './ExcelImportRowsTable';
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSION = '.xlsx';
 
+const STATUS_LABELS: Record<string, string> = {
+  PENDING_REVIEW: 'Pendiente de revisión',
+  CONFIRMED: 'Confirmada',
+  REJECTED: 'Rechazada',
+};
+
 // Pantalla "Importar Excel" del Coach. PROMPT 13 implementó la primera
 // mitad (subir, validar, vista previa). PROMPT 14 agrega la segunda mitad
 // (RF-19/RF-20): confirmar las filas válidas hacia Program/Block/Week/
@@ -30,6 +37,7 @@ export function ImportExcelPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
   const uploadMutation = useUploadExcelImport();
+  const templateMutation = useDownloadExcelTemplate();
 
   const uploadedBatch = uploadMutation.data;
   // Los hooks de mutación siempre se llaman (reglas de hooks) aunque todavía
@@ -122,27 +130,47 @@ export function ImportExcelPage() {
       </dialog>
       <div className="page-header">
         <h1>Importar Excel</h1>
+        <button
+          type="button"
+          onClick={() => templateMutation.mutate()}
+          disabled={templateMutation.isPending}
+        >
+          {templateMutation.isPending ? 'Descargando…' : 'Descargar plantilla'}
+        </button>
       </div>
 
+      {templateMutation.isError && (
+        <p role="alert" className="field-error">
+          No se pudo descargar la plantilla. Intenta nuevamente.
+        </p>
+      )}
+
       <p>
-        Sube un archivo <strong>.xlsx</strong> con tu planificación siguiendo la
-        plantilla de importación. El sistema valida el archivo y muestra una
-        vista previa con los errores encontrados en cada fila antes de confirmar
-        nada.
+        Descarga la plantilla, completa tu planificación y súbela. El sistema
+        valida el archivo y muestra una vista previa con los errores de cada
+        fila antes de guardar nada.
       </p>
 
-      <ul>
+      <ol className="import-steps">
         <li>
-          Formato admitido: únicamente <code>.xlsx</code> (no se aceptan
-          archivos con macros, <code>.xlsm</code>).
+          <strong>Cada fila es un ejercicio</strong> dentro de una sesión:
+          escribe el programa, bloque, semana, sesión y ejercicio en cada fila.
         </li>
-        <li>Tamaño máximo: 5 MB.</li>
         <li>
-          Cada fila representa la prescripción de un ejercicio dentro de una
-          sesión.
+          <strong>El orden se toma de las filas:</strong> bloques, semanas,
+          sesiones y ejercicios quedan en el orden en que los escribas. No
+          necesitas numerarlos.
         </li>
-        <li>Los ejercicios referenciados deben existir ya en tu catálogo.</li>
-      </ul>
+        <li>
+          <strong>Los ejercicios deben existir en tu catálogo</strong> con el
+          mismo nombre. La plantilla trae una hoja &quot;Mis ejercicios&quot;
+          con los nombres exactos.
+        </li>
+        <li>
+          Formato <code>.xlsx</code> de hasta 5 MB (no se aceptan archivos con
+          macros).
+        </li>
+      </ol>
 
       <form onSubmit={handleSubmit} className="search-form">
         <label className="field">
@@ -185,7 +213,7 @@ export function ImportExcelPage() {
           <h2>Vista previa de la importación</h2>
           <p>
             Archivo: <strong>{batch.originalFilename}</strong> — Estado:{' '}
-            <strong>{batch.status}</strong>
+            <strong>{STATUS_LABELS[batch.status] ?? batch.status}</strong>
           </p>
           <p>
             Total de filas: {batch.counts.totalRows} — Válidas:{' '}

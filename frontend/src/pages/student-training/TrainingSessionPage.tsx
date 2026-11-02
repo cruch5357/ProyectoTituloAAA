@@ -20,7 +20,8 @@ import { ExerciseVideo } from "../../components/ui/ExerciseVideo";
 import { useAuth } from "../../auth/useAuth";
 import {
   fillEmptyActual,
-  firstPending,
+  hasActualValues,
+  recordFilledPending,
   restoreDraft,
   retainUnrecordedInputs,
   serializeDraft,
@@ -73,9 +74,17 @@ function SessionRecorder({
   );
   const [dirty, setDirty] = useState(!!recovery && !recovery.conflict);
   const [storageError, setStorageError] = useState(false);
-  const [open, setOpen] = useState(() =>
-    firstPending(recovery && !recovery.conflict ? recovery.value : initial),
+  // Todo abierto por defecto: los ejercicios y los campos de las series
+  // pendientes se ven de una vez. Las series anotadas/omitidas se muestran
+  // resumidas y se pueden abrir para corregirlas.
+  const [collapsedExercises, setCollapsedExercises] = useState<Set<string>>(
+    () => new Set(),
   );
+  const [setOverrides, setSetOverrides] = useState<Record<string, boolean>>(
+    {},
+  );
+  const isSetOpen = (exerciseId: string, set: TrainingSet) =>
+    setOverrides[`${exerciseId}:${set.setNumber}`] ?? set.status === "PENDING";
   const saving = useRef(false);
   const [duration, setDuration] = useState(
     recovery && !recovery.conflict
@@ -109,7 +118,6 @@ function SessionRecorder({
       finish: boolean;
       skip?: boolean;
       value: TrainingDetail;
-      advance?: { exerciseId: string; setNumber: number };
     }) => {
       const value = skip
         ? {
@@ -146,14 +154,8 @@ function SessionRecorder({
       } else persist(next);
       setDirty(false);
       setConfirm(null);
-      if (variables.advance && !variables.finish) {
-        setOpen((current) =>
-          current.exerciseId === variables.advance?.exerciseId &&
-          current.setNumber === variables.advance?.setNumber
-            ? firstPending(next)
-            : current,
-        );
-      }
+      // Las series recién anotadas vuelven a mostrarse resumidas.
+      setSetOverrides({});
       cache.setQueryData(
         ["training-session", data.id, queryAssignmentId],
         data,
@@ -165,19 +167,22 @@ function SessionRecorder({
       saving.current = false;
     },
   });
-  function save(
-    value = draft,
-    finish = false,
-    skip = false,
-    advance?: { exerciseId: string; setNumber: number },
-  ) {
+  function save(value = draft, finish = false, skip = false) {
     if (saving.current || initial.readOnly || conflictingDraft) return;
     saving.current = true;
-    mutation.mutate({ value, finish, skip, advance });
+    // Lo escrito sin «Anotar» también se guarda (salvo al omitir la sesión).
+    mutation.mutate({
+      value: skip ? value : recordFilledPending(value),
+      finish,
+      skip,
+    });
   }
   const sets = draft.exercises.flatMap((e) => e.sets);
   const done = sets.filter((s) => s.status === "RECORDED").length;
   const pending = sets.filter((s) => s.status === "PENDING").length;
+  const filledPending = sets.filter(
+    (s) => s.status === "PENDING" && hasActualValues(s),
+  ).length;
   function update(
     exerciseId: string,
     setNumber: number,
@@ -230,10 +235,10 @@ function SessionRecorder({
       )}
       {!initial.readOnly && (
         <p className="muted">
-          Anota cada serie al terminarla. «Anotar» completa solo los campos
-          vacíos con lo prescrito y guarda tus valores. Solo puedes registrar
-          las series programadas por tu coach. Los campos pendientes se
-          conservan en esta pestaña.
+          Anota cada serie al terminarla. Si escribes los valores y pasas a
+          otra serie, se anotan solos; los campos vacíos se completan con lo
+          prescrito. Solo puedes registrar las series programadas por tu
+          coach.
         </p>
       )}
       {storageError && (
@@ -299,19 +304,15 @@ function SessionRecorder({
               <button
                 type="button"
                 className="training-accordion-toggle"
-                aria-expanded={open.exerciseId === exercise.id}
+                aria-expanded={!collapsedExercises.has(exercise.id)}
                 aria-controls={`exercise-${exercise.id}`}
                 onClick={() =>
-                  setOpen(
-                    open.exerciseId === exercise.id
-                      ? { exerciseId: null, setNumber: null }
-                      : {
-                          exerciseId: exercise.id,
-                          setNumber:
-                            exercise.sets.find((s) => s.status === "PENDING")
-                              ?.setNumber ?? null,
-                        },
-                  )
+                  setCollapsedExercises((current) => {
+                    const next = new Set(current);
+                    if (next.has(exercise.id)) next.delete(exercise.id);
+                    else next.add(exercise.id);
+                    return next;
+                  })
                 }
               >
                 <span className="training-exercise-number">
@@ -335,16 +336,16 @@ function SessionRecorder({
                   </span>
                 </span>
                 <span aria-hidden="true" className="training-chevron">
-                  {open.exerciseId === exercise.id ? "−" : "+"}
+                  {collapsedExercises.has(exercise.id) ? "+" : "−"}
                 </span>
               </button>
             </header>
             <div
               id={`exercise-${exercise.id}`}
               className="training-collapse"
-              data-open={open.exerciseId === exercise.id}
-              inert={open.exerciseId !== exercise.id}
-              aria-hidden={open.exerciseId !== exercise.id}
+              data-open={!collapsedExercises.has(exercise.id)}
+              inert={collapsedExercises.has(exercise.id)}
+              aria-hidden={collapsedExercises.has(exercise.id)}
             >
               <div className="training-collapse-inner">
                 {exercise.notes && (
@@ -367,17 +368,16 @@ function SessionRecorder({
                     <button
                       type="button"
                       className="training-accordion-toggle"
-                      aria-expanded={
-                        open.exerciseId === exercise.id &&
-                        open.setNumber === s.setNumber
-                      }
+                      aria-expanded={isSetOpen(exercise.id, s)}
                       aria-controls={`set-${exercise.id}-${s.setNumber}`}
                       onClick={() =>
-                        setOpen({
-                          exerciseId: exercise.id,
-                          setNumber:
-                            open.setNumber === s.setNumber ? null : s.setNumber,
-                        })
+                        setSetOverrides((current) => ({
+                          ...current,
+                          [`${exercise.id}:${s.setNumber}`]: !isSetOpen(
+                            exercise.id,
+                            s,
+                          ),
+                        }))
                       }
                     >
                       <span>
@@ -395,34 +395,43 @@ function SessionRecorder({
                         )}
                       </span>
                       <span className="training-chevron" aria-hidden="true">
-                        {open.setNumber === s.setNumber ? "−" : "+"}
+                        {isSetOpen(exercise.id, s) ? "−" : "+"}
                       </span>
                     </button>
                     <div
                       id={`set-${exercise.id}-${s.setNumber}`}
                       className="training-collapse"
-                      data-open={
-                        open.exerciseId === exercise.id &&
-                        open.setNumber === s.setNumber
-                      }
-                      inert={
-                        open.exerciseId !== exercise.id ||
-                        open.setNumber !== s.setNumber
-                      }
-                      aria-hidden={
-                        open.exerciseId !== exercise.id ||
-                        open.setNumber !== s.setNumber
-                      }
+                      data-open={isSetOpen(exercise.id, s)}
+                      inert={!isSetOpen(exercise.id, s)}
+                      aria-hidden={!isSetOpen(exercise.id, s)}
                     >
                       <div className="training-collapse-inner">
                         <fieldset
                           className={`performed-set performed-set--${s.status}`}
-                          disabled={
-                            disabled ||
-                            open.exerciseId !== exercise.id ||
-                            open.setNumber !== s.setNumber
-                          }
+                          disabled={disabled || !isSetOpen(exercise.id, s)}
                           aria-label={`${exercise.name}, serie ${s.setNumber}`}
+                          onBlur={(event) => {
+                            // Al salir de una serie con valores escritos se
+                            // anota sola, como si se hubiera tocado «Anotar».
+                            if (
+                              initial.readOnly ||
+                              s.status !== "PENDING" ||
+                              !hasActualValues(s) ||
+                              event.currentTarget.contains(
+                                event.relatedTarget as Node | null,
+                              ) ||
+                              [
+                                ...event.currentTarget.querySelectorAll("input"),
+                              ].some((input) => !input.checkValidity())
+                            )
+                              return;
+                            save(
+                              updateSet(draft, exercise.id, s.setNumber, {
+                                status: "RECORDED",
+                                actual: fillEmptyActual(s),
+                              }),
+                            );
+                          }}
                         >
                           <p className="set-prescription">
                             Prescrito: {s.weight ?? "—"} kg · {s.reps ?? "—"}{" "}
@@ -491,10 +500,7 @@ function SessionRecorder({
                                       actual: fillEmptyActual(s),
                                     },
                                   );
-                                  save(next, false, false, {
-                                    exerciseId: exercise.id,
-                                    setNumber: s.setNumber,
-                                  });
+                                  save(next);
                                 }}
                               >
                                 Anotar
@@ -502,11 +508,17 @@ function SessionRecorder({
                               <button
                                 type="button"
                                 className="button--neutral"
-                                onClick={() =>
+                                onClick={() => {
+                                  // Sigue abierta para poder deshacerlo con
+                                  // «Dejar pendiente».
+                                  setSetOverrides((current) => ({
+                                    ...current,
+                                    [`${exercise.id}:${s.setNumber}`]: true,
+                                  }));
                                   update(exercise.id, s.setNumber, {
                                     status: "SKIPPED",
-                                  })
-                                }
+                                  });
+                                }}
                               >
                                 Omitir
                               </button>
@@ -561,7 +573,9 @@ function SessionRecorder({
                 disabled={
                   disabled ||
                   !dirty ||
-                  sets.every((s) => s.status === "PENDING")
+                  sets.every(
+                    (s) => s.status === "PENDING" && !hasActualValues(s),
+                  )
                 }
               >
                 Guardar progreso
@@ -615,7 +629,7 @@ function SessionRecorder({
           <p>
             {confirm === "skip"
               ? "Todas las series de esta sesión quedarán omitidas, incluidos los valores registrados."
-              : `${done} series registradas. Las ${pending} pendientes quedarán omitidas. Después podrás corregir tu registro mientras el ciclo siga activo.`}
+              : `${done + filledPending} series registradas${filledPending ? ` (incluye ${filledPending} con datos escritos sin anotar)` : ""}. ${pending - filledPending === 0 ? "No quedan series pendientes." : `Las ${pending - filledPending} pendientes sin datos quedarán omitidas.`} Después podrás corregir tu registro mientras el ciclo siga activo.`}
           </p>
           <div className="dialog-actions">
             <button

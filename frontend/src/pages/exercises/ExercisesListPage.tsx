@@ -13,6 +13,7 @@ import {
   sportLabel,
 } from '../../lib/exerciseTaxonomy';
 import type { Exercise } from '../../types/exercise';
+import { useDeactivationGuard } from '../../components/exercises/useDeactivationGuard';
 
 const PAGE_SIZE = 20;
 
@@ -45,6 +46,7 @@ export function ExercisesListPage() {
     sport: sport || undefined,
   });
   const updateStatusMutation = useUpdateExerciseStatus();
+  const deactivation = useDeactivationGuard();
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -52,8 +54,13 @@ export function ExercisesListPage() {
     setSearch(searchInput.trim());
   }
 
-  function handleToggleStatus(id: string, currentIsActive: boolean) {
-    updateStatusMutation.mutate({ id, isActive: !currentIsActive });
+  function handleToggleStatus(exercise: Exercise) {
+    void deactivation.request(exercise, () =>
+      updateStatusMutation.mutate({
+        id: exercise.id,
+        isActive: !exercise.isActive,
+      }),
+    );
   }
 
   return (
@@ -149,7 +156,10 @@ export function ExercisesListPage() {
               </thead>
               <tbody>
                 {exercisesQuery.data.items.map((exercise) => (
-                  <tr key={exercise.id}>
+                  <tr
+                    key={exercise.id}
+                    className={exercise.isActive ? undefined : 'row--inactive'}
+                  >
                     <td>
                       <Link to={`/exercises/${exercise.id}`}>
                         {exercise.name}
@@ -180,12 +190,12 @@ export function ExercisesListPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() =>
-                            handleToggleStatus(exercise.id, exercise.isActive)
-                          }
+                          onClick={() => handleToggleStatus(exercise)}
                           disabled={
-                            updateStatusMutation.isPending &&
-                            updateStatusMutation.variables?.id === exercise.id
+                            deactivation.checkingId === exercise.id ||
+                            (updateStatusMutation.isPending &&
+                              updateStatusMutation.variables?.id ===
+                                exercise.id)
                           }
                         >
                           {exercise.isActive ? 'Desactivar' : 'Activar'}
@@ -231,6 +241,7 @@ export function ExercisesListPage() {
           No se pudo actualizar el estado del ejercicio.
         </p>
       )}
+      {deactivation.dialog}
     </section>
   );
 }

@@ -103,6 +103,20 @@ describe('ExercisesService.listForCoach', () => {
     ]);
   });
 
+  it('ordena los activos primero y los desactivados al final, cada grupo por nombre', async () => {
+    prisma.exercise.findMany.mockResolvedValue([]);
+    prisma.exercise.count.mockResolvedValue(0);
+
+    await service.listForCoach(COACH_ID, { page: 2, limit: 20 });
+
+    expect(prisma.exercise.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderBy: [{ isActive: 'desc' }, { name: 'asc' }],
+        skip: 20,
+      }),
+    );
+  });
+
   it('no filtra por isActive: devuelve ejercicios activos e inactivos', async () => {
     prisma.exercise.findMany.mockResolvedValue([]);
     prisma.exercise.count.mockResolvedValue(0);
@@ -361,6 +375,36 @@ describe('ExercisesService - grupos musculares y deportes', () => {
           sports: { has: 'crossfit' },
         }),
       }),
+    );
+  });
+});
+
+describe('ExercisesService.usage', () => {
+  it('devuelve los bloques de la biblioteca del coach que usan el ejercicio', async () => {
+    const blockFindMany = jest
+      .fn()
+      .mockResolvedValue([{ id: 'b1', name: 'Fuerza base' }]);
+    (prisma as unknown as { block: { findMany: jest.Mock } }).block = {
+      findMany: blockFindMany,
+    };
+    prisma.exercise.findUnique.mockResolvedValue(buildExercise());
+
+    await expect(service.usage(COACH_ID, 'exercise-1')).resolves.toEqual({
+      blocks: [{ id: 'b1', name: 'Fuerza base' }],
+    });
+    expect(blockFindMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ coachId: COACH_ID, programId: null }),
+      }),
+    );
+  });
+
+  it('responde 404 si el ejercicio es de otro coach', async () => {
+    prisma.exercise.findUnique.mockResolvedValue(
+      buildExercise({ coachId: OTHER_COACH_ID }),
+    );
+    await expect(service.usage(COACH_ID, 'exercise-1')).rejects.toBeInstanceOf(
+      NotFoundException,
     );
   });
 });

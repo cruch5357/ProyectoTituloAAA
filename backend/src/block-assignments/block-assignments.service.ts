@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { libraryTree } from '../blocks/library-tree';
+import { inactiveExerciseNames, libraryTree } from '../blocks/library-tree';
 import { dateOnly } from '../common/training/calendar-date';
 import { exerciseSnapshot } from './training-state';
 import { AssignBlockDto } from './block-assignment.dto';
@@ -39,6 +39,11 @@ export class BlockAssignmentsService {
           include: libraryTree,
         });
         if (!block) throw new NotFoundException('Bloque no encontrado');
+        const inactive = inactiveExerciseNames(block);
+        if (inactive.length)
+          throw new BadRequestException(
+            `El bloque está desactivado porque usa ejercicios desactivados (${inactive.join(', ')}). Reemplázalos por ejercicios activos o reactívalos para asignarlo.`,
+          );
         if (!block.weeks.length)
           throw new BadRequestException('El bloque no tiene semanas');
         const maxDays = Math.max(...block.weeks.map((w) => w.sessions.length));

@@ -12,6 +12,7 @@ import {
 import { ApiError } from '../../lib/apiClient';
 import { ExerciseStatusBadge } from './ExerciseStatusBadge';
 import type { Exercise } from '../../types/exercise';
+import { useDeactivationGuard } from '../../components/exercises/useDeactivationGuard';
 import {
   MuscleGroupPicker,
   MuscleGroupPreview,
@@ -69,6 +70,7 @@ export function ExerciseDetailPage() {
 function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
   const updateMutation = useUpdateExercise();
   const updateStatusMutation = useUpdateExerciseStatus();
+  const deactivation = useDeactivationGuard();
 
   const [name, setName] = useState(exercise.name);
   const [muscleGroups, setMuscleGroups] = useState(exercise.muscleGroups);
@@ -210,12 +212,17 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
           <button
             type="button"
             onClick={() =>
-              updateStatusMutation.mutate({
-                id: exercise.id,
-                isActive: !exercise.isActive,
-              })
+              void deactivation.request(exercise, () =>
+                updateStatusMutation.mutate({
+                  id: exercise.id,
+                  isActive: !exercise.isActive,
+                }),
+              )
             }
-            disabled={updateStatusMutation.isPending}
+            disabled={
+              updateStatusMutation.isPending ||
+              deactivation.checkingId === exercise.id
+            }
           >
             {exercise.isActive ? 'Desactivar ejercicio' : 'Activar ejercicio'}
           </button>
@@ -227,6 +234,7 @@ function ExerciseEditForm({ exercise }: { exercise: Exercise }) {
           No se pudo actualizar el estado del ejercicio.
         </p>
       )}
+      {deactivation.dialog}
     </section>
   );
 }

@@ -43,7 +43,7 @@ export class CompetitionsService {
         student: user.role === 'COACH' ? { coachId: user.id } : { id: user.id },
       },
     });
-    if (!competition) throw new NotFoundException('Competición no encontrada');
+    if (!competition) throw new NotFoundException('Hito no encontrado');
     return competition;
   }
   async create(user: AuthenticatedUser, dto: CompetitionDto) {
@@ -66,7 +66,7 @@ export class CompetitionsService {
           tx,
           student.coachId,
           'COMPETITION_CREATED',
-          `${student.name} agregó una competición`,
+          `${student.name} agregó un hito`,
           'student',
           user.id,
         );
@@ -102,7 +102,7 @@ export class CompetitionsService {
           tx,
           student.coachId,
           'COMPETITION_UPDATED',
-          `${student.name} actualizó una competición`,
+          `${student.name} actualizó un hito`,
           'student',
           user.id,
         );
@@ -127,7 +127,7 @@ export class CompetitionsService {
         tx,
         competition.studentId,
         'COMPETITION_GOAL_UPDATED',
-        'Tu coach actualizó el objetivo de competición',
+        'Tu coach actualizó el objetivo de tu hito',
         'competition',
         id,
       );

@@ -1,5 +1,29 @@
 import type { ExcelImportRow } from '../../types/excelImport';
 
+// Nombre en español de cada columna (mismo texto que los encabezados de la
+// plantilla, ver backend/src/common/imports/excel-template.ts).
+const FIELD_LABELS: Record<string, string> = {
+  program_name: 'Programa',
+  program_description: 'Descripción del programa',
+  duration_weeks: 'Duración (semanas)',
+  block_name: 'Bloque',
+  block_order: 'Orden bloque',
+  week_number: 'Semana',
+  week_order: 'Orden semana',
+  session_name: 'Sesión',
+  day_of_week: 'Día',
+  session_order: 'Orden sesión',
+  exercise_name: 'Ejercicio',
+  exercise_order: 'Orden ejercicio',
+  target_sets: 'Series',
+  target_reps_min: 'Reps mín',
+  target_reps_max: 'Reps máx',
+  target_rpe: 'RPE',
+  target_rir: 'RIR',
+  rest_seconds: 'Descanso (seg)',
+  notes: 'Notas',
+};
+
 // Tabla de filas procesadas de un batch (PROMPT 13, "vista previa"; columna
 // "Resultado" agregada en PROMPT 14). Muestra SIEMPRE lo que se entendió de
 // cada fila (aunque tenga errores) más sus errores, para que el coach sepa
@@ -79,7 +103,10 @@ export function ExcelImportRowsTable({ rows }: { rows: ExcelImportRow[] }) {
                   <ul className="field-error-list">
                     {row.errors.map((error, index) => (
                       <li key={`${row.id}-${index}`} role="alert">
-                        <strong>{error.field}:</strong> {error.message}
+                        <strong>
+                          {FIELD_LABELS[error.field] ?? error.field}:
+                        </strong>{' '}
+                        {error.message}
                       </li>
                     ))}
                   </ul>

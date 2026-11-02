@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { renderWithProviders } from '../../test/renderWithProviders';
@@ -37,9 +37,9 @@ beforeEach(() => {
   vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {}, error: null, meta: {} });
 });
 describe('Evolución coaching', () => {
-  it('dirige el alumno al entrenamiento actual desde Inicio', async () => {
+  it('Entrenamiento muestra la sesión de hoy y qué se va a trabajar', async () => {
     expect(getHomePathForRole('STUDENT')).toBe('/home');
-    renderUser(<StudentHomePage />);
+    renderUser(<StudentHomePage training />);
     expect(await screen.findByText('Tu sesión de hoy')).toBeInTheDocument();
     expect(screen.queryByText('Entrenamiento de hoy')).not.toBeInTheDocument();
     expect(screen.getByText('Qué vas a trabajar')).toBeInTheDocument();
@@ -57,20 +57,34 @@ describe('Evolución coaching', () => {
   it('crea competición usando datos del formulario y sin studentId arbitrario', async () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: competition, error: null, meta: {} });
     renderUser(<CompetitionsPage />); const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Agregar competición' }));
+    await user.click(screen.getByRole('button', { name: 'Agregar hito' }));
     await user.type(screen.getByLabelText('Nombre'), 'Torneo local');
     await user.type(screen.getByLabelText('Fecha'), '2026-11-20');
     await user.type(screen.getByLabelText('Categoría'), 'Open');
-    await user.click(screen.getByRole('button', { name: 'Guardar competición' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar hito' }));
     await waitFor(() => expect(post).toHaveBeenCalledWith('/competitions', expect.objectContaining({ name: 'Torneo local', eventDate: '2026-11-20', category: 'Open' })));
     expect(post.mock.calls[0][1]).not.toHaveProperty('studentId');
   });
-  it('calendario renderiza programación y competición y permite cambiar mes', async () => {
-    renderUser(<Calendar />);
-    expect(await screen.findByRole('link', { name: /Fuerza de hoy/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
-    expect(screen.getByText('Open Santiago')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
-    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringMatching(/\/calendar\/me\?month=/)));
+  it('calendario mensual compacto: marca días, muestra el detalle del día elegido y cambia de mes', async () => {
+    // Fecha fija: el calendario abre en el mes actual y los datos son de octubre.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-10-07T15:00:00Z'));
+    try {
+      renderUser(<Calendar />);
+      // Hoy (7 de octubre) viene elegido: su sesión aparece en el detalle del día.
+      expect(await screen.findByRole('link', { name: /Fuerza de hoy/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
+      expect(screen.getByRole('button', { name: /1 entrenamiento/ })).toHaveAttribute('aria-pressed', 'true');
+      expect(screen.getAllByText(/^(LUN|MAR|MIÉ|JUE|VIE|SÁB|DOM)$/)).toHaveLength(7);
+      // El hito del 20 no aparece hasta elegir ese día.
+      expect(screen.queryByText('Open Santiago')).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: /1 hito/ }));
+      expect(screen.getByText('Open Santiago')).toBeInTheDocument();
+      expect(screen.queryByRole('link', { name: /Fuerza de hoy/ })).toBeNull();
+      await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+      await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringMatching(/\/calendar\/me\?month=2026-11/)));
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it('guarda perfil y muestra coach asociado', async () => {
     renderUser(<ProfilePage />);
@@ -85,6 +99,82 @@ describe('Evolución coaching', () => {
     expect(await screen.findByText('Tu programa está listo')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Marcar todas como leídas' }));
     await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith('/notifications/read-all', undefined));
+  });
+  it('un alumno siempre conversa con su coach aunque la URL traiga otro ?peer=', async () => {
+    renderWithProviders(
+      <AuthContext.Provider value={{ status: 'authenticated', user: { id: 's1', name: 'Atleta', email: 's@example.com', role: 'STUDENT', coachId: 'coach1', isActive: true, createdAt: '' }, login: vi.fn(), logout: vi.fn() }}>
+        <MessagesPage />
+      </AuthContext.Provider>,
+      { route: '/messages?peer=s1' },
+    );
+    await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringContaining('/messages/coach1?page=1')));
+    expect(vi.mocked(apiClient.get).mock.calls.some(([path]) => String(path).startsWith('/messages/s1'))).toBe(false);
+  });
+  it('Novedades muestra solo las 4 más recientes', async () => {
+    const notices = Array.from({ length: 6 }, (_, i) => ({ id: `n${i}`, title: `Novedad ${i + 1}`, resourceType: 'program', resourceId: 'p1', createdAt: `2026-10-0${i + 1}T12:00:00Z`, readAt: null }));
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path.startsWith('/notifications?') ? { data: notices, error: null, meta: {} } : defaultGet(path, options));
+    renderUser(<CoachOperations />);
+    expect(await screen.findByText('Novedad 6')).toBeInTheDocument();
+    for (const n of [6, 5, 4, 3]) expect(screen.getByText(`Novedad ${n}`)).toBeInTheDocument();
+    expect(screen.queryByText('Novedad 2')).toBeNull();
+    expect(screen.queryByText('Novedad 1')).toBeNull();
+    expect(screen.getByText(/Ves las 4 más recientes/)).toBeInTheDocument();
+  });
+  it('el chat baja al último mensaje al enviar', async () => {
+    const older = { id: 'm1', senderId: 'coach1', body: 'Hola', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [] };
+    const sent = { id: 'm2', senderId: 's1', body: 'Listo', createdAt: '2026-10-07T10:05:00Z', readAt: null, attachments: [] };
+    let messages = [older];
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path.startsWith('/messages/coach1') ? { data: messages, error: null, meta: {} } : defaultGet(path, options));
+    vi.spyOn(apiClient, 'postFile').mockImplementation(async () => { messages = [sent, older]; return { data: sent, error: null, meta: {} }; });
+
+    renderUser(<MessagesPage />);
+    expect(await screen.findByText('Hola')).toBeInTheDocument();
+    const thread = screen.getByLabelText('Mensajes de la conversación');
+    // jsdom no calcula layout: se simula un hilo con contenido desplazable.
+    Object.defineProperty(thread, 'scrollHeight', { configurable: true, value: 900 });
+    Object.defineProperty(thread, 'clientHeight', { configurable: true, value: 300 });
+    thread.scrollTop = 0;
+
+    await userEvent.type(screen.getByLabelText('Mensaje'), 'Listo');
+    await userEvent.click(screen.getByRole('button', { name: 'Enviar mensaje' }));
+
+    expect(await screen.findByText('Listo', { selector: 'p' })).toBeInTheDocument();
+    await waitFor(() => expect(thread.scrollTop).toBe(900));
+  });
+  it('las imágenes y videos del chat se amplían en un visor al tocarlos', async () => {
+    const message = { id: 'm1', senderId: 'coach1', body: 'Mira la técnica', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [
+      { id: 'a1', type: 'IMAGE', originalFilename: 'foto.jpg' },
+      { id: 'a2', type: 'VIDEO', originalFilename: 'tecnica.mp4' },
+    ] };
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path.startsWith('/messages/coach1') ? { data: [message], error: null, meta: {} } : defaultGet(path, options));
+    vi.spyOn(apiClient, 'blob').mockResolvedValue(new Blob(['x']));
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn((blob: Blob) => `blob:${blob.size}`), revokeObjectURL: vi.fn() });
+
+    renderUser(<MessagesPage />);
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ampliar foto.jpg' }));
+    const imageViewer = screen.getByRole('dialog', { name: 'foto.jpg' });
+    expect(imageViewer).toHaveAttribute('open');
+    expect(within(imageViewer).getByRole('img', { name: 'foto.jpg' })).toBeInTheDocument();
+    await userEvent.click(within(imageViewer).getByRole('button', { name: 'Cerrar' }));
+    expect(imageViewer).not.toHaveAttribute('open');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Ampliar tecnica.mp4' }));
+    const videoViewer = screen.getByRole('dialog', { name: 'tecnica.mp4' });
+    const video = videoViewer.querySelector('video');
+    expect(video).toHaveAttribute('controls');
+    // jsdom no dispara `close` al llamar close(): se simula para comprobar
+    // que el video se desmonta (y por lo tanto se detiene) al cerrar.
+    await userEvent.click(within(videoViewer).getByRole('button', { name: 'Cerrar' }));
+    fireEvent(videoViewer, new Event('close'));
+    await waitFor(() => expect(videoViewer.querySelector('video')).toBeNull());
+    vi.unstubAllGlobals();
   });
   it('chat envía texto por multipart y preview de video no tiene autoplay', async () => {
     const post = vi.spyOn(apiClient, 'postFile').mockResolvedValue({ data: {}, error: null, meta: {} });

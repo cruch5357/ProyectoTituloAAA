@@ -19,7 +19,7 @@ const studentLinks: typeof coachLinks = [
   { to: '/training', label: 'Entrenamiento', icon: 'exercise' },
   { to: '/history', label: 'Historial', icon: 'chart' },
   { to: '/calendar', label: 'Calendario', icon: 'program' },
-  { to: '/competitions', label: 'Competiciones', icon: 'activity' },
+  { to: '/competitions', label: 'Hitos', icon: 'activity' },
 ];
 function QuickStudents() {
   const location = useLocation();

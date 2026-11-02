@@ -60,4 +60,33 @@ describe("Biblioteca: operaciones de programación", () => {
     expect(move(exercise.sets, 1, 0)[0].id).toBe(exercise.sets[1].id);
     expect(move(exercise.sets, -1, 0)).toBe(exercise.sets);
   });
+  it("no envía los campos informativos de ejercicios desactivados al guardar", () => {
+    const block: LibraryBlock = {
+      id: "b",
+      name: "Bloque",
+      folderId: null,
+      revision: 0,
+      weekCount: 1,
+      inactiveExercises: ["Squat"],
+      weeks: [
+        {
+          ...week,
+          days: [
+            {
+              ...week.days[0],
+              exercises: [{ ...exercise, exerciseActive: false }],
+            },
+          ],
+        },
+      ],
+    };
+    const payload = savePayload(block);
+    expect(payload).not.toHaveProperty("inactiveExercises");
+    expect(payload.weeks[0].days[0].exercises[0]).not.toHaveProperty(
+      "exerciseActive",
+    );
+    expect(payload.weeks[0].days[0].exercises[0]).not.toHaveProperty(
+      "baseName",
+    );
+  });
 });

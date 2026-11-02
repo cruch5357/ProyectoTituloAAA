@@ -202,6 +202,12 @@ export const ExerciseEditor = memo(function ExerciseEditor({
           title="Editar ejercicio y modificadores"
         >
           {displayName(e)}
+          {e.exerciseActive === false && (
+            <>
+              {" "}
+              <span className="badge badge--danger">Desactivado</span>
+            </>
+          )}
         </button>
         <OrderButtons
           label="ejercicio"

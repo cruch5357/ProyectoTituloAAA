@@ -201,13 +201,15 @@ describe('ExcelImportsService.createFromUpload', () => {
   });
 
   it('rechaza cuando faltan columnas obligatorias en el encabezado', async () => {
-    const headersWithoutBlockOrder = FULL_HEADERS.filter(
-      (column) => column !== 'block_order',
+    const headersWithoutExercise = FULL_HEADERS.filter(
+      (column) => column !== 'exercise_name',
     );
-    const buffer = await buildXlsxBuffer(headersWithoutBlockOrder, []);
+    const buffer = await buildXlsxBuffer(headersWithoutExercise, []);
+    // El detalle va en el mensaje (es lo único que llega al coach), con el
+    // nombre en español de la columna.
     await expect(
       service.createFromUpload(COACH_ID, buildUploadedFile(buffer)),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    ).rejects.toThrow('Falta la columna obligatoria "Ejercicio".');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
@@ -391,5 +393,210 @@ describe('ExcelImportsService.getOwnedPreview', () => {
     await expect(
       service.getOwnedPreview(COACH_ID, 'batch-1'),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Plantilla en español, columnas de orden opcionales y descarga de plantilla.
+// ---------------------------------------------------------------------------
+describe('ExcelImportsService - plantilla en español y orden automático', () => {
+  const CATALOG = [
+    { id: 'ex-squat', name: 'Sentadilla' },
+    { id: 'ex-bench', name: 'Press banca' },
+    { id: 'ex-row', name: 'Remo con barra' },
+  ];
+
+  beforeEach(() => {
+    prisma.exercise.findMany.mockResolvedValue(CATALOG);
+  });
+
+  it('acepta encabezados en español (con o sin tildes) y deduce el orden de las filas', async () => {
+    const headers = [
+      'Programa',
+      'Bloque',
+      'Semana',
+      'Sesion',
+      'Día',
+      'Ejercicio',
+      'Series',
+      'Reps mín',
+      'Reps max',
+      'RPE',
+      'Descanso (seg)',
+    ];
+    const buffer = await buildXlsxBuffer(headers, [
+      [
+        'Base',
+        'Adaptación',
+        1,
+        'Día A',
+        'Lunes',
+        'Sentadilla',
+        3,
+        8,
+        10,
+        7,
+        90,
+      ],
+      [
+        'Base',
+        'Adaptación',
+        1,
+        'Día A',
+        'Lunes',
+        'Press banca',
+        3,
+        8,
+        10,
+        7,
+        90,
+      ],
+      [
+        'Base',
+        'Adaptación',
+        1,
+        'Día B',
+        'jueves',
+        'Remo con barra',
+        3,
+        8,
+        10,
+        7,
+        90,
+      ],
+      [
+        'Base',
+        'Adaptación',
+        2,
+        'Día A',
+        'Lunes',
+        'Sentadilla',
+        4,
+        6,
+        8,
+        8,
+        120,
+      ],
+      ['Base', 'Fuerza', 1, 'Día A', 'Lun', 'Sentadilla', 5, 3, 5, 8, 180],
+    ]);
+
+    const result = await service.createFromUpload(
+      COACH_ID,
+      buildUploadedFile(buffer),
+    );
+
+    expect(result.counts).toEqual({
+      totalRows: 5,
+      validRows: 5,
+      invalidRows: 0,
+    });
+    const data = result.rows.map(
+      (row) => row.data as Record<string, unknown> | null,
+    );
+    expect(data.map((d) => d?.blockOrder)).toEqual([1, 1, 1, 1, 2]);
+    expect(data.map((d) => d?.weekOrder)).toEqual([1, 1, 1, 2, 1]);
+    expect(data.map((d) => d?.sessionOrder)).toEqual([1, 1, 2, 1, 1]);
+    expect(data.map((d) => d?.exerciseOrder)).toEqual([1, 2, 1, 1, 1]);
+    expect(data.map((d) => d?.dayOfWeek)).toEqual([1, 1, 4, 1, 1]);
+  });
+
+  it('guarda el orden deducido en las celdas, que es lo que usa la confirmación', async () => {
+    const buffer = await buildXlsxBuffer(
+      ['Programa', 'Bloque', 'Semana', 'Sesión', 'Ejercicio'],
+      [
+        ['Base', 'Adaptación', 1, 'Día A', 'Sentadilla'],
+        ['Base', 'Adaptación', 1, 'Día A', 'Press banca'],
+      ],
+    );
+
+    await service.createFromUpload(COACH_ID, buildUploadedFile(buffer));
+
+    const [{ data }] = prisma.excelImportRow.createMany.mock.calls[0];
+    expect(data[1].rawData.cells).toMatchObject({
+      block_order: 1,
+      week_order: 1,
+      session_order: 1,
+      exercise_order: 2,
+    });
+  });
+
+  it('respeta un orden escrito por el coach', async () => {
+    const buffer = await buildXlsxBuffer(
+      [
+        'Programa',
+        'Bloque',
+        'Semana',
+        'Sesión',
+        'Ejercicio',
+        'Orden ejercicio',
+      ],
+      [
+        ['Base', 'Adaptación', 1, 'Día A', 'Sentadilla', 2],
+        ['Base', 'Adaptación', 1, 'Día A', 'Press banca', 1],
+      ],
+    );
+
+    const result = await service.createFromUpload(
+      COACH_ID,
+      buildUploadedFile(buffer),
+    );
+
+    expect(
+      result.rows.map(
+        (row) => (row.data as Record<string, unknown> | null)?.exerciseOrder,
+      ),
+    ).toEqual([2, 1]);
+  });
+
+  it('informa el nombre original de una columna desconocida', async () => {
+    const buffer = await buildXlsxBuffer(
+      ['Programa', 'Bloque', 'Semana', 'Sesión', 'Ejercicio', 'Peso extra'],
+      [],
+    );
+    await expect(
+      service.createFromUpload(COACH_ID, buildUploadedFile(buffer)),
+    ).rejects.toThrow('La columna "Peso extra" no pertenece a la plantilla.');
+  });
+
+  it('la plantilla descargada se puede importar tal cual', async () => {
+    const template = await service.buildTemplate(COACH_ID);
+
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(template as unknown as ExcelJS.Buffer);
+    expect(workbook.worksheets.map((sheet) => sheet.name)).toEqual([
+      'Planificación',
+      'Instrucciones',
+      'Mis ejercicios',
+    ]);
+    expect(workbook.worksheets[0].getRow(1).getCell(1).value).toBe('Programa');
+    expect(workbook.worksheets[2].getCell('A2').value).toBe('Sentadilla');
+
+    const result = await service.createFromUpload(
+      COACH_ID,
+      buildUploadedFile(template, {
+        originalname: 'plantilla-planificacion.xlsx',
+      }),
+    );
+    expect(result.counts.invalidRows).toBe(0);
+    // 3 ejercicios en el catálogo: 2 en el Día A y 1 en el Día B.
+    expect(result.counts.validRows).toBe(3);
+  });
+
+  it('con un solo ejercicio en el catálogo, el ejemplo usa solo ese ejercicio', async () => {
+    prisma.exercise.findMany.mockResolvedValue([
+      { id: 'ex-bench', name: 'Press banca' },
+    ]);
+    const template = await service.buildTemplate(COACH_ID);
+
+    const result = await service.createFromUpload(
+      COACH_ID,
+      buildUploadedFile(template),
+    );
+
+    expect(result.counts).toEqual({
+      totalRows: 2,
+      validRows: 2,
+      invalidRows: 0,
+    });
   });
 });

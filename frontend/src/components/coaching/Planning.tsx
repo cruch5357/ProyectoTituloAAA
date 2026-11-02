@@ -10,11 +10,11 @@ export function SessionContext({ session }: { session: CalendarSession }) {
   return <><h3>{session.name}</h3><p>{session.programName} · {session.blockName} · Semana {session.weekNumber}</p><p>{session.date && displayDate(session.date)}</p>{session.rescheduled && <p>Reprogramada · Original: {session.originalDate && displayDate(session.originalDate)}</p>}</>;
 }
 export function NextCompetition({ competition, today }: { competition: Competition | null; today: string }) {
-  return <Card><p className="eyebrow">Próxima competición</p>{competition ? <>
+  return <Card><p className="eyebrow">Próximo hito</p>{competition ? <>
     <h2>{competition.name}</h2><p>{displayDate(competition.eventDate)} · {competition.category}</p>
     <p>{Math.round((Date.parse(competition.eventDate.slice(0, 10)) - Date.parse(today)) / 86400000)} días restantes</p>
     {competition.goal && <p>{competition.goal}</p>}{competition.coachGoal && <p><strong>Tu coach:</strong> {competition.coachGoal}</p>}
-  </> : <p>No tienes competiciones próximas.</p>}<Link to="/competitions">{competition ? 'Ver competiciones' : 'Agregar competición'}</Link></Card>;
+  </> : <p>No tienes hitos próximos.</p>}<Link to="/competitions">{competition ? 'Ver hitos' : 'Agregar hito'}</Link></Card>;
 }
 export function MyCoach() {
   const query = useProfile();
@@ -30,8 +30,14 @@ export function AssignmentDate({ id, startDate }: { id: string; startDate?: stri
     <button disabled={mutation.isPending}>Guardar fecha</button>{mutation.isError && <ErrorState message={mutation.error.message} />}{mutation.isSuccess && <p role="status">Fecha guardada.</p>}
   </form>;
 }
+const WEEKDAYS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+// Mayúscula solo en la primera letra ("Noviembre de 2026", no "Noviembre De 2026").
+const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('es-CL') + text.slice(1);
+// Calendario mensual compacto (estilo Google Calendar): una grilla de 7
+// columnas con indicadores por día y, debajo, el detalle del día elegido.
 export function Calendar({ studentId }: { studentId?: string }) {
   const [offset, setOffset] = useState(0);
+  const [selected, setSelected] = useState<string | null>(null);
   const [baseDate] = useState(() => todayDate());
   const first = new Date(`${baseDate}T12:00:00Z`); first.setUTCDate(1); first.setUTCMonth(first.getUTCMonth() + offset);
   const month = first.getUTCFullYear() + '-' + String(first.getUTCMonth() + 1).padStart(2, '0');
@@ -42,18 +48,45 @@ export function Calendar({ studentId }: { studentId?: string }) {
   const d = query.data;
 
   const count = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
-  return <Card><div className="page-header"><h2>Calendario</h2><div className="dialog-actions"><button aria-label="Mes anterior" onClick={() => setOffset(offset - 1)}>←</button><strong>{first.toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</strong><button aria-label="Mes siguiente" onClick={() => setOffset(offset + 1)}>→</button></div></div>
-    <div className="calendar-legend" aria-label="Leyenda del calendario"><span className="legend-training">● Entrenamiento · color del bloque</span><span className="legend-competition">◆ Competición · borde y distintivo</span><span>✓ Finalizada</span></div>
-    {d.competitionsTruncated && <p>Se muestran las primeras 200 competiciones del mes. Consulta el listado para ver todas.</p>}
-    <div className="calendar-grid">{Array.from({ length: count }, (_, i) => {
-      const date = `${first.toISOString().slice(0, 7)}-${String(i + 1).padStart(2, '0')}`;
-      const sessions = d.sessions.filter((s) => s.date === date);
-      const competitions = d.competitions?.filter((c) => c.eventDate.slice(0, 10) === date && c.status !== 'CANCELLED') ?? [];
-      return <section key={date} aria-label={`${displayDate(date)}${sessions.length ? ', entrenamiento' : ''}${competitions.length ? ', competición' : ''}`} className={`calendar-day ${sessions.length ? `calendar-day--training calendar-block-${sessions[0].blockIndex % 3}` : ''} ${competitions.length ? 'calendar-day--competition' : ''} ${date === d.today ? 'calendar-day--today' : ''}`}><time dateTime={date}>{i + 1} · {new Date(`${date}T12:00:00Z`).toLocaleDateString('es-CL', { weekday: 'short', timeZone: 'UTC' })}</time>
-        {sessions.map((s) => <div key={s.id}><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>{s.completed ? '✓ ' : '● '}{s.name}{s.status && <small>{trainingLabels[s.status]}</small>}<small>{s.blockName} · Semana {s.weekNumber}</small>{s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Nueva: ${s.date && displayDate(s.date)}`}>Reprogramada</small>}</Link>{studentId && <RescheduleSession session={s} />}</div>)}
-        {competitions.map((c) => <p className="calendar-competition" key={c.id}><span aria-hidden="true">◆ </span><strong>Competición</strong><span>{c.name}</span></p>)}
-      </section>;
-    })}</div>
+  const leadingBlanks = (first.getUTCDay() + 6) % 7; // la semana empieza el lunes
+  const dates = Array.from({ length: count }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
+  const sessionsOn = (date: string) => d.sessions.filter((s) => s.date === date);
+  const milestonesOn = (date: string) => d.competitions?.filter((c) => c.eventDate.slice(0, 10) === date && c.status !== 'CANCELLED') ?? [];
+  // Día elegido: el que tocó el usuario; si no, hoy (si está en el mes), el
+  // primer día con actividad o el día 1.
+  const active = selected && selected.startsWith(month) ? selected
+    : dates.includes(d.today) ? d.today
+    : dates.find((date) => sessionsOn(date).length || milestonesOn(date).length) ?? dates[0];
+  const daySessions = sessionsOn(active);
+  const dayMilestones = milestonesOn(active);
+  const changeMonth = (delta: number) => { setOffset(offset + delta); setSelected(null); };
+
+  return <Card className="month-calendar"><div className="month-calendar__header"><h2>{capitalize(first.toLocaleDateString('es-CL', { month: 'long', year: 'numeric', timeZone: 'UTC' }))}</h2><div className="month-calendar__nav"><button type="button" aria-label="Mes anterior" onClick={() => changeMonth(-1)}>←</button><button type="button" aria-label="Mes siguiente" onClick={() => changeMonth(1)}>→</button></div></div>
+    {d.competitionsTruncated && <p>Se muestran los primeros 200 hitos del mes. Consulta el listado para ver todos.</p>}
+    <div className="month-grid" role="group" aria-label="Días del mes">
+      {WEEKDAYS.map((w) => <span key={w} className="month-grid__weekday" aria-hidden="true">{w}</span>)}
+      {Array.from({ length: leadingBlanks }, (_, i) => <span key={`blank-${i}`} aria-hidden="true" />)}
+      {dates.map((date, i) => {
+        const sessions = sessionsOn(date);
+        const milestones = milestonesOn(date);
+        const label = `${displayDate(date)}${sessions.length ? `, ${sessions.length} entrenamiento${sessions.length > 1 ? 's' : ''}` : ''}${milestones.length ? `, ${milestones.length} hito${milestones.length > 1 ? 's' : ''}` : ''}`;
+        return <button type="button" key={date} aria-label={label} aria-pressed={date === active} onClick={() => setSelected(date)}
+          className={`month-grid__day ${date === d.today ? 'month-grid__day--today' : ''} ${date === active ? 'month-grid__day--selected' : ''}`}>
+          <span className="month-grid__number">{i + 1}</span>
+          <span className="month-grid__marks" aria-hidden="true">
+            {sessions.slice(0, 3).map((s) => <span key={s.id} className={`month-grid__dot block-dot-${s.blockIndex % 3} ${s.completed ? 'month-grid__dot--done' : ''}`} />)}
+            {milestones.length > 0 && <span className="month-grid__milestone">◆</span>}
+          </span>
+        </button>;
+      })}
+    </div>
+    <div className="calendar-legend" aria-label="Leyenda del calendario"><span className="legend-training">● Entrenamiento</span><span className="legend-competition">◆ Hito</span><span>○ Finalizada</span></div>
+    <section className="day-agenda" aria-live="polite" aria-label={`Actividades del ${displayDate(active)}`}>
+      <h3>{capitalize(new Date(`${active}T12:00:00Z`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }))}</h3>
+      {!daySessions.length && !dayMilestones.length && <p className="muted">Sin actividades este día.</p>}
+      {daySessions.map((s) => <div key={s.id} className="day-agenda__item"><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>{s.completed ? '✓ ' : '● '}{s.name}{s.status && <small>{trainingLabels[s.status]}</small>}<small>{s.blockName} · Semana {s.weekNumber}</small>{s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Nueva: ${s.date && displayDate(s.date)}`}>Reprogramada</small>}</Link>{studentId && <RescheduleSession session={s} />}</div>)}
+      {dayMilestones.map((c) => <p className="calendar-competition" key={c.id}><span aria-hidden="true">◆ </span><strong>Hito</strong><span>{c.name}</span></p>)}
+    </section>
     {d.assignments.some((a) => !a.startDate) && <p>Hay asignaciones sin fecha de inicio. La navegación manual sigue disponible.</p>}
     {d.sessions.some((s) => !s.date) && <p>Las sesiones sin día de semana o fecha de inicio no se ubican en el calendario.</p>}
   </Card>;

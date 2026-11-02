@@ -76,3 +76,21 @@ export function useRejectExcelImport(batchId: string) {
     },
   });
 }
+
+// Descarga la plantilla .xlsx en español (generada por el backend con el
+// catálogo de ejercicios del coach) y la guarda en el equipo.
+export function useDownloadExcelTemplate() {
+  return useMutation({
+    mutationFn: async () => {
+      const blob = await apiClient.blob('/imports/excel/template');
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'plantilla-planificacion.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    },
+  });
+}

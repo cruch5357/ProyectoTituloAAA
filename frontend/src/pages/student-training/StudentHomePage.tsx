@@ -7,7 +7,7 @@ import {
 } from "../../components/ui/Primitives";
 import { MUSCLE_GROUPS } from "../../lib/exerciseTaxonomy";
 import { readableDate } from "../../lib/readableDate";
-import { Adherence } from '../../components/coaching/Adherence';
+import { Adherence } from "../../components/coaching/Adherence";
 import "./training.css";
 export function StudentHomePage({ training = false }: { training?: boolean }) {
   const query = useTraining();
@@ -27,7 +27,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
       <header className="page-header">
         <div>
           <p className="eyebrow">Tu espacio de entrenamiento</p>
-          <h1>{training ? "Entrenamiento" : "Tu próximo paso"}</h1>
+          <h1>{training ? "Tu próximo paso" : "Tu ciclo de entrenamiento"}</h1>
         </div>
         <Link to="/calendar">Ver calendario →</Link>
       </header>
@@ -37,7 +37,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           description="Cuando tu coach te asigne un bloque, encontrarás tus sesiones y podrás registrar cada serie aquí."
         />
       )}
-      {focus ? (
+      {training && focus ? (
         <article className="training-hero">
           <p className="eyebrow">
             {focus.date === data.today
@@ -55,7 +55,10 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
             {focus.date && readableDate(focus.date, false)} ·{" "}
             {focus.exerciseCount} ejercicios · {focus.totalSets} series
           </p>
-          <Link className="button" to={`/training/sessions/${focus.sessionId}?assignmentId=${focus.assignmentId}`}>
+          <Link
+            className="button"
+            to={`/training/sessions/${focus.sessionId}?assignmentId=${focus.assignmentId}`}
+          >
             {focus.recordedSets
               ? "Continuar entrenamiento"
               : "Ver entrenamiento"}{" "}
@@ -63,6 +66,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           </Link>
         </article>
       ) : (
+        training &&
         !!data.assignments.length && (
           <article className="training-cycle">
             <h2>Estás al día</h2>
@@ -70,7 +74,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           </article>
         )
       )}
-      {!training && focus && (
+      {training && focus && (
         <section className="training-muscles">
           <h2>Qué vas a trabajar</h2>
           {muscles.length ? (
@@ -92,62 +96,65 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           )}
         </section>
       )}
-      {data.pendingSession && data.nextSession && (
+      {training && data.pendingSession && data.nextSession && (
         <p className="training-notice">
           Tienes una sesión pendiente:{" "}
-          <Link to={`/training/sessions/${data.pendingSession.sessionId}?assignmentId=${data.pendingSession.assignmentId}`}>
+          <Link
+            to={`/training/sessions/${data.pendingSession.sessionId}?assignmentId=${data.pendingSession.assignmentId}`}
+          >
             {data.pendingSession.name}
           </Link>
           . Puedes registrarla u omitirla.
         </p>
       )}
-      {data.assignments.map((a) => (
-        <article className="training-cycle" key={a.id}>
-          <p className="eyebrow">Tu ciclo activo</p>
-          <h2>{a.name}</h2>
-          <p>
-            {a.currentWeek
-              ? `Semana ${a.currentWeek.weekNumber} de ${a.weekCount}`
-              : a.startDate
-                ? `Inicio: ${readableDate(a.startDate, false)}`
-                : "Sin fecha de inicio"}
-          </p>
-          <progress max={a.totalSessions || 1} value={a.finishedSessions} />
-          <p>
-            {a.finishedSessions} de {a.totalSessions} sesiones finalizadas
-          </p>
-          <div className="training-session-list">
-            {data.sessions
-              .filter((s) => s.assignmentId === a.id)
-              .map((s) => (
-                <Link
-                  key={s.id}
-                  to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
-                  aria-current={s.id === focus?.id ? "step" : undefined}
-                >
-                  <span>
-                    <strong>{s.name}</strong>
-                    <small>
-                      Semana {s.weekNumber} · Día {s.dayNumber} ·{" "}
-                      {s.date ? readableDate(s.date, false) : "Sin fecha"}
-                    </small>
-                  </span>
-                  <span
-                    className={`training-status training-status--${s.status}`}
+      {!training &&
+        data.assignments.map((a) => (
+          <article className="training-cycle" key={a.id}>
+            <p className="eyebrow">Tu ciclo activo</p>
+            <h2>{a.name}</h2>
+            <p>
+              {a.currentWeek
+                ? `Semana ${a.currentWeek.weekNumber} de ${a.weekCount}`
+                : a.startDate
+                  ? `Inicio: ${readableDate(a.startDate, false)}`
+                  : "Sin fecha de inicio"}
+            </p>
+            <progress max={a.totalSessions || 1} value={a.finishedSessions} />
+            <p>
+              {a.finishedSessions} de {a.totalSessions} sesiones finalizadas
+            </p>
+            <div className="training-session-list">
+              {data.sessions
+                .filter((s) => s.assignmentId === a.id)
+                .map((s) => (
+                  <Link
+                    key={s.id}
+                    to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
+                    aria-current={s.id === focus?.id ? "step" : undefined}
                   >
-                    {trainingLabels[s.status]}
-                    <small>
-                      {s.recordedSets}/{s.totalSets} series
-                    </small>
-                  </span>
-                </Link>
-              ))}
-          </div>
-          {!data.sessions.some((s) => s.assignmentId === a.id) && (
-            <p>Este ciclo no tiene sesiones. Contacta con tu coach.</p>
-          )}
-        </article>
-      ))}
+                    <span>
+                      <strong>{s.name}</strong>
+                      <small>
+                        Semana {s.weekNumber} · Día {s.dayNumber} ·{" "}
+                        {s.date ? readableDate(s.date, false) : "Sin fecha"}
+                      </small>
+                    </span>
+                    <span
+                      className={`training-status training-status--${s.status}`}
+                    >
+                      {trainingLabels[s.status]}
+                      <small>
+                        {s.recordedSets}/{s.totalSets} series
+                      </small>
+                    </span>
+                  </Link>
+                ))}
+            </div>
+            {!data.sessions.some((s) => s.assignmentId === a.id) && (
+              <p>Este ciclo no tiene sesiones. Contacta con tu coach.</p>
+            )}
+          </article>
+        ))}
       {!training && <Adherence assignments={data.assignments} />}
       <footer className="training-links">
         <Link to="/history">Historial y progreso →</Link>

@@ -5,12 +5,15 @@ import {
   HttpStatus,
   Param,
   Post,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
+import type { Response } from 'express';
 import {
   ApiBearerAuth,
   ApiBody,
@@ -86,6 +89,25 @@ export class ExcelImportsController {
       file,
     );
     return { data: batch, error: null, meta: {} };
+  }
+
+  // Declarada ANTES de `:id` para que "template" no se interprete como id.
+  @Get('template')
+  @ApiOperation({
+    summary:
+      'Descarga la plantilla .xlsx en español (con ejemplo, instrucciones y el catálogo de ejercicios del coach)',
+  })
+  async template(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const buffer = await this.excelImportsService.buildTemplate(currentUser.id);
+    response.setHeader('Cache-Control', 'private, no-store');
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      length: buffer.length,
+      disposition: 'attachment; filename="plantilla-planificacion.xlsx"',
+    });
   }
 
   @Get(':id')

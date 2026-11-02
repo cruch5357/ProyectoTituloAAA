@@ -304,10 +304,12 @@ export function HistoryPage() {
           <nav className="pagination" aria-label="Paginación del historial">
             <button
               type="button"
+              aria-label="Página anterior"
+              title="Página anterior"
               onClick={() => setPage((current) => Math.max(1, current - 1))}
               disabled={page <= 1}
             >
-              Anterior
+              ←
             </button>
             <span>
               Página {historyQuery.data.meta.page} de{' '}
@@ -321,9 +323,11 @@ export function HistoryPage() {
                   Math.min(historyQuery.data.meta.totalPages, current + 1),
                 )
               }
+              aria-label="Página siguiente"
+              title="Página siguiente"
               disabled={page >= historyQuery.data.meta.totalPages}
             >
-              Siguiente
+              →
             </button>
           </nav>
         </>

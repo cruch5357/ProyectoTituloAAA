@@ -19,7 +19,8 @@
 .block-color-1 { border-color: var(--color-info); }
 .block-color-2 { border-color: var(--color-success); }
 .calendar-competition { color: var(--color-warning); font-weight: 700; font-size: .85rem; }
-.operations-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 1rem; margin: 1.5rem 0; }
+.operations-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,280px),1fr)); gap: 1rem; margin: 1.5rem 0; align-items: start; }
+.operations-more { font-size: .85rem; margin: .5rem 0 0; }
 .notice-container { position: relative; }
 .notice-container > button { display: flex; gap: .4rem; align-items: center; }
 .notice-badge { background: var(--color-primary); color: var(--color-on-primary); padding: 0 .4rem; border-radius: 1rem; }
@@ -79,3 +80,38 @@
 @media (min-width: 1100px) { .app-shell--public .app-shell__content { padding-left: 5vw; padding-right: 5vw; } }
 @media (max-width: 900px) { .landing-hero { grid-template-columns: 1fr; gap: 2rem; padding-top: 1rem; } .product-preview { max-width: 570px; width: 100%; margin: auto; } .landing-pillars { gap: 1rem; } .landing-pillars article { padding: 1rem; } .landing-audiences article { padding: 1.5rem; } .calendar-grid { grid-template-columns: repeat(4,minmax(0,1fr)); } }
 @media (max-width: 600px) { .coaching-form, .landing-pillars, .landing-audiences { grid-template-columns: 1fr; } .calendar-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .landing-nav { gap: .8rem; justify-content: flex-start; font-size: .85rem; } .landing-hero { padding-bottom: 3rem; } .landing-section { padding: 3rem 0; } .landing-final { padding: 2rem 1rem; } .preview-phone { right: 0; width: 160px; transform: rotate(2deg); } .preview-stats { gap: .7rem; } .notice-panel { position: fixed; top: 70px; right: 1rem; } .notice-container > button > span { display: none; } .topbar-actions { gap: .45rem; flex-wrap: wrap; } .chat-message { max-width: 95%; } }
+/* Adjuntos del chat: se amplían en un visor al tocarlos. */
+.chat-media-button { position: relative; display: block; padding: 0; border: 0; background: none; cursor: zoom-in; max-width: 100%; margin: .5rem 0; border-radius: var(--radius-sm); }
+.chat-media-button .chat-media { margin: 0; }
+.chat-media-play { position: absolute; inset: 0; margin: auto; width: 3.25rem; height: 3.25rem; display: grid; place-items: center; border-radius: 50%; background: rgb(0 0 0 / 55%); color: #fff; font-size: 1.3rem; pointer-events: none; }
+dialog.media-dialog { width: fit-content; max-width: 95vw; padding: .75rem; background: #0b1117; border-color: #22303a; }
+/* Se amplía al 80 % del alto de pantalla (también imágenes pequeñas), sin
+   pasarse del ancho disponible ni deformarse. */
+.media-dialog__media { display: block; height: 80vh; width: auto; max-width: calc(95vw - 1.5rem); margin: 0 auto; object-fit: contain; border-radius: var(--radius-sm); }
+.media-dialog__close { position: absolute; top: .5rem; right: .5rem; z-index: 1; min-width: 44px; min-height: 44px; font-size: 1.4rem; line-height: 1; }
+/* Calendario mensual compacto (estilo Google Calendar). */
+.month-calendar { max-width: 760px; }
+.month-calendar__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
+.month-calendar__header h2 { margin: 0; }
+.month-calendar__nav { display: flex; gap: .5rem; }
+.month-calendar__nav button { min-width: 44px; min-height: 44px; padding: 0; font-size: 1.1rem; }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: .25rem; text-align: center; }
+.month-grid__weekday { font-size: .75rem; font-weight: 600; color: var(--color-text-muted); padding: .4rem 0; letter-spacing: .03em; }
+.month-grid__day { display: flex; flex-direction: column; align-items: center; gap: .2rem; min-height: 3.4rem; padding: .3rem 0; border: 0; border-radius: var(--radius-md); background: none; color: var(--color-text); cursor: pointer; }
+.month-grid__day:hover { background: var(--color-surface-muted); }
+.month-grid__number { display: grid; place-items: center; width: 2.1rem; height: 2.1rem; border-radius: 50%; font-size: 1rem; }
+.month-grid__day--today .month-grid__number { border: 2px solid var(--color-primary); color: var(--color-primary); font-weight: 700; }
+.month-grid__day--selected .month-grid__number { background: var(--color-primary); color: var(--color-on-primary); }
+.month-grid__marks { display: flex; gap: 3px; align-items: center; min-height: .6rem; }
+.month-grid__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-primary); }
+.month-grid__dot.block-dot-1 { background: var(--color-info); }
+.month-grid__dot.block-dot-2 { background: var(--color-success); }
+.month-grid__dot--done { background: transparent !important; box-shadow: inset 0 0 0 1.5px var(--color-primary); }
+.month-grid__milestone { color: var(--color-warning); font-size: .6rem; line-height: 1; }
+.day-agenda { border-top: 1px solid var(--color-border); margin-top: .5rem; padding-top: 1rem; }
+.day-agenda h3 { margin: 0 0 .75rem; }
+.day-agenda__item { margin-bottom: .5rem; }
+@media (max-width: 600px) {
+  .month-grid__day { min-height: 3rem; }
+  .month-grid__number { width: 1.9rem; height: 1.9rem; font-size: .95rem; }
+}

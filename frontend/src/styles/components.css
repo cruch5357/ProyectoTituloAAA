@@ -763,3 +763,22 @@ dialog.exercise-dialog {
 
 .student-muscle-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; margin-block: 1.5rem; }
 .student-exercise-visual { grid-column: 1 / -1; min-width: 0; width: 100%; max-width: 640px; }
+/* Filas desactivadas (van al final de la lista): atenuadas, salvo las acciones. */
+.row--inactive td:not(:last-child) {
+  opacity: 0.55;
+}
+/* Bloques desactivados por usar ejercicios desactivados. */
+.block-disabled-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--color-text-secondary);
+}
+/* Video que YouTube no permite incrustar: mensaje y enlace a YouTube. */
+.exercise-video__fallback {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+}

@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { readBackendTimezone } from './backendTimezone.ts'
+import { readBackendPort, readBackendTimezone } from './backendTimezone.ts'
 import type { Plugin, Connect } from 'vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vitest/config'
@@ -37,7 +37,8 @@ export default defineConfig(({ mode }) => ({
       key: readFileSync(new URL('../.certs/local-key.pem', import.meta.url)),
       cert: readFileSync(new URL('../.certs/local.pem', import.meta.url)),
     } : undefined,
-    proxy: { '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true } },
+    // `preview` reutiliza este proxy (preview.proxy usa server.proxy por defecto).
+    proxy: { '/api': { target: `http://127.0.0.1:${readBackendPort(mode)}`, changeOrigin: true } },
   },
   preview: { host: '0.0.0.0', port: 4173, strictPort: true },
   define: { __APP_TIMEZONE__: JSON.stringify(getAppTimezone(process.env.APP_TIMEZONE ?? readBackendTimezone(mode))) },

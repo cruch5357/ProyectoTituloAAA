@@ -53,14 +53,27 @@ function setup(
 }
 beforeEach(() => vi.restoreAllMocks());
 describe("Inicio basado en bloques", () => {
-  it("ofrece registrar la sesión directamente y muestra progreso real", async () => {
+  it("Entrenamiento ofrece registrar la sesión de hoy, sin el ciclo", async () => {
     setup();
     renderWithProviders(<StudentHomePage training />);
     expect(
       await screen.findByRole("link", { name: /Continuar entrenamiento/ }),
     ).toHaveAttribute("href", "/training/sessions/s?assignmentId=a");
-    expect(screen.getByText("Parcial")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Tu próximo paso" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Tu ciclo activo")).not.toBeInTheDocument();
     expect(screen.queryByText("Mis programas")).not.toBeInTheDocument();
+  });
+  it("Inicio muestra el ciclo activo con el progreso real de sus sesiones", async () => {
+    setup();
+    renderWithProviders(<StudentHomePage />);
+    expect(await screen.findByText("Tu ciclo activo")).toBeInTheDocument();
+    expect(screen.getByText("Parcial")).toBeInTheDocument();
+    expect(screen.queryByText("Qué vas a trabajar")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Continuar entrenamiento/ }),
+    ).not.toBeInTheDocument();
   });
   it("muestra un estado vacío honesto", async () => {
     setup(true);
@@ -69,9 +82,9 @@ describe("Inicio basado en bloques", () => {
       await screen.findByText("Tu próximo ciclo empieza aquí"),
     ).toBeInTheDocument();
   });
-  it("reutiliza las imágenes musculares del catálogo", async () => {
+  it("reutiliza las imágenes musculares del catálogo en Entrenamiento", async () => {
     setup();
-    renderWithProviders(<StudentHomePage />);
+    renderWithProviders(<StudentHomePage training />);
     expect(await screen.findByText("Qué vas a trabajar")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /Zona muscular/ })).toHaveAttribute(
       "src",

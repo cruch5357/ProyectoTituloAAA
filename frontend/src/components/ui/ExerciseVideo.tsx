@@ -44,14 +44,33 @@ function Video({
         {open ? 'Ocultar video' : label}
       </button>
       <div id={id}>
-        {open && <Player embedUrl={video.embedUrl} name={name} />}
+        {open && (
+          <Player
+            embedUrl={video.embedUrl}
+            watchUrl={`https://www.youtube.com/watch?v=${video.id}`}
+            name={name}
+          />
+        )}
       </div>
     </div>
   );
 }
-function Player({ embedUrl, name }: { embedUrl: string; name: string }) {
+// Códigos de la API de YouTube: 101/150 = el dueño no permite reproducir el
+// video incrustado en otras páginas (frecuente en Shorts y videos de marcas,
+// sobre todo en celulares). La app no puede saltarse esa restricción.
+const EMBED_NOT_ALLOWED = [101, 150];
+function Player({
+  embedUrl,
+  watchUrl,
+  name,
+}: {
+  embedUrl: string;
+  watchUrl: string;
+  name: string;
+}) {
   const iframe = useRef<HTMLIFrameElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [errorCode, setErrorCode] = useState<number | null>(null);
   useEffect(() => {
     let disposed = false;
     let player: { destroy: () => void } | undefined;
@@ -69,9 +88,10 @@ function Player({ embedUrl, name }: { embedUrl: string; name: string }) {
                 setState('ready');
               }
             },
-            onError: () => {
+            onError: (event?: { data?: number }) => {
               if (!disposed) {
                 window.clearTimeout(timeout);
+                setErrorCode(event?.data ?? null);
                 setState('error');
               }
             },
@@ -91,14 +111,25 @@ function Player({ embedUrl, name }: { embedUrl: string; name: string }) {
     <div className="exercise-video__player">
       {state === 'loading' && <p role="status">Cargando video…</p>}
       {state === 'error' && (
-        <p role="alert">
-          No se pudo reproducir este video dentro de la aplicación. Comprueba tu
-          conexión; el propietario puede haber deshabilitado la reproducción
-          embebida. Puedes cerrar el video y volver a intentarlo.
-        </p>
+        <div className="exercise-video__fallback">
+          <p role="alert">
+            {errorCode !== null && EMBED_NOT_ALLOWED.includes(errorCode)
+              ? 'No se pudo reproducir este video dentro de la aplicación: su dueño no permite verlo en otras páginas (pasa con muchos Shorts y videos de marcas). Puedes verlo directamente en YouTube.'
+              : 'No se pudo reproducir este video dentro de la aplicación. Comprueba tu conexión e inténtalo de nuevo, o míralo directamente en YouTube.'}
+          </p>
+          <a
+            className="button"
+            href={watchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ver en YouTube ↗
+          </a>
+        </div>
       )}
       <iframe
         ref={iframe}
+        hidden={state === 'error'}
         title={`Video demostrativo: ${name}`}
         loading="lazy"
         allowFullScreen

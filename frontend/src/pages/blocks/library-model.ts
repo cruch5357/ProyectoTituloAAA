@@ -15,6 +15,8 @@ export interface PlannedExercise {
   id: string;
   exerciseId: string;
   baseName: string;
+  /** Solo lectura (lo informa el servidor): false si el ejercicio está desactivado. */
+  exerciseActive?: boolean;
   modifiers: CatalogItem[];
   notes: string;
   sets: PlannedSet[];
@@ -35,6 +37,12 @@ export interface LibraryBlock {
   revision: number;
   weekCount: number;
   weeks: PlannedWeek[];
+  /**
+   * Ejercicios desactivados que usa el bloque (los informa el servidor). Con
+   * alguno, el bloque queda desactivado: no se puede asignar hasta
+   * reemplazarlos o reactivarlos.
+   */
+  inactiveExercises?: string[];
 }
 export interface Folder {
   id: string;
@@ -103,7 +111,10 @@ export function savePayload(b: LibraryBlock) {
       days: w.days.map((d) => ({
         ...d,
         name: d.name.trim(),
-        exercises: d.exercises.map(({ baseName: _base, ...e }) => e),
+        // Campos informativos del servidor: no forman parte del guardado.
+        exercises: d.exercises.map(
+          ({ baseName: _base, exerciseActive: _active, ...e }) => e,
+        ),
       })),
     })),
   };

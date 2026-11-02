@@ -398,3 +398,55 @@ describe('ImportExcelPage - confirmación y rechazo (PROMPT 14)', () => {
     expect(link.getAttribute('href')).toBe('/programs');
   });
 });
+
+describe('ImportExcelPage - plantilla y textos en español', () => {
+  it('descarga la plantilla desde el backend', async () => {
+    const user = userEvent.setup();
+    const blobSpy = vi
+      .spyOn(apiClient, 'blob')
+      .mockResolvedValue(new Blob(['xlsx']));
+    const createUrl = vi.fn(() => 'blob:plantilla');
+    const revokeUrl = vi.fn();
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: createUrl,
+      revokeObjectURL: revokeUrl,
+    });
+    const clickSpy = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
+
+    renderWithProviders(<ImportExcelPage />);
+    await user.click(
+      screen.getByRole('button', { name: 'Descargar plantilla' }),
+    );
+
+    await waitFor(() => expect(clickSpy).toHaveBeenCalled());
+    expect(blobSpy).toHaveBeenCalledWith('/imports/excel/template');
+    expect(revokeUrl).toHaveBeenCalledWith('blob:plantilla');
+    vi.unstubAllGlobals();
+  });
+
+  it('muestra el estado y el nombre de la columna con error en español', async () => {
+    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
+      data: buildBatch({
+        counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
+        rows: buildRows(),
+      }),
+      error: null,
+      meta: {},
+    });
+
+    renderWithProviders(<ImportExcelPage />);
+    const input = screen.getByLabelText('Archivo Excel (.xlsx)');
+    fireEvent.change(input, {
+      target: { files: [new File(['x'], 'plan.xlsx')] },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Subir archivo' }));
+
+    expect(
+      await screen.findByText('Pendiente de revisión'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('RPE:')).toBeInTheDocument();
+  });
+});
