@@ -87,6 +87,15 @@ export class BlockAssignmentsController {
       await this.training.dismissExpired(u, id, dto.assignmentId),
     );
   }
+  @Post('training/sessions/:id/close')
+  @Roles(Role.STUDENT)
+  async closeExpired(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: StartTrainingDto,
+  ) {
+    return envelope(await this.training.closeExpired(u, id, dto.assignmentId));
+  }
   @Post('training/sessions/:id/corrections')
   @Roles(Role.STUDENT)
   async requestCorrection(

@@ -15,6 +15,7 @@ import {
 import { MUSCLE_GROUPS } from "../../lib/exerciseTaxonomy";
 import { readableDate } from "../../lib/readableDate";
 import { Adherence } from "../../components/coaching/Adherence";
+import { Icon } from "../../components/ui/Icon";
 import { apiClient } from "../../lib/apiClient";
 import "./training.css";
 
@@ -64,13 +65,22 @@ function ExpiredSessionNotice({
 }) {
   const cache = useQueryClient();
   const [hidden, setHidden] = useState(false);
+  const [confirmingClose, setConfirmingClose] = useState(false);
   const href = `/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`;
   const omitted = session.status === "SKIPPED";
+  const alreadyOmitted = omitted && session.finished;
+  const closeLabel =
+    session.recordedSets > 0
+      ? "Cerrar y omitir series pendientes"
+      : "Omitir entrenamiento";
   const dismiss = useMutation({
     mutationFn: () =>
-      apiClient.post(`/training/sessions/${session.sessionId}/dismiss`, {
-        assignmentId: session.assignmentId,
-      }),
+      apiClient.post(
+        `/training/sessions/${session.sessionId}/${alreadyOmitted ? "dismiss" : "close"}`,
+        {
+          assignmentId: session.assignmentId,
+        },
+      ),
     onSuccess: () => {
       setHidden(true);
       void cache.invalidateQueries({ queryKey: ["training"] });
@@ -91,26 +101,71 @@ function ExpiredSessionNotice({
       </p>
       <p>
         <strong>
-          {omitted
+          {alreadyOmitted
             ? "No registraste este entrenamiento dentro de su fecha programada. Se marcó automáticamente como omitido."
+            : omitted
+              ? "No registraste este entrenamiento dentro de su fecha programada. Confirma la omisión para cerrar la sesión."
             : "El entrenamiento conserva las series registradas, pero su fecha ya venció y quedó cerrado."}
         </strong>
       </p>
       <div className="training-expired-notice__actions">
-        <Link to={href}>Ver detalle</Link>
-        <Link to={`${href}#correction`}>Solicitar corrección</Link>
-        <button
-          type="button"
-          className="training-expired-notice__dismiss"
-          disabled={dismiss.isPending}
-          onClick={() => dismiss.mutate()}
-        >
-          {dismiss.isPending ? "Omitiendo…" : "Omitir entrenamiento"}
-        </button>
+        <div className="training-expired-notice__links">
+          <Link to={href}>Ver detalle</Link>
+          <Link to={`${href}#correction`}>Solicitar corrección</Link>
+        </div>
+        {!confirmingClose && (
+          <button
+            type="button"
+            className="training-expired-notice__dismiss"
+            disabled={dismiss.isPending}
+            onClick={() =>
+              alreadyOmitted ? dismiss.mutate() : setConfirmingClose(true)
+            }
+          >
+            <Icon name={alreadyOmitted ? "hide" : "skip"} />
+            {dismiss.isPending
+              ? "Ocultando…"
+              : alreadyOmitted
+                ? "Ocultar aviso"
+                : closeLabel}
+          </button>
+        )}
+        {confirmingClose && (
+          <div
+            className="training-expired-notice__confirmation"
+            role="alertdialog"
+            aria-label="Confirmar omisión del entrenamiento"
+          >
+            <p>
+              {session.recordedSets > 0
+                ? "Se conservarán las series registradas y las restantes quedarán omitidas."
+                : "Todas las series prescritas quedarán omitidas y la sesión se cerrará."}
+            </p>
+            <div>
+              <button
+                type="button"
+                className="training-expired-notice__dismiss"
+                disabled={dismiss.isPending}
+                onClick={() => dismiss.mutate()}
+              >
+                <Icon name="skip" />
+                {dismiss.isPending ? "Cerrando…" : "Confirmar omisión"}
+              </button>
+              <button
+                type="button"
+                className="button--neutral"
+                disabled={dismiss.isPending}
+                onClick={() => setConfirmingClose(false)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
       {dismiss.isError && (
         <p className="training-expired-notice__error" role="alert">
-          No pudimos guardar la omisión. Inténtalo nuevamente.
+          No pudimos completar la acción. Inténtalo nuevamente.
         </p>
       )}
     </aside>

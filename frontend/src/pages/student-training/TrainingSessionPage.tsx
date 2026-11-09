@@ -17,11 +17,12 @@ import {
 } from "../../api/training";
 import { ErrorState, Skeleton } from "../../components/ui/Primitives";
 import { ExerciseVideo } from "../../components/ui/ExerciseVideo";
+import { Icon } from "../../components/ui/Icon";
 import { useAuth } from "../../auth/useAuth";
 import {
   fillEmptyActual,
   hasActualValues,
-  recordFilledPending,
+  prescribedActual,
   restoreDraft,
   retainUnrecordedInputs,
   serializeDraft,
@@ -50,13 +51,9 @@ function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
   const [open, setOpen] = useState(
     () => window.location.hash === "#correction",
   );
-  const [exerciseId, setExerciseId] = useState(
-    session.exercises[0]?.id ?? "",
-  );
+  const [exerciseId, setExerciseId] = useState(session.exercises[0]?.id ?? "");
   const exercise = session.exercises.find((item) => item.id === exerciseId);
-  const [setNumber, setSetNumber] = useState(
-    exercise?.sets[0]?.setNumber ?? 1,
-  );
+  const [setNumber, setSetNumber] = useState(exercise?.sets[0]?.setNumber ?? 1);
   const selectedSet = exercise?.sets.find((set) => set.setNumber === setNumber);
   const [weight, setWeight] = useState("");
   const [reps, setReps] = useState("");
@@ -65,26 +62,23 @@ function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
   const request = useMutation({
     mutationFn: async () =>
       (
-        await apiClient.post(
-          `/training/sessions/${session.id}/corrections`,
-          {
-            assignmentId: session.assignmentId,
-            sessionExerciseId: exerciseId,
-            setNumber,
-            ...(weight !== "" ? { weight: Number(weight) } : {}),
-            ...(reps !== "" ? { reps: Number(reps) } : {}),
-            ...(rpe !== "" ? { rpe: Number(rpe) } : {}),
-            ...(reason.trim() ? { reason: reason.trim() } : {}),
-          },
-        )
+        await apiClient.post(`/training/sessions/${session.id}/corrections`, {
+          assignmentId: session.assignmentId,
+          sessionExerciseId: exerciseId,
+          setNumber,
+          ...(weight !== "" ? { weight: Number(weight) } : {}),
+          ...(reps !== "" ? { reps: Number(reps) } : {}),
+          ...(rpe !== "" ? { rpe: Number(rpe) } : {}),
+          ...(reason.trim() ? { reason: reason.trim() } : {}),
+        })
       ).data,
   });
   if (!session.canRequestCorrection || !session.exercises.length) return null;
   if (request.isSuccess)
     return (
       <p className="training-notice" role="status">
-        Tu solicitud fue enviada al coach. Los datos no cambiarán hasta que
-        sea aprobada.
+        Tu solicitud fue enviada al coach. Los datos no cambiarán hasta que sea
+        aprobada.
       </p>
     );
   return (
@@ -102,8 +96,8 @@ function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
         >
           <h2>Solicitar corrección al coach</h2>
           <p>
-            Este entrenamiento está cerrado. La solicitud no cambiará los
-            datos hasta que tu coach la apruebe.
+            Este entrenamiento está cerrado. La solicitud no cambiará los datos
+            hasta que tu coach la apruebe.
           </p>
           <label className="field">
             Ejercicio
@@ -118,7 +112,9 @@ function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
               }}
             >
               {session.exercises.map((item) => (
-                <option key={item.id} value={item.id}>{item.name}</option>
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                </option>
               ))}
             </select>
           </label>
@@ -136,27 +132,90 @@ function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
             </select>
           </label>
           <p className="muted">
-            Registro original: {selectedSet?.status === "RECORDED"
+            Registro original:{" "}
+            {selectedSet?.status === "RECORDED"
               ? `${selectedSet.actual.weight ?? "—"} kg · ${selectedSet.actual.reps ?? "—"} repeticiones · RPE ${selectedSet.actual.rpe ?? "—"}`
               : "Sin datos"}
           </p>
           <div className="performed-set-fields">
-            <label>Peso (kg)<input aria-label="Peso corregido" type="number" min="0" max="9999.99" step="0.01" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>
-            <label>Repeticiones<input aria-label="Repeticiones corregidas" type="number" min="0" max="10000" step="1" value={reps} onChange={(event) => setReps(event.target.value)} /></label>
-            <label>RPE<input aria-label="RPE corregido" type="number" min="0" max="10" step="0.1" value={rpe} onChange={(event) => setRpe(event.target.value)} /></label>
+            <label>
+              Peso (kg)
+              <input
+                aria-label="Peso corregido"
+                type="number"
+                min="0"
+                max="9999.99"
+                step="0.01"
+                value={weight}
+                onChange={(event) => setWeight(event.target.value)}
+              />
+            </label>
+            <label>
+              Repeticiones
+              <input
+                aria-label="Repeticiones corregidas"
+                type="number"
+                min="0"
+                max="10000"
+                step="1"
+                value={reps}
+                onChange={(event) => setReps(event.target.value)}
+              />
+            </label>
+            <label>
+              RPE
+              <input
+                aria-label="RPE corregido"
+                type="number"
+                min="0"
+                max="10"
+                step="0.1"
+                value={rpe}
+                onChange={(event) => setRpe(event.target.value)}
+              />
+            </label>
           </div>
-          <label className="field">Motivo opcional<textarea maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+          <label className="field">
+            Motivo opcional
+            <textarea
+              maxLength={500}
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </label>
           <div className="dialog-actions">
             <button disabled={request.isPending || (!weight && !reps && !rpe)}>
               {request.isPending ? "Enviando…" : "Enviar solicitud"}
             </button>
-            <button type="button" className="button--neutral" onClick={() => setOpen(false)}>Cancelar</button>
+            <button
+              type="button"
+              className="button--neutral"
+              onClick={() => setOpen(false)}
+            >
+              Cancelar
+            </button>
           </div>
           {request.isError && <ErrorState message={request.error.message} />}
         </form>
       )}
     </section>
   );
+}
+
+function exerciseExecutionState(exercise: TrainingDetail["exercises"][number]) {
+  const recorded = exercise.sets.filter(
+    (set) => set.status === "RECORDED",
+  ).length;
+  if (exercise.sets.length > 0 && recorded === exercise.sets.length)
+    return "COMPLETED" as const;
+  if (
+    exercise.sets.length > 0 &&
+    exercise.sets.every((set) => set.status === "SKIPPED")
+  )
+    return "SKIPPED" as const;
+  if (exercise.sets.some((set) => set.status !== "PENDING"))
+    return "PARTIAL" as const;
+  return "PENDING" as const;
 }
 
 function SessionRecorder({
@@ -188,23 +247,12 @@ function SessionRecorder({
   );
   const [dirty, setDirty] = useState(!!recovery && !recovery.conflict);
   const [storageError, setStorageError] = useState(false);
-  // Todo abierto por defecto: los ejercicios y los campos de las series
-  // pendientes se ven de una vez. Las series anotadas/omitidas se muestran
-  // resumidas y se pueden abrir para corregirlas.
-  const [collapsedExercises, setCollapsedExercises] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [setOverrides, setSetOverrides] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [openExerciseId, setOpenExerciseId] = useState<string | null>(null);
+  const [setOverrides, setSetOverrides] = useState<Record<string, boolean>>({});
   const isSetOpen = (exerciseId: string, set: TrainingSet) =>
-    setOverrides[`${exerciseId}:${set.setNumber}`] ?? set.status === "PENDING";
+    setOverrides[`${exerciseId}:${set.setNumber}`] ?? false;
   const saving = useRef(false);
-  const [duration, setDuration] = useState(
-    recovery && !recovery.conflict
-      ? recovery.saved.duration
-      : (initial.durationMinutes?.toString() ?? ""),
-  );
+  const [localSaved, setLocalSaved] = useState(false);
   const [confirm, setConfirm] = useState<"finish" | "skip" | null>(null);
   const cache = useQueryClient();
   const start = useMutation({
@@ -223,13 +271,10 @@ function SessionRecorder({
       void cache.invalidateQueries({ queryKey: ["training"] });
     },
   });
-  function persist(value: TrainingDetail, minutes = duration) {
+  function persist(value: TrainingDetail) {
     if (initial.readOnly) return;
     try {
-      sessionStorage.setItem(
-        storageKey,
-        JSON.stringify(serializeDraft(value, minutes)),
-      );
+      sessionStorage.setItem(storageKey, JSON.stringify(serializeDraft(value)));
       setStorageError(false);
     } catch {
       setStorageError(true);
@@ -240,52 +285,58 @@ function SessionRecorder({
     if (dirty) e.preventDefault();
   });
   const mutation = useMutation({
-    mutationFn: async ({
-      finish,
-      skip = false,
-      value: submitted,
-    }: {
+    mutationFn: async (variables: {
       finish: boolean;
       skip?: boolean;
       value: TrainingDetail;
+      collapseSetKey?: string;
     }) => {
+      const { finish, skip = false, value: submitted } = variables;
       const value = skip
         ? {
             ...submitted,
             exercises: submitted.exercises.map((e) => ({
               ...e,
-              sets: e.sets.map((s) => ({ ...s, status: "SKIPPED" as const })),
+              sets: e.sets.map((s) =>
+                s.status === "RECORDED"
+                  ? s
+                  : { ...s, status: "SKIPPED" as const },
+              ),
             })),
           }
         : submitted;
       return (
         await apiClient.patch<TrainingDetail>(
           `/training/sessions/${draft.id}`,
-          trainingPayload(
-            value,
-            finish,
-            duration ? Number(duration) : undefined,
-          ),
+          trainingPayload(value, finish),
         )
       ).data;
     },
     onSuccess: (data, variables) => {
-      const next = retainUnrecordedInputs(data, variables.value);
+      const next = variables.finish
+        ? data
+        : retainUnrecordedInputs(data, variables.value);
       setDraft(next);
-      if (
-        JSON.stringify(serializeDraft(next, duration)) ===
-        JSON.stringify(serializeDraft(data, duration))
-      ) {
+      const hasUnconfirmed = next.exercises.some((exercise) =>
+        exercise.sets.some(
+          (set) => set.status === "PENDING" && hasActualValues(set),
+        ),
+      );
+      if (!hasUnconfirmed) {
         try {
           sessionStorage.removeItem(storageKey);
         } catch {
           setStorageError(true);
         }
       } else persist(next);
-      setDirty(false);
+      setDirty(hasUnconfirmed);
+      setLocalSaved(false);
       setConfirm(null);
-      // Las series recién anotadas vuelven a mostrarse resumidas.
-      setSetOverrides({});
+      if (variables.collapseSetKey)
+        setSetOverrides((current) => ({
+          ...current,
+          [variables.collapseSetKey!]: false,
+        }));
       cache.setQueryData(
         ["training-session", data.id, queryAssignmentId],
         data,
@@ -297,19 +348,23 @@ function SessionRecorder({
       saving.current = false;
     },
   });
-  function save(value = draft, finish = false, skip = false) {
+  function save(
+    value = draft,
+    finish = false,
+    skip = false,
+    collapseSetKey?: string,
+  ) {
     if (saving.current || initial.readOnly || conflictingDraft) return;
     saving.current = true;
-    // Lo escrito sin «Anotar» también se guarda (salvo al omitir la sesión).
     mutation.mutate({
-      value: skip ? value : recordFilledPending(value),
+      value,
       finish,
       skip,
+      collapseSetKey,
     });
   }
   const sets = draft.exercises.flatMap((e) => e.sets);
   const done = sets.filter((s) => s.status === "RECORDED").length;
-  const pending = sets.filter((s) => s.status === "PENDING").length;
   const filledPending = sets.filter(
     (s) => s.status === "PENDING" && hasActualValues(s),
   ).length;
@@ -322,7 +377,19 @@ function SessionRecorder({
     setDraft(next);
     persist(next);
     setDirty(true);
+    setLocalSaved(false);
     return next;
+  }
+  function saveProgress() {
+    const hasServerDecision = draft.exercises.some((exercise) =>
+      exercise.sets.some((set) => set.status !== "PENDING"),
+    );
+    if (!draft.workoutLogId && !hasServerDecision) {
+      persist(draft);
+      setLocalSaved(true);
+      return;
+    }
+    save();
   }
   const disabled = initial.readOnly || mutation.isPending || !!conflictingDraft;
   return (
@@ -348,6 +415,14 @@ function SessionRecorder({
           · {done} de {sets.length} series registradas
           {dirty && " · Cambios sin guardar"}
         </p>
+        {draft.finished && (
+          <p className="muted">
+            Duración:{" "}
+            {draft.durationMinutes !== null
+              ? `${draft.durationMinutes} min`
+              : "no disponible"}
+          </p>
+        )}
         <progress max={sets.length || 1} value={done} />
       </header>
       {initial.readOnly && (
@@ -367,22 +442,25 @@ function SessionRecorder({
         <div className="training-notice">
           <p>
             Esta es tu siguiente sesión elegible. Puedes adelantarla; quedará
-            registrada con la fecha real de inicio y será tu único
-            entrenamiento activo.
+            registrada con la fecha real de inicio y será tu único entrenamiento
+            activo.
           </p>
-          <button type="button" disabled={start.isPending} onClick={() => start.mutate()}>
+          <button
+            type="button"
+            disabled={start.isPending}
+            onClick={() => start.mutate()}
+          >
             {start.isPending ? "Iniciando…" : "Iniciar anticipadamente"}
           </button>
           {start.isError && <ErrorState message={start.error.message} />}
         </div>
       )}
-      <CorrectionRequestForm session={initial} />
+      {user?.role === "STUDENT" && <CorrectionRequestForm session={initial} />}
       {!initial.readOnly && (
         <p className="muted">
-          Anota cada serie al terminarla. Si escribes los valores y pasas a
-          otra serie, se anotan solos; los campos vacíos se completan con lo
-          prescrito. Solo puedes registrar las series programadas por tu
-          coach.
+          Anota cada serie al terminarla. Escribir o autocompletar valores no
+          los registra: debes pulsar «Anotar». Solo puedes registrar las series
+          programadas por tu coach.
         </p>
       )}
       {storageError && (
@@ -436,258 +514,279 @@ function SessionRecorder({
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          save();
+          saveProgress();
         }}
       >
-        {draft.exercises.map((exercise, index) => (
-          <article
-            className="training-exercise training-exercise--compact"
-            key={exercise.id}
-          >
-            <header>
-              <button
-                type="button"
-                className="training-accordion-toggle"
-                aria-expanded={!collapsedExercises.has(exercise.id)}
-                aria-controls={`exercise-${exercise.id}`}
-                onClick={() =>
-                  setCollapsedExercises((current) => {
-                    const next = new Set(current);
-                    if (next.has(exercise.id)) next.delete(exercise.id);
-                    else next.add(exercise.id);
-                    return next;
-                  })
-                }
-              >
-                <span className="training-exercise-number">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <span>
-                  <strong>{exercise.name}</strong>
-                  <span className="training-accordion-summary">
-                    {
-                      exercise.sets.filter((s) => s.status === "RECORDED")
-                        .length
-                    }
-                    /{exercise.sets.length} series ·{" "}
-                    {exercise.sets.every((s) => s.status === "PENDING")
-                      ? "Pendiente"
-                      : exercise.sets.every((s) => s.status === "RECORDED")
-                        ? "Completado"
-                        : exercise.sets.every((s) => s.status === "SKIPPED")
-                          ? "Omitido"
-                          : "Parcial"}
-                  </span>
-                </span>
-                <span aria-hidden="true" className="training-chevron">
-                  {collapsedExercises.has(exercise.id) ? "+" : "−"}
-                </span>
-              </button>
-            </header>
-            <div
-              id={`exercise-${exercise.id}`}
-              className="training-collapse"
-              data-open={!collapsedExercises.has(exercise.id)}
-              inert={collapsedExercises.has(exercise.id)}
-              aria-hidden={collapsedExercises.has(exercise.id)}
+        {draft.exercises.map((exercise, index) => {
+          const exerciseState = exerciseExecutionState(exercise);
+          const exerciseOpen = openExerciseId === exercise.id;
+          return (
+            <article
+              className={`training-exercise training-exercise--compact training-exercise--${exerciseState}`}
+              key={exercise.id}
             >
-              <div className="training-collapse-inner">
-                {exercise.notes && (
-                  <p className="training-exercise-notes">{exercise.notes}</p>
-                )}
-                {exercise.videoUrl && (
-                  <ExerciseVideo
-                    videoUrl={exercise.videoUrl}
-                    name={exercise.name}
-                  />
-                )}
-                {!exercise.sets.length && (
-                  <p className="muted">Sin series programadas.</p>
-                )}
-                {exercise.sets.map((s) => (
-                  <div
-                    className={`training-set-row performed-set--${s.status}`}
-                    key={s.setNumber}
-                  >
-                    <button
-                      type="button"
-                      className="training-accordion-toggle"
-                      aria-expanded={isSetOpen(exercise.id, s)}
-                      aria-controls={`set-${exercise.id}-${s.setNumber}`}
-                      onClick={() =>
-                        setSetOverrides((current) => ({
-                          ...current,
-                          [`${exercise.id}:${s.setNumber}`]: !isSetOpen(
-                            exercise.id,
-                            s,
-                          ),
-                        }))
+              <header>
+                <button
+                  type="button"
+                  className="training-accordion-toggle"
+                  aria-expanded={exerciseOpen}
+                  aria-controls={`exercise-${exercise.id}`}
+                  onClick={() =>
+                    setOpenExerciseId((current) =>
+                      current === exercise.id ? null : exercise.id,
+                    )
+                  }
+                >
+                  <span className="training-exercise-number">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span>
+                    <strong>{exercise.name}</strong>
+                    <span className="training-accordion-summary">
+                      {
+                        exercise.sets.filter((s) => s.status === "RECORDED")
+                          .length
                       }
-                    >
-                      <span>
-                        Serie {s.setNumber} ·{" "}
-                        {s.status === "RECORDED"
-                          ? "Registrada"
-                          : s.status === "SKIPPED"
-                            ? "Omitida"
-                            : "Pendiente"}
-                        {s.status === "RECORDED" && (
-                          <small className="training-accordion-summary">
-                            {s.actual.weight ?? "—"} kg · {s.actual.reps ?? "—"}{" "}
-                            reps · @{s.actual.rpe ?? "—"}
-                          </small>
-                        )}
-                      </span>
-                      <span className="training-chevron" aria-hidden="true">
-                        {isSetOpen(exercise.id, s) ? "−" : "+"}
-                      </span>
-                    </button>
+                      /{exercise.sets.length} series ·{" "}
+                      {exerciseState === "PENDING"
+                        ? "Pendiente"
+                        : exerciseState === "COMPLETED"
+                          ? "Completado"
+                          : exerciseState === "SKIPPED"
+                            ? "Omitido"
+                            : "Parcial"}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="training-chevron">
+                    {exerciseOpen ? "−" : "+"}
+                  </span>
+                </button>
+              </header>
+              <div
+                id={`exercise-${exercise.id}`}
+                className="training-collapse"
+                data-open={exerciseOpen}
+                inert={!exerciseOpen}
+                aria-hidden={!exerciseOpen}
+              >
+                <div className="training-collapse-inner">
+                  {exercise.notes && (
+                    <p className="training-exercise-notes">{exercise.notes}</p>
+                  )}
+                  {exercise.videoUrl && (
+                    <ExerciseVideo
+                      videoUrl={exercise.videoUrl}
+                      name={exercise.name}
+                    />
+                  )}
+                  {!exercise.sets.length && (
+                    <p className="muted">Sin series programadas.</p>
+                  )}
+                  {exercise.sets.map((s) => (
                     <div
-                      id={`set-${exercise.id}-${s.setNumber}`}
-                      className="training-collapse"
-                      data-open={isSetOpen(exercise.id, s)}
-                      inert={!isSetOpen(exercise.id, s)}
-                      aria-hidden={!isSetOpen(exercise.id, s)}
+                      className={`training-set-row performed-set--${s.status}`}
+                      key={s.setNumber}
                     >
-                      <div className="training-collapse-inner">
-                        <fieldset
-                          className={`performed-set performed-set--${s.status}`}
-                          disabled={disabled || !isSetOpen(exercise.id, s)}
-                          aria-label={`${exercise.name}, serie ${s.setNumber}`}
-                          onBlur={(event) => {
-                            // Al salir de una serie con valores escritos se
-                            // anota sola, como si se hubiera tocado «Anotar».
-                            if (
-                              initial.readOnly ||
-                              s.status !== "PENDING" ||
-                              !hasActualValues(s) ||
-                              event.currentTarget.contains(
-                                event.relatedTarget as Node | null,
-                              ) ||
-                              [
-                                ...event.currentTarget.querySelectorAll("input"),
-                              ].some((input) => !input.checkValidity())
-                            )
-                              return;
-                            save(
-                              updateSet(draft, exercise.id, s.setNumber, {
-                                status: "RECORDED",
-                                actual: fillEmptyActual(s),
-                              }),
-                            );
-                          }}
-                        >
-                          <p className="set-prescription">
-                            Prescrito: {s.weight ?? "—"} kg · {s.reps ?? "—"}{" "}
-                            reps · RPE {s.rpe ?? "—"}
-                          </p>
-                          <div className="performed-set-fields">
-                            {(["weight", "reps", "rpe"] as const).map(
-                              (field) => (
-                                <label key={field}>
-                                  {field === "weight"
-                                    ? "Peso (kg)"
-                                    : field === "reps"
-                                      ? "Reps"
-                                      : "RPE"}
-                                  <input
-                                    aria-label={`${field === "weight" ? "Peso" : field === "reps" ? "Reps" : "RPE"} serie ${s.setNumber} de ${exercise.name}`}
-                                    type="number"
-                                    inputMode="decimal"
-                                    min="0"
-                                    max={
-                                      field === "rpe"
-                                        ? 10
-                                        : field === "reps"
-                                          ? 10000
-                                          : 9999.99
-                                    }
-                                    step={
-                                      field === "reps"
-                                        ? 1
-                                        : field === "rpe"
-                                          ? 0.1
-                                          : 0.01
-                                    }
-                                    value={s.actual[field] ?? ""}
-                                    onChange={(e) =>
-                                      update(exercise.id, s.setNumber, {
-                                        actual: {
-                                          ...s.actual,
-                                          [field]:
-                                            e.target.value === ""
-                                              ? null
-                                              : Number(e.target.value),
-                                        },
-                                      })
-                                    }
-                                  />
-                                </label>
-                              ),
-                            )}
-                          </div>
-                          {!initial.readOnly && (
-                            <div className="set-actions">
+                      <button
+                        type="button"
+                        className="training-accordion-toggle"
+                        aria-expanded={isSetOpen(exercise.id, s)}
+                        aria-controls={`set-${exercise.id}-${s.setNumber}`}
+                        onClick={() =>
+                          setSetOverrides((current) => ({
+                            ...current,
+                            [`${exercise.id}:${s.setNumber}`]: !isSetOpen(
+                              exercise.id,
+                              s,
+                            ),
+                          }))
+                        }
+                      >
+                        <span>
+                          Serie {s.setNumber} ·{" "}
+                          {s.status === "RECORDED"
+                            ? "Registrada"
+                            : s.status === "SKIPPED"
+                              ? "Omitida"
+                              : "Pendiente"}
+                          {s.status === "RECORDED" && (
+                            <small className="training-accordion-summary">
+                              {s.actual.weight ?? "—"} kg ·{" "}
+                              {s.actual.reps ?? "—"} reps · @
+                              {s.actual.rpe ?? "—"}
+                            </small>
+                          )}
+                        </span>
+                        <span className="training-chevron" aria-hidden="true">
+                          {isSetOpen(exercise.id, s) ? "−" : "+"}
+                        </span>
+                      </button>
+                      <div
+                        id={`set-${exercise.id}-${s.setNumber}`}
+                        className="training-collapse"
+                        data-open={isSetOpen(exercise.id, s)}
+                        inert={!isSetOpen(exercise.id, s)}
+                        aria-hidden={!isSetOpen(exercise.id, s)}
+                      >
+                        <div className="training-collapse-inner">
+                          <fieldset
+                            className={`performed-set performed-set--${s.status}`}
+                            disabled={disabled || !isSetOpen(exercise.id, s)}
+                            aria-label={`${exercise.name}, serie ${s.setNumber}`}
+                          >
+                            <p className="set-prescription">
+                              Prescrito: {s.weight ?? "—"} kg · {s.reps ?? "—"}{" "}
+                              reps · RPE {s.rpe ?? "—"}
+                            </p>
+                            {!initial.readOnly && (
                               <button
                                 type="button"
-                                className="button--secondary"
-                                onClick={(event) => {
-                                  if (
-                                    !event.currentTarget.form?.reportValidity()
+                                className="set-use-prescription"
+                                disabled={
+                                  disabled ||
+                                  [s.weight, s.reps, s.rpe].every(
+                                    (value) => value === null,
                                   )
-                                    return;
-                                  const next = update(
-                                    exercise.id,
-                                    s.setNumber,
-                                    {
-                                      status: "RECORDED",
-                                      actual: fillEmptyActual(s),
-                                    },
-                                  );
-                                  save(next);
-                                }}
-                              >
-                                Anotar
-                              </button>
-                              <button
-                                type="button"
-                                className="button--neutral"
-                                onClick={() => {
-                                  // Sigue abierta para poder deshacerlo con
-                                  // «Dejar pendiente».
-                                  setSetOverrides((current) => ({
-                                    ...current,
-                                    [`${exercise.id}:${s.setNumber}`]: true,
-                                  }));
-                                  update(exercise.id, s.setNumber, {
-                                    status: "SKIPPED",
-                                  });
-                                }}
-                              >
-                                Omitir
-                              </button>
-                              <button
-                                type="button"
-                                className="button--neutral"
+                                }
                                 onClick={() =>
                                   update(exercise.id, s.setNumber, {
-                                    status: "PENDING",
+                                    actual: prescribedActual(s),
                                   })
                                 }
                               >
-                                Dejar pendiente
+                                Usar valores prescritos
                               </button>
+                            )}
+                            <div className="performed-set-fields">
+                              {(["weight", "reps", "rpe"] as const).map(
+                                (field) => (
+                                  <label key={field}>
+                                    {field === "weight"
+                                      ? "Peso (kg)"
+                                      : field === "reps"
+                                        ? "Reps"
+                                        : "RPE"}
+                                    <input
+                                      aria-label={`${field === "weight" ? "Peso" : field === "reps" ? "Reps" : "RPE"} serie ${s.setNumber} de ${exercise.name}`}
+                                      type="number"
+                                      inputMode="decimal"
+                                      min="0"
+                                      max={
+                                        field === "rpe"
+                                          ? 10
+                                          : field === "reps"
+                                            ? 10000
+                                            : 9999.99
+                                      }
+                                      step={
+                                        field === "reps"
+                                          ? 1
+                                          : field === "rpe"
+                                            ? 0.1
+                                            : 0.01
+                                      }
+                                      value={s.actual[field] ?? ""}
+                                      onChange={(e) =>
+                                        update(exercise.id, s.setNumber, {
+                                          actual: {
+                                            ...s.actual,
+                                            [field]:
+                                              e.target.value === ""
+                                                ? null
+                                                : Number(e.target.value),
+                                          },
+                                        })
+                                      }
+                                    />
+                                  </label>
+                                ),
+                              )}
                             </div>
-                          )}
-                        </fieldset>
+                            {!initial.readOnly && (
+                              <div className="set-actions">
+                                <button
+                                  type="button"
+                                  className="button--secondary"
+                                  onClick={(event) => {
+                                    if (
+                                      !event.currentTarget.form?.reportValidity()
+                                    )
+                                      return;
+                                    const next = update(
+                                      exercise.id,
+                                      s.setNumber,
+                                      {
+                                        status: "RECORDED",
+                                        actual: fillEmptyActual(s),
+                                      },
+                                    );
+                                    save(
+                                      next,
+                                      false,
+                                      false,
+                                      `${exercise.id}:${s.setNumber}`,
+                                    );
+                                  }}
+                                >
+                                  Anotar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button--neutral"
+                                  onClick={() => {
+                                    const next = update(
+                                      exercise.id,
+                                      s.setNumber,
+                                      {
+                                        status: "SKIPPED",
+                                      },
+                                    );
+                                    save(
+                                      next,
+                                      false,
+                                      false,
+                                      `${exercise.id}:${s.setNumber}`,
+                                    );
+                                  }}
+                                >
+                                  Omitir
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button--neutral"
+                                  onClick={() => {
+                                    const next = update(
+                                      exercise.id,
+                                      s.setNumber,
+                                      {
+                                        status: "PENDING",
+                                      },
+                                    );
+                                    const key = `${exercise.id}:${s.setNumber}`;
+                                    if (s.status === "PENDING") {
+                                      setSetOverrides((current) => ({
+                                        ...current,
+                                        [key]: false,
+                                      }));
+                                    } else {
+                                      save(next, false, false, key);
+                                    }
+                                  }}
+                                >
+                                  Dejar pendiente
+                                </button>
+                              </div>
+                            )}
+                          </fieldset>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
         {!draft.exercises.length && (
           <p className="training-notice">
             Día sin ejercicios programados. Puedes finalizarlo como omitido.
@@ -695,62 +794,45 @@ function SessionRecorder({
         )}
         {!initial.readOnly && (
           <footer className="training-save-bar">
-            <label className="field">
-              Duración al finalizar (minutos, opcional)
-              <input
-                type="number"
-                min="0"
-                max="1440"
-                step="1"
-                value={duration}
-                disabled={disabled}
-                onChange={(e) => {
-                  setDuration(e.target.value);
-                  persist(draft, e.target.value);
-                  setDirty(true);
-                }}
-              />
-            </label>
-            <div className="dialog-actions">
+            <div className="training-save-actions">
               <button
                 type="submit"
-                disabled={
-                  disabled ||
-                  !dirty ||
-                  sets.every(
-                    (s) => s.status === "PENDING" && !hasActualValues(s),
-                  )
-                }
+                className="training-action training-action--save"
+                disabled={disabled || !dirty}
               >
-                Guardar progreso
+                <Icon name="save" />
+                {mutation.isPending ? "Guardando…" : "Guardar progreso"}
               </button>
               <button
                 type="button"
+                className="training-action training-action--finish"
                 disabled={disabled}
                 onClick={(e) => {
                   if (e.currentTarget.form?.reportValidity())
                     setConfirm("finish");
                 }}
               >
-                {draft.finished
-                  ? "Actualizar sesión finalizada"
-                  : "Finalizar sesión"}
+                <Icon name="check" />
+                Finalizar sesión
               </button>
               <button
                 type="button"
-                className="button--neutral"
+                className="training-action training-action--skip"
                 disabled={disabled}
                 onClick={() => setConfirm("skip")}
               >
+                <Icon name="skip" />
                 Omitir sesión
               </button>
             </div>
             <p role="status">
               {mutation.isPending
                 ? "Guardando…"
-                : draft.revision > 0 && !dirty
-                  ? "Registro guardado."
-                  : ""}
+                : localSaved
+                  ? "Borrador conservado en esta pestaña. Aún debes anotar la serie."
+                  : draft.revision > 0 && !dirty
+                    ? "Registro guardado."
+                    : ""}
             </p>
             {mutation.isError && (
               <ErrorState message={mutation.error.message} />
@@ -768,26 +850,37 @@ function SessionRecorder({
           <h2>
             {confirm === "skip"
               ? "¿Omitir toda la sesión?"
-              : "Finalizar entrenamiento"}
+              : "Estás por finalizar tu entrenamiento."}
           </h2>
           <p>
             {confirm === "skip"
-              ? "Todas las series de esta sesión quedarán omitidas, incluidos los valores registrados."
-              : `${done + filledPending} series registradas${filledPending ? ` (incluye ${filledPending} con datos escritos sin anotar)` : ""}. ${pending - filledPending === 0 ? "No quedan series pendientes." : `Las ${pending - filledPending} pendientes sin datos quedarán omitidas.`} Después quedará cerrado; cualquier cambio requerirá aprobación de tu coach.`}
+              ? done
+                ? `Se conservarán tus ${done} series registradas. Las ${sets.length - done} restantes quedarán omitidas y la sesión se cerrará como parcial.`
+                : `Las ${sets.length} series prescritas quedarán omitidas y la sesión se cerrará.`
+              : `Registraste ${done} de ${sets.length} series. ${sets.length - done ? `Las ${sets.length - done} series restantes quedarán como omitidas.` : "Todas las series están registradas."}`}
           </p>
+          {filledPending > 0 && (
+            <p className="training-confirm__warning" role="alert">
+              Hay {filledPending} {filledPending === 1 ? "serie" : "series"}
+              con valores escritos o autocompletados sin confirmar. Si finalizas
+              ahora, esos valores no se registrarán.
+            </p>
+          )}
           <div className="dialog-actions">
             <button
               disabled={mutation.isPending}
               onClick={() => save(draft, true, confirm === "skip")}
             >
-              Confirmar
+              {confirm === "skip"
+                ? "Omitir pendientes y cerrar"
+                : "Finalizar y omitir restantes"}
             </button>
             <button
               className="button--neutral"
               disabled={mutation.isPending}
               onClick={() => setConfirm(null)}
             >
-              Cancelar
+              Seguir entrenando
             </button>
           </div>
           {mutation.isError && <p role="alert">{mutation.error.message}</p>}

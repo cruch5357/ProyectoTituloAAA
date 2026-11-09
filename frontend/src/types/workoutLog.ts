@@ -2,7 +2,7 @@
 // backend/src/workout-logs/workout-log.mapper.ts). Usa EXCLUSIVAMENTE los
 // mismos campos ya existentes en el modelo (prisma/schema.prisma, PROMPT
 // 02): ningún campo nuevo fue inventado en el frontend.
-export type WorkoutCompletionStatus = 'COMPLETED' | 'PARTIAL' | 'SKIPPED';
+export type WorkoutCompletionStatus = "COMPLETED" | "PARTIAL" | "SKIPPED";
 
 // Resumen del ejercicio prescrito embebido en cada SetLog, para mostrar
 // "prescrito vs. realizado" sin pedirlo aparte (RF-21/RF-22).
@@ -72,19 +72,28 @@ export interface EmbeddedStudentSummary {
 }
 
 export interface WorkoutPrescription {
-  sessionExerciseId: string; exerciseId: string; exerciseName: string; order: number;
-  targetSets: number | null; targetRepsMin: number | null; targetRepsMax: number | null;
-  targetRpe: number | null; targetRir: number | null; restSeconds: number | null; notes: string | null;
+  sessionExerciseId: string;
+  exerciseId: string;
+  exerciseName: string;
+  order: number;
+  targetSets: number | null;
+  targetRepsMin: number | null;
+  targetRepsMax: number | null;
+  targetRpe: number | null;
+  targetRir: number | null;
+  restSeconds: number | null;
+  notes: string | null;
 }
 export interface WorkoutLog {
   structuredExecution?: boolean;
-  prescriptionSource?: 'snapshot' | 'legacy-current';
+  prescriptionSource?: "snapshot" | "legacy-current";
   prescriptions?: WorkoutPrescription[];
   id: string;
   sessionId: string;
   programAssignmentId?: string | null;
   studentId: string;
   performedAt: string;
+  finishedAt?: string | null;
   completionStatus: WorkoutCompletionStatus;
   overallRpe: number | null;
   fatigue: number | null;
@@ -100,4 +109,10 @@ export interface WorkoutLog {
   setLogsCount?: number;
   // Solo presente en GET /dashboard/recent-activity (PROMPT 12).
   student?: EmbeddedStudentSummary;
+}
+
+export function isWorkoutFinished(log: WorkoutLog): boolean {
+  return log.structuredExecution
+    ? log.finishedAt != null
+    : log.durationMinutes !== null;
 }

@@ -171,6 +171,28 @@ describe('Training overview: adherencia e historia por ciclo', () => {
       completed: false,
     });
   });
+  it('reconoce un cierre estructurado sin duración disponible', async () => {
+    const structured = {
+      ...log('current', null, 'PARTIAL', 1),
+      structuredExecution: true,
+      finishedAt: new Date('2020-01-06T19:00:00Z'),
+      performedAt: new Date('2020-01-06T18:00:00Z'),
+    };
+    const { service } = setup([structured]);
+    const result = await service.overview(student, student.id);
+    expect(result.sessions[0]).toMatchObject({
+      finished: true,
+      status: 'PARTIAL',
+      recordedSets: 1,
+    });
+    expect(result.pendingSession).toBeNull();
+    expect(result.assignments[0].adherence).toEqual(
+      expect.objectContaining({
+        completedSessions: 1,
+        adherenceRate: 100,
+      }),
+    );
+  });
   it('cuenta una sola vez y no pierde un cierre si existe un registro abierto más reciente', async () => {
     const { service } = setup([
       log('current', null),

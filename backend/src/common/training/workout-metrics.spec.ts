@@ -150,13 +150,25 @@ describe('computeWorkoutSummaryMetrics', () => {
       { studentId: 'student-1' },
     );
 
-    // totalWorkouts cuenta solo entrenamientos FINALIZADOS (durationMinutes
-    // != null), pero totalSetLogs cuenta toda serie real registrada, incluso
-    // la de un entrenamiento todavía en curso.
+    // totalWorkouts cuenta solo entrenamientos finalizados, pero totalSetLogs
+    // cuenta toda serie real registrada, incluso la de uno todavía en curso.
     expect(result.totalWorkouts).toBe(0);
     expect(result.totalSetLogs).toBe(7);
     const aggregateCall = prisma.workoutLog.aggregate.mock.calls[0][0];
-    expect(aggregateCall.where.durationMinutes).toEqual({ not: null });
+    expect(aggregateCall.where).toEqual({
+      studentId: 'student-1',
+      AND: [
+        {
+          OR: [
+            { structuredExecution: true, finishedAt: { not: null } },
+            {
+              structuredExecution: false,
+              durationMinutes: { not: null },
+            },
+          ],
+        },
+      ],
+    });
     const setLogCountCall = prisma.setLog.count.mock.calls[0][0];
     expect(setLogCountCall.where.workoutLog.durationMinutes).toBeUndefined();
   });
@@ -327,7 +339,7 @@ describe('computeCompletionStatusBreakdown', () => {
     expect(result).toEqual({ completed: 5, partial: 2, skipped: 1 });
   });
 
-  it('agrega el filtro de finalizado (durationMinutes not null) al where recibido', async () => {
+  it('agrega el filtro de cierre estructurado o legacy al where recibido', async () => {
     const prisma = buildMockPrisma();
     prisma.workoutLog.groupBy.mockResolvedValue([]);
 
@@ -337,7 +349,20 @@ describe('computeCompletionStatusBreakdown', () => {
 
     expect(prisma.workoutLog.groupBy).toHaveBeenCalledWith({
       by: ['completionStatus'],
-      where: { studentId: 'student-1', durationMinutes: { not: null } },
+      where: {
+        studentId: 'student-1',
+        AND: [
+          {
+            OR: [
+              { structuredExecution: true, finishedAt: { not: null } },
+              {
+                structuredExecution: false,
+                durationMinutes: { not: null },
+              },
+            ],
+          },
+        ],
+      },
       _count: { _all: true },
     });
   });

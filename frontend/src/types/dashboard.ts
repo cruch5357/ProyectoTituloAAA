@@ -25,7 +25,7 @@ export interface CoachDashboardSummary {
   activeAssignments: number;
   // "Registrados" = cualquier WorkoutLog existente (incluso en curso).
   workoutsRegistered: number;
-  // "Finalizados" = pasó por finish() al menos una vez (durationMinutes !== null).
+  // "Finalizados" = cierre explícito; la duración puede ser desconocida.
   workoutsFinished: number;
   completionStatusBreakdown: CompletionStatusBreakdown;
   summary: WorkoutSummaryMetrics;

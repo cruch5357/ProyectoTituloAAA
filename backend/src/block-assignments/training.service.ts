@@ -70,6 +70,20 @@ type AssignmentSchedule = {
     }[];
   };
 };
+
+type WorkoutClosure = {
+  structuredExecution: boolean;
+  finishedAt: Date | null;
+  durationMinutes: number | null;
+};
+
+function isWorkoutFinished(log: WorkoutClosure | null | undefined) {
+  if (!log) return false;
+  return log.structuredExecution
+    ? log.finishedAt != null
+    : log.durationMinutes != null;
+}
+
 @Injectable()
 export class TrainingService {
   constructor(private readonly prisma: PrismaService) {}
@@ -132,6 +146,8 @@ export class TrainingService {
         sessionId: true,
         programAssignmentId: true,
         completionStatus: true,
+        structuredExecution: true,
+        finishedAt: true,
         durationMinutes: true,
         performedAt: true,
         omittedSets: true,
@@ -142,9 +158,7 @@ export class TrainingService {
     // Unscoped history signals uncertainty; it must never count for a cycle.
     const ambiguousSessions = new Set(
       logs
-        .filter(
-          (l) => l.programAssignmentId === null && l.durationMinutes !== null,
-        )
+        .filter((l) => l.programAssignmentId === null && isWorkoutFinished(l))
         .map((l) => l.sessionId),
     );
     const today = todayDate();
@@ -160,9 +174,8 @@ export class TrainingService {
               );
               // Historical sessions can have multiple logs. A later open log
               // does not erase an already finalized occurrence in this cycle.
-              const log =
-                ownLogs.find((l) => l.durationMinutes !== null) ?? ownLogs[0];
-              const finished = !!log && log.durationMinutes !== null;
+              const log = ownLogs.find(isWorkoutFinished) ?? ownLogs[0];
+              const finished = isWorkoutFinished(log);
               const total = s.sessionExercises.reduce(
                 (n, e) => n + plannedSets(e).length,
                 0,
@@ -179,9 +192,7 @@ export class TrainingService {
               );
               const expired =
                 (!!scheduledDate && scheduledDate < today) ||
-                (!!log &&
-                  log.durationMinutes === null &&
-                  todayDate(log.performedAt) < today);
+                (!!log && !finished && todayDate(log.performedAt) < today);
               let status = log
                 ? finished
                   ? log.completionStatus
@@ -192,7 +203,7 @@ export class TrainingService {
                         (Array.isArray(log.omittedSets)
                           ? log.omittedSets.length
                           : 0),
-                      log.durationMinutes !== null,
+                      finished,
                     )
                 : 'NOT_STARTED';
               if (expired && status === 'NOT_STARTED') status = 'SKIPPED';
@@ -251,6 +262,7 @@ export class TrainingService {
           (s) =>
             s.readOnly &&
             !s.finished &&
+            s.status !== 'COMPLETED' &&
             !dismissedSessionKeys.has(`${s.assignmentId}:${s.sessionId}`),
         ) ?? null;
     return {
@@ -370,7 +382,10 @@ export class TrainingService {
       where: {
         studentId: assignment.studentId,
         programAssignmentId: assignment.id,
-        durationMinutes: { not: null },
+        OR: [
+          { structuredExecution: true, finishedAt: { not: null } },
+          { structuredExecution: false, durationMinutes: { not: null } },
+        ],
       },
       select: { sessionId: true },
     });
@@ -451,19 +466,17 @@ export class TrainingService {
           sets.length,
           sets.filter((s) => s.status === 'RECORDED').length,
           sets.filter((s) => s.status !== 'PENDING').length,
-          log?.durationMinutes !== null && !!log,
+          isWorkoutFinished(log),
         ),
       };
     });
     const allSets = exercises.flatMap((e) => e.sets);
     const today = todayDate();
     const scheduledDate = this.scheduledDate(assignment, id);
+    const finished = isWorkoutFinished(log);
     const expired =
       (!!scheduledDate && scheduledDate < today) ||
-      (!!log &&
-        log.durationMinutes === null &&
-        todayDate(log.performedAt) < today);
-    const finished = log?.durationMinutes !== null && !!log;
+      (!!log && !finished && todayDate(log.performedAt) < today);
     const calculatedStatus = trainingStatus(
       allSets.length,
       allSets.filter((s) => s.status === 'RECORDED').length,
@@ -486,7 +499,7 @@ export class TrainingService {
           where: {
             studentId: user.id,
             structuredExecution: true,
-            durationMinutes: null,
+            finishedAt: null,
             NOT: { programAssignmentId: assignment.id, sessionId: id },
           },
           select: { id: true },
@@ -507,6 +520,7 @@ export class TrainingService {
       revision: log?.revision ?? 0,
       workoutLogId: log?.id ?? null,
       durationMinutes: log?.durationMinutes ?? null,
+      finishedAt: log?.finishedAt ?? null,
       finished,
       scheduledDate,
       actualDate: log ? todayDate(log.performedAt) : null,
@@ -548,13 +562,13 @@ export class TrainingService {
         },
         orderBy: { performedAt: 'desc' },
       });
-      if (existing?.durationMinutes !== null && existing)
+      if (isWorkoutFinished(existing))
         throw new ConflictException('Este entrenamiento ya está finalizado');
       const otherOpen = await tx.workoutLog.findFirst({
         where: {
           studentId: user.id,
           structuredExecution: true,
-          durationMinutes: null,
+          finishedAt: null,
           NOT: { programAssignmentId: assignment.id, sessionId: id },
         },
       });
@@ -614,10 +628,6 @@ export class TrainingService {
         },
         orderBy: { performedAt: 'desc' },
       });
-      if (log?.durationMinutes !== null && log)
-        throw new ConflictException(
-          'El entrenamiento ya está finalizado y no requiere este aviso',
-        );
       const today = todayDate();
       const scheduledDate = this.scheduledDate(assignment, id);
       const expired =
@@ -633,6 +643,111 @@ export class TrainingService {
         ON CONFLICT ("program_assignment_id", "session_id") DO NOTHING`;
     });
     return { dismissed: true };
+  }
+
+  async closeExpired(
+    user: AuthenticatedUser,
+    id: string,
+    assignmentId?: string,
+  ) {
+    await this.prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM users WHERE id = ${user.id} FOR UPDATE`;
+      const { session, assignment } = await this.sessionContext(
+        tx,
+        user,
+        id,
+        assignmentId,
+      );
+      if (assignment.studentId !== user.id)
+        throw new NotFoundException('Sesión no encontrada');
+      const scheduledDate = this.scheduledDate(assignment, id);
+      const existing = await tx.workoutLog.findFirst({
+        where: {
+          studentId: user.id,
+          sessionId: id,
+          programAssignmentId: assignment.id,
+        },
+        orderBy: { performedAt: 'desc' },
+        include: { setLogs: true },
+      });
+      const expired =
+        (!!scheduledDate && scheduledDate < todayDate()) ||
+        (!!existing && todayDate(existing.performedAt) < todayDate());
+      if (!expired)
+        throw new ConflictException(
+          'Solo puedes cerrar rápidamente un entrenamiento vencido',
+        );
+      if (isWorkoutFinished(existing)) return;
+
+      const prescribed = session.sessionExercises.flatMap((exercise) =>
+        plannedSets(exercise).map((set) => ({
+          sessionExerciseId: exercise.id,
+          setNumber: set.setNumber,
+        })),
+      );
+      const recordedKeys = new Set(
+        existing?.setLogs.map((set) =>
+          setKey(set.sessionExerciseId, set.setNumber),
+        ) ?? [],
+      );
+      const omittedSets = prescribed.filter(
+        (set) =>
+          !recordedKeys.has(setKey(set.sessionExerciseId, set.setNumber)),
+      );
+      const status = trainingStatus(
+        prescribed.length,
+        recordedKeys.size,
+        prescribed.length,
+        true,
+      );
+      const finishedAt = new Date();
+      if (!existing) {
+        await tx.workoutLog.create({
+          data: {
+            studentId: user.id,
+            sessionId: id,
+            programAssignmentId: assignment.id,
+            structuredExecution: true,
+            performedAt: scheduledDate
+              ? new Date(`${scheduledDate}T12:00:00.000Z`)
+              : finishedAt,
+            finishedAt,
+            durationMinutes: null,
+            revision: 1,
+            completionStatus: 'SKIPPED',
+            omittedSets,
+            prescriptionCapturedAt: finishedAt,
+            prescriptions: {
+              create: session.sessionExercises.map((exercise) => ({
+                ...capturePrescription(exercise),
+                exerciseName: exerciseInfo(exercise).name,
+              })),
+            },
+          },
+        });
+        return;
+      }
+      const annotationDates = existing.setLogs
+        .map((set) => set.createdAt)
+        .sort((a, b) => a.getTime() - b.getTime());
+      const first = annotationDates.at(0);
+      const last = annotationDates.at(-1);
+      await tx.workoutLog.update({
+        where: { id: existing.id },
+        data: {
+          revision: { increment: 1 },
+          finishedAt,
+          durationMinutes:
+            first && last && last.getTime() > first.getTime()
+              ? Math.round((last.getTime() - first.getTime()) / 60000)
+              : null,
+          completionStatus:
+            status === 'NOT_STARTED' ? ('SKIPPED' as const) : status,
+          omittedSets,
+        },
+      });
+    });
+    return this.detail(user, id, assignmentId);
   }
 
   async save(user: AuthenticatedUser, id: string, dto: SaveTrainingDto) {
@@ -666,13 +781,13 @@ export class TrainingService {
           throw new ConflictException(
             'Este entrenamiento ya está cerrado. Solicita una corrección a tu coach.',
           );
-        if (existing?.durationMinutes !== null && existing)
+        if (isWorkoutFinished(existing))
           throw new ConflictException(
             'Un entrenamiento finalizado solo puede cambiar mediante una corrección autorizada',
           );
         if (
           existing &&
-          existing.durationMinutes === null &&
+          !isWorkoutFinished(existing) &&
           todayDate(existing.performedAt) < today
         )
           throw new ConflictException(
@@ -686,7 +801,7 @@ export class TrainingService {
           where: {
             studentId: user.id,
             structuredExecution: true,
-            durationMinutes: null,
+            finishedAt: null,
             NOT: { programAssignmentId: assignment.id, sessionId: id },
           },
         });
@@ -704,10 +819,7 @@ export class TrainingService {
           );
         const total = validatePerformed(session.sessionExercises, dto.sets);
         const sets = [...dto.sets];
-        const finishing =
-          dto.finish ||
-          (existing?.durationMinutes !== null &&
-            existing?.durationMinutes !== undefined);
+        const finishing = dto.finish || isWorkoutFinished(existing);
         if (finishing) {
           const decided = new Set(
             sets.map((s) => setKey(s.sessionExerciseId, s.setNumber)),
@@ -722,7 +834,7 @@ export class TrainingService {
                 });
             }
         }
-        if (!sets.length && !dto.finish)
+        if (!sets.length && !dto.finish && !existing)
           throw new BadRequestException(
             'Registra u omite una serie antes de guardar',
           );
@@ -739,24 +851,17 @@ export class TrainingService {
             sessionExerciseId: s.sessionExerciseId,
             setNumber: s.setNumber,
           }));
-        const data = {
-          revision: (existing?.revision ?? 0) + 1,
-          completionStatus:
-            status === 'NOT_STARTED' ? ('PARTIAL' as const) : status,
-          durationMinutes: dto.finish
-            ? (dto.durationMinutes ?? existing?.durationMinutes ?? 0)
-            : (existing?.durationMinutes ?? null),
-          omittedSets,
-        };
         const log = existing
-          ? await tx.workoutLog.update({ where: { id: existing.id }, data })
+          ? existing
           : await tx.workoutLog.create({
               data: {
-                ...data,
                 studentId: user.id,
                 sessionId: id,
                 programAssignmentId: assignment.id,
                 structuredExecution: true,
+                completionStatus:
+                  status === 'NOT_STARTED' ? ('PARTIAL' as const) : status,
+                omittedSets,
                 prescriptionCapturedAt: new Date(),
                 prescriptions: {
                   create: session.sessionExercises.map((e) => ({
@@ -800,6 +905,33 @@ export class TrainingService {
             update: actual,
           });
         }
+        const annotations = await tx.setLog.findMany({
+          where: { workoutLogId: log.id },
+          select: { createdAt: true },
+          orderBy: { createdAt: 'asc' },
+        });
+        const firstAnnotation = annotations.at(0)?.createdAt;
+        const lastAnnotation = annotations.at(-1)?.createdAt;
+        const durationMinutes =
+          annotations.length >= 2 &&
+          firstAnnotation instanceof Date &&
+          lastAnnotation instanceof Date &&
+          lastAnnotation.getTime() > firstAnnotation.getTime()
+            ? Math.round(
+                (lastAnnotation.getTime() - firstAnnotation.getTime()) / 60000,
+              )
+            : null;
+        await tx.workoutLog.update({
+          where: { id: log.id },
+          data: {
+            revision: (existing?.revision ?? 0) + 1,
+            completionStatus:
+              status === 'NOT_STARTED' ? ('PARTIAL' as const) : status,
+            omittedSets,
+            durationMinutes,
+            finishedAt: finishing ? (existing?.finishedAt ?? new Date()) : null,
+          },
+        });
       },
       { timeout: 30000 },
     );
@@ -840,7 +972,7 @@ export class TrainingService {
       });
       const closed =
         (!!scheduledDate && scheduledDate < todayDate()) ||
-        (!!log && log.durationMinutes !== null);
+        isWorkoutFinished(log);
       if (!closed || !scheduledDate)
         throw new ConflictException(
           'Solo puedes solicitar correcciones para entrenamientos cerrados',
@@ -990,7 +1122,8 @@ export class TrainingService {
             performedAt: new Date(
               `${request.scheduledDate.toISOString().slice(0, 10)}T12:00:00.000Z`,
             ),
-            durationMinutes: 0,
+            finishedAt: reviewedAt,
+            durationMinutes: null,
             completionStatus: 'PARTIAL',
             omittedSets,
             prescriptionCapturedAt: reviewedAt,
@@ -1073,7 +1206,7 @@ export class TrainingService {
         where: { id: log.id },
         data: {
           revision: { increment: 1 },
-          durationMinutes: log.durationMinutes ?? 0,
+          finishedAt: log.finishedAt ?? reviewedAt,
           completionStatus:
             correctedStatus === 'NOT_STARTED' ? 'PARTIAL' : correctedStatus,
           omittedSets,

@@ -30,6 +30,15 @@ export function fillEmptyActual(set: TrainingSet) {
   };
 }
 
+/** Explicit autocomplete: replace editable values with prescription only. */
+export function prescribedActual(set: TrainingSet) {
+  return {
+    weight: set.weight,
+    reps: set.reps,
+    rpe: set.rpe,
+  };
+}
+
 /** True if the student typed at least one value (zero counts as a value). */
 export function hasActualValues(set: TrainingSet): boolean {
   return Object.values(set.actual).some((v) => v !== null);
@@ -88,19 +97,15 @@ export function retainUnrecordedInputs(
 
 export interface ExecutionDraft {
   revision: number;
-  duration: string;
+  duration?: string;
   exercises: {
     id: string;
     sets: Pick<TrainingSet, "setNumber" | "status" | "actual">[];
   }[];
 }
-export function serializeDraft(
-  session: TrainingDetail,
-  duration: string,
-): ExecutionDraft {
+export function serializeDraft(session: TrainingDetail): ExecutionDraft {
   return {
     revision: session.revision,
-    duration,
     exercises: session.exercises.map((e) => ({
       id: e.id,
       sets: e.sets.map(({ setNumber, status, actual }) => ({

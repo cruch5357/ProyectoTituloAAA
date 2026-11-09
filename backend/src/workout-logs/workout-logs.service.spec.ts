@@ -503,7 +503,13 @@ describe('WorkoutLogsService.getEvolution', () => {
     });
     expect(prisma.workoutLog.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { studentId: STUDENT_ID, durationMinutes: null },
+        where: {
+          studentId: STUDENT_ID,
+          OR: [
+            { structuredExecution: true, finishedAt: null },
+            { structuredExecution: false, durationMinutes: null },
+          ],
+        },
         take: 1,
       }),
     );

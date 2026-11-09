@@ -47,7 +47,6 @@ export class SaveTrainingDto {
   @ValidateNested({ each: true })
   @Type(() => PerformedSetDto)
   sets: PerformedSetDto[];
-  @IsOptional() @IsInt() @Min(0) @Max(1440) durationMinutes?: number;
 }
 
 export class StartTrainingDto {

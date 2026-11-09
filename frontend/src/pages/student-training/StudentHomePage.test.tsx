@@ -292,7 +292,9 @@ describe("entrenamiento destacado del Inicio", () => {
     expect(todayCard.compareDocumentPosition(notice!)).toBe(
       Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(notice!).toHaveTextContent("Se marcó automáticamente como omitido");
+    expect(notice!).toHaveTextContent(
+      "Confirma la omisión para cerrar la sesión",
+    );
     expect(
       within(notice!).queryByText("Ir a entrenar"),
     ).not.toBeInTheDocument();
@@ -386,19 +388,99 @@ describe("entrenamiento destacado del Inicio", () => {
       "aside",
     )!;
     await userEvent.click(
-      within(notice).getByRole("button", { name: "Omitir entrenamiento" }),
+      within(notice).getByRole("button", {
+        name: "Cerrar y omitir series pendientes",
+      }),
+    );
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Confirmar omisión" }),
     );
     await waitFor(() =>
       expect(
         screen.queryByText("Entrenamiento cerrado"),
       ).not.toBeInTheDocument(),
     );
-    expect(post).toHaveBeenCalledWith("/training/sessions/s1/dismiss", {
+    expect(post).toHaveBeenCalledWith("/training/sessions/s1/close", {
       assignmentId: "a",
     });
     expect(
       screen.getByRole("region", { name: "Sesiones de la semana 1" }),
     ).toHaveTextContent("Parcial2/4 series");
+  });
+
+  it("cierra una vencida sin registros mediante close, no mediante dismiss", async () => {
+    const expired = sessionFor(1, {
+      date: "2026-10-18",
+      status: "SKIPPED",
+      recordedSets: 0,
+      finished: false,
+      readOnly: true,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [expired],
+      nextSession: null,
+      pendingSession: expired,
+    });
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: expired,
+      error: null,
+      meta: {},
+    });
+    renderWithProviders(<StudentHomePage />);
+    const notice = (await screen.findByText("Entrenamiento omitido")).closest(
+      "aside",
+    )!;
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Omitir entrenamiento" }),
+    );
+    expect(post).not.toHaveBeenCalled();
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Confirmar omisión" }),
+    );
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/training/sessions/s1/close", {
+        assignmentId: "a",
+      }),
+    );
+  });
+
+  it("una sesión ya omitida solo oculta el aviso sin cerrar nuevamente", async () => {
+    const skipped = sessionFor(1, {
+      date: "2026-10-18",
+      status: "SKIPPED",
+      recordedSets: 0,
+      finished: true,
+      readOnly: true,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [skipped],
+      nextSession: null,
+      pendingSession: skipped,
+    });
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: { dismissed: true },
+      error: null,
+      meta: {},
+    });
+    renderWithProviders(<StudentHomePage />);
+    const notice = (await screen.findByText("Entrenamiento omitido")).closest(
+      "aside",
+    )!;
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Ocultar aviso" }),
+    );
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/training/sessions/s1/dismiss", {
+        assignmentId: "a",
+      }),
+    );
+    expect(
+      screen.queryByText("Entrenamiento omitido"),
+    ).not.toBeInTheDocument();
   });
 });
 

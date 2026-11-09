@@ -34,6 +34,7 @@ const initial: TrainingDetail = {
   legacy: false,
   workoutLogId: null,
   durationMinutes: null,
+  finishedAt: null,
   exercises: ["Sentadilla", "Remo"].map((name, i) => ({
     id: `e${i}`,
     exerciseId: `catalog${i}`,
@@ -54,7 +55,7 @@ const initial: TrainingDetail = {
     })),
   })),
 };
-function setup(data = initial) {
+function setup(data = initial, role: "STUDENT" | "COACH" = "STUDENT") {
   vi.spyOn(apiClient, "get").mockResolvedValue({ data, error: null, meta: {} });
   const cache = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
@@ -72,7 +73,7 @@ function setup(data = initial) {
             id: "student",
             name: "Alumno",
             email: "a@example.com",
-            role: "STUDENT",
+            role,
             coachId: "c",
             isActive: true,
             createdAt: "",
@@ -136,65 +137,102 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-// Cada serie es un fieldset con nombre "<ejercicio>, serie <n>": como ahora
-// todas las series pendientes están abiertas, los botones se buscan dentro de
-// la serie correspondiente.
 const inSet = (n = 1, exercise = "Sentadilla") =>
   within(screen.getByRole("group", { name: `${exercise}, serie ${n}` }));
-const ready = () => screen.findAllByRole("button", { name: "Anotar" });
+const exerciseToggle = (exercise = "Sentadilla") =>
+  screen.getByRole("button", { name: new RegExp(`${exercise}.*series`) });
+async function openExercise(exercise = "Sentadilla") {
+  const button = await screen.findByRole("button", {
+    name: new RegExp(`${exercise}.*series`),
+  });
+  if (button.getAttribute("aria-expanded") === "false")
+    await userEvent.click(button);
+  return button;
+}
+async function openSet(n = 1, exercise = "Sentadilla") {
+  await openExercise(exercise);
+  const button = screen.getByRole("button", {
+    name: new RegExp(`Serie ${n} ·`),
+  });
+  if (button.getAttribute("aria-expanded") === "false")
+    await userEvent.click(button);
+  return inSet(n, exercise);
+}
 const sentSets = (patch: ReturnType<typeof mockSave>) =>
   (patch.mock.calls.at(-1)![1] as { sets: Record<string, unknown>[] }).sets;
 
 describe("Ejecución compacta y registro seguro", () => {
-  it("abre todos los ejercicios y todas las series pendientes, vacías", async () => {
+  it("inicia contraído, permite solo un ejercicio abierto y puede contraer todos", async () => {
     const patch = mockSave();
     setup();
+    const sentadilla = await screen.findByRole("button", {
+      name: /Sentadilla.*series/,
+    });
+    const remo = exerciseToggle("Remo");
+    expect(sentadilla).toHaveAttribute("aria-expanded", "false");
+    expect(remo).toHaveAttribute("aria-expanded", "false");
     expect(
-      await screen.findByRole("button", { name: /Sentadilla.*series/ }),
-    ).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("button", { name: /Remo.*series/ }),
-    ).toHaveAttribute("aria-expanded", "true");
-    for (const button of screen.getAllByRole("button", {
-      name: /Serie \d · Pendiente/,
-    }))
-      expect(button).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getAllByRole("button", { name: "Anotar" })).toHaveLength(6);
-    expect(field()).toHaveValue(null);
-    expect(field("Peso", 3, "Remo")).toBeEnabled();
+      screen.queryByLabelText(/Duración al finalizar/),
+    ).not.toBeInTheDocument();
+    await userEvent.click(sentadilla);
+    expect(sentadilla).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(remo);
+    expect(sentadilla).toHaveAttribute("aria-expanded", "false");
+    expect(remo).toHaveAttribute("aria-expanded", "true");
+    await userEvent.click(remo);
+    expect(remo).toHaveAttribute("aria-expanded", "false");
     expect(patch).not.toHaveBeenCalled();
-    expect(screen.queryByText("Indicaciones")).not.toBeInTheDocument();
-    expect(screen.queryByText("Texto genérico")).not.toBeInTheDocument();
-    expect(screen.getAllByText(/Mantén el control/)[0]).toBeInTheDocument();
   });
-  it("escribir no guarda; al pasar a otra serie la anterior se anota sola", async () => {
+
+  it("cambiar de ejercicio conserva los datos escritos sin registrarlos", async () => {
     const patch = mockSave();
     setup();
-    await ready();
-    await userEvent.click(field());
+    await openSet();
     fireEvent.change(field(), { target: { value: "97.5" } });
-    // Moverse dentro de la misma serie no la anota.
-    await userEvent.click(field("RPE"));
+    await userEvent.click(exerciseToggle("Remo"));
+    await userEvent.click(exerciseToggle("Sentadilla"));
+    await userEvent.click(
+      screen.getByRole("button", { name: /Serie 1 · Pendiente/ }),
+    );
+    expect(field()).toHaveValue(97.5);
     expect(patch).not.toHaveBeenCalled();
-    await userEvent.click(field("Peso", 2));
-    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
-    expect(sentSets(patch)).toEqual([
-      expect.objectContaining({
-        setNumber: 1,
-        status: "RECORDED",
-        weight: 97.5,
-        reps: 5,
-        rpe: 7,
-      }),
-    ]);
-    expect(
-      await screen.findByRole("button", { name: /Serie 1 · Registrada/ }),
-    ).toHaveAttribute("aria-expanded", "false");
   });
+
+  it("autocompleta lo prescrito sin registrar y permite editar antes de Anotar", async () => {
+    const patch = mockSave();
+    setup();
+    const group = await openSet();
+    await userEvent.click(
+      group.getByRole("button", { name: "Usar valores prescritos" }),
+    );
+    expect(field()).toHaveValue(100);
+    expect(field("Reps")).toHaveValue(5);
+    expect(field("RPE")).toHaveValue(7);
+    expect(
+      screen.getByRole("button", { name: /Serie 1 · Pendiente/ }),
+    ).toBeInTheDocument();
+    expect(patch).not.toHaveBeenCalled();
+    fireEvent.change(field(), { target: { value: "95" } });
+    expect(field()).toHaveValue(95);
+  });
+
+  it("escribir y mover el foco no registra automáticamente", async () => {
+    const patch = mockSave();
+    setup();
+    await openSet();
+    fireEvent.change(field(), { target: { value: "97.5" } });
+    await userEvent.click(field("RPE"));
+    await userEvent.click(screen.getByRole("button", { name: /Serie 2/ }));
+    expect(patch).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: /Serie 1 · Pendiente/ }),
+    ).toBeInTheDocument();
+  });
+
   it("Anotar conserva valores manuales incluso cero, rellena vacíos y guarda", async () => {
     const patch = mockSave();
     setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "0" } });
     fireEvent.change(field("RPE"), { target: { value: "8.5" } });
     await userEvent.click(inSet(1).getByRole("button", { name: "Anotar" }));
@@ -222,75 +260,99 @@ describe("Ejecución compacta y registro seguro", () => {
     ).toHaveAttribute("aria-expanded", "false");
     expect(
       screen.getAllByRole("button", { name: /Serie 2 · Pendiente/ })[0],
-    ).toHaveAttribute("aria-expanded", "true");
+    ).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("0 kg · 5 reps · @8.5")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /añadir serie|agregar serie/i }),
     ).not.toBeInTheDocument();
   });
-  it("Guardar progreso también guarda las series con datos escritos sin anotar", async () => {
+  it("Guardar progreso conserva un borrador sin convertirlo en SetLog", async () => {
     const patch = mockSave();
     setup();
-    await ready();
+    await openSet(2);
     fireEvent.change(field("Peso", 2), { target: { value: "88" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar progreso" }));
-    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
-    expect(sentSets(patch)).toEqual([
-      expect.objectContaining({
-        setNumber: 2,
-        status: "RECORDED",
-        weight: 88,
-        reps: 5,
-        rpe: 7,
-      }),
-    ]);
+    expect(patch).not.toHaveBeenCalled();
     expect(
-      await screen.findByRole("button", { name: /Serie 2 · Registrada/ }),
+      await screen.findByText(/Borrador conservado en esta pestaña/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /Serie 2 · Pendiente/ }),
     ).toBeInTheDocument();
   });
-  it("al finalizar avisa cuántas series con datos sin anotar se registrarán", async () => {
+
+  it("al finalizar advierte sobre valores escritos sin confirmar", async () => {
     mockSave();
     setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "90" } });
     fireEvent.click(screen.getByRole("button", { name: "Finalizar sesión" }));
     expect(
       await screen.findByText(
-        /1 series registradas \(incluye 1 con datos escritos sin anotar\)\. Las 5 pendientes sin datos quedarán omitidas/,
+        /valores escritos o autocompletados sin confirmar/,
       ),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Seguir entrenando" }),
+    ).toBeInTheDocument();
   });
+
   it("recupera cambios sin registrar después de recargar y no crea un SetLog", async () => {
     const patch = mockSave();
     const view = setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "92" } });
     view.unmount();
     setup();
-    await ready();
+    await openSet();
     expect(field()).toHaveValue(92);
-    expect(
-      screen.getAllByRole("button", { name: /Serie 1 · Pendiente/ })[0],
-    ).toHaveAttribute("aria-expanded", "true");
     expect(patch).not.toHaveBeenCalled();
   });
-  it("omitir y dejar pendiente conservan los campos manuales", async () => {
+
+  it("Omitir persiste, contrae la serie y conserva las demás", async () => {
+    const patch = mockSave();
     setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "81" } });
     await userEvent.click(inSet(1).getByRole("button", { name: "Omitir" }));
-    expect(field()).toHaveValue(81);
+    await waitFor(() => expect(patch).toHaveBeenCalledTimes(1));
+    expect(sentSets(patch)).toEqual([
+      expect.objectContaining({ setNumber: 1, status: "SKIPPED" }),
+    ]);
+    const skipped = await screen.findByRole("button", {
+      name: /Serie 1 · Omitida/,
+    });
+    expect(skipped).toHaveAttribute("aria-expanded", "false");
+    expect(skipped.closest(".training-set-row")).toHaveClass(
+      "performed-set--SKIPPED",
+    );
+    expect(
+      screen.getByRole("button", { name: /Serie 2 · Pendiente/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("Dejar pendiente contrae sin registrar y conserva el borrador", async () => {
+    const patch = mockSave();
+    setup();
+    await openSet();
+    fireEvent.change(field(), { target: { value: "81" } });
     await userEvent.click(
       inSet(1).getByRole("button", { name: "Dejar pendiente" }),
     );
+    expect(patch).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: /Serie 1 · Pendiente/ }),
+    ).toHaveAttribute("aria-expanded", "false");
+    await openSet();
     expect(field()).toHaveValue(81);
   });
+
   it("un error conserva el formulario y permite reintentar sin doble envío", async () => {
     const patch = vi
       .spyOn(apiClient, "patch")
       .mockRejectedValue(new Error("Sin conexión"));
     setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "91" } });
     const button = inSet(1).getByRole("button", { name: "Anotar" });
     fireEvent.click(button);
@@ -300,27 +362,32 @@ describe("Ejecución compacta y registro seguro", () => {
     expect(field()).toHaveValue(91);
     expect(
       screen.getByRole("button", { name: /Serie 1 · Registrada/ }),
-    ).toBeInTheDocument();
+    ).toHaveAttribute("aria-expanded", "true");
   });
+
   it("no restaura silenciosamente un borrador sobre una revisión diferente", async () => {
     const view = setup();
-    await ready();
+    await openSet();
     fireEvent.change(field(), { target: { value: "76" } });
     view.unmount();
     setup({ ...initial, revision: 2 });
     expect(
       await screen.findByText(/Hay un borrador local/),
     ).toBeInTheDocument();
+    await openSet();
     expect(field()).toBeDisabled();
     expect(sessionStorage.getItem("execution-draft:student:a:s")).toContain(
       "76",
     );
   });
   it("el Coach puede consultar acordeones sin acciones de escritura", async () => {
-    setup({ ...initial, readOnly: true });
-    expect(
-      await screen.findByRole("button", { name: /Remo.*series/ }),
-    ).toHaveAttribute("aria-expanded", "true");
+    setup(
+      { ...initial, readOnly: true, canRequestCorrection: true },
+      "COACH",
+    );
+    const remo = await screen.findByRole("button", { name: /Remo.*series/ });
+    expect(remo).toHaveAttribute("aria-expanded", "false");
+    await openSet(1, "Remo");
     expect(field("Peso", 1, "Remo")).toBeDisabled();
     expect(
       screen.queryByRole("button", { name: "Anotar" }),
@@ -328,15 +395,20 @@ describe("Ejecución compacta y registro seguro", () => {
     expect(
       screen.queryByRole("button", { name: "Finalizar sesión" }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Solicitar corrección al coach" }),
+    ).not.toBeInTheDocument();
   });
-  it("requiere confirmar y omite exclusivamente las series existentes", async () => {
+  it("requiere confirmar y omite todas las series si no existe ninguna registrada", async () => {
     const patch = mockSave();
     setup();
     await userEvent.click(
       await screen.findByRole("button", { name: "Omitir sesión" }),
     );
     expect(patch).not.toHaveBeenCalled();
-    await userEvent.click(screen.getByRole("button", { name: "Confirmar" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "Omitir pendientes y cerrar" }),
+    );
     await waitFor(() => expect(patch).toHaveBeenCalled());
     const body = patch.mock.calls[0][1] as {
       sets: { status: string }[];
@@ -345,6 +417,39 @@ describe("Ejecución compacta y registro seguro", () => {
     expect(body.finish).toBe(true);
     expect(body.sets).toHaveLength(6);
     expect(body.sets.every((s) => s.status === "SKIPPED")).toBe(true);
+  });
+
+  it("al omitir la sesión conserva series registradas y omite solo las restantes", async () => {
+    const patch = mockSave();
+    const withRecorded: TrainingDetail = {
+      ...initial,
+      workoutLogId: "log",
+      revision: 1,
+      status: "PARTIAL",
+      exercises: initial.exercises.map((exercise, exerciseIndex) => ({
+        ...exercise,
+        sets: exercise.sets.map((set) =>
+          exerciseIndex === 0 && set.setNumber === 1
+            ? {
+                ...set,
+                status: "RECORDED" as const,
+                actual: { weight: 90, reps: 5, rpe: 8 },
+              }
+            : set,
+        ),
+      })),
+    };
+    setup(withRecorded);
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Omitir sesión" }),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Omitir pendientes y cerrar" }),
+    );
+    await waitFor(() => expect(patch).toHaveBeenCalled());
+    const sets = sentSets(patch) as { status: string; setNumber: number }[];
+    expect(sets.filter((set) => set.status === "RECORDED")).toHaveLength(1);
+    expect(sets.filter((set) => set.status === "SKIPPED")).toHaveLength(5);
   });
   it("una sesión cerrada solo permite enviar una solicitud, sin modificar datos", async () => {
     const post = vi.spyOn(apiClient, "post").mockResolvedValue({
@@ -363,7 +468,9 @@ describe("Ejecución compacta y registro seguro", () => {
         name: "Solicitar corrección al coach",
       }),
     );
-    expect(screen.getByText(/Registro original: Sin datos/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Registro original: Sin datos/),
+    ).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText("Peso corregido"), "60");
     await userEvent.type(
       screen.getByLabelText("Repeticiones corregidas"),
@@ -410,6 +517,8 @@ describe("Ejecución compacta y registro seguro", () => {
         assignmentId: "a",
       }),
     );
-    expect(await screen.findByRole("button", { name: "Finalizar sesión" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Finalizar sesión" }),
+    ).toBeInTheDocument();
   });
 });

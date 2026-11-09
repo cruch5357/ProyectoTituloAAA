@@ -28,8 +28,16 @@ describe('Rendimiento personal reciente', () => {
             where,
             {
               performedAt: { gte: new Date('2026-09-19T12:00:00Z'), lte: now },
-              durationMinutes: { not: null },
               overallRpe: { not: null },
+            },
+            {
+              OR: [
+                { structuredExecution: true, finishedAt: { not: null } },
+                {
+                  structuredExecution: false,
+                  durationMinutes: { not: null },
+                },
+              ],
             },
           ],
         },

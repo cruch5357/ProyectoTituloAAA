@@ -156,6 +156,7 @@ export interface PublicWorkoutLog {
   programAssignmentId: string | null;
   studentId: string;
   performedAt: Date;
+  finishedAt?: Date | null;
   completionStatus: WorkoutCompletionStatus;
   overallRpe: number | null;
   fatigue: number | null;
@@ -212,6 +213,7 @@ export function toPublicWorkoutLog(
     programAssignmentId: workoutLog.programAssignmentId,
     studentId: workoutLog.studentId,
     performedAt: workoutLog.performedAt,
+    finishedAt: workoutLog.finishedAt,
     completionStatus: workoutLog.completionStatus,
     overallRpe:
       workoutLog.overallRpe !== null ? Number(workoutLog.overallRpe) : null,

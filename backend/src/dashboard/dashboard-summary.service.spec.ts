@@ -91,7 +91,17 @@ describe('DashboardSummaryService.getSummary', () => {
       expect.objectContaining({
         where: {
           student: { coachId: COACH_ID },
-          durationMinutes: { not: null },
+          AND: [
+            {
+              OR: [
+                { structuredExecution: true, finishedAt: { not: null } },
+                {
+                  structuredExecution: false,
+                  durationMinutes: { not: null },
+                },
+              ],
+            },
+          ],
         },
       }),
     );
@@ -99,7 +109,17 @@ describe('DashboardSummaryService.getSummary', () => {
       expect.objectContaining({
         where: {
           student: { coachId: COACH_ID },
-          durationMinutes: { not: null },
+          AND: [
+            {
+              OR: [
+                { structuredExecution: true, finishedAt: { not: null } },
+                {
+                  structuredExecution: false,
+                  durationMinutes: { not: null },
+                },
+              ],
+            },
+          ],
         },
       }),
     );

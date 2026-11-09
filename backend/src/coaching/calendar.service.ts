@@ -5,6 +5,7 @@ import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 
 import { CompetitionsService } from '../competitions/competitions.service';
 import { dateOnly, todayDate } from '../common/training/calendar-date';
+import { finishedWorkoutWhere } from '../common/training/workout-metrics';
 
 @Injectable()
 export class CalendarService {
@@ -60,10 +61,9 @@ export class CalendarService {
               { assignmentsAsStudent: { none: { status: 'ACTIVE' } } },
               {
                 workoutLogs: {
-                  none: {
-                    durationMinutes: { not: null },
+                  none: finishedWorkoutWhere({
                     performedAt: { gte: since },
-                  },
+                  }),
                 },
               },
             ],
@@ -79,7 +79,7 @@ export class CalendarService {
               take: 1,
             },
             workoutLogs: {
-              where: { durationMinutes: { not: null } },
+              where: finishedWorkoutWhere({}),
               orderBy: { performedAt: 'desc' },
               take: 1,
               select: { performedAt: true },

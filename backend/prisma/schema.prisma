@@ -391,6 +391,7 @@ model WorkoutLog {
   student   User    @relation("StudentWorkoutLogs", fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   performedAt      DateTime                @default(now()) @map("performed_at")
+  finishedAt       DateTime?               @map("finished_at")
   completionStatus WorkoutCompletionStatus @map("completion_status")
   overallRpe       Decimal?                @db.Decimal(3, 1) @map("overall_rpe")
   fatigue          Int?

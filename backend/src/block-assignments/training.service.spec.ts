@@ -202,6 +202,7 @@ describe('TrainingService: registro seguro', () => {
       id: 'log',
       revision: 3,
       structuredExecution: true,
+      finishedAt: new Date(),
       durationMinutes: 30,
     });
     await expect(service.save(user, 's', dto)).rejects.toThrow(
@@ -219,6 +220,157 @@ describe('TrainingService: registro seguro', () => {
     expect(tx.workoutLog.create).not.toHaveBeenCalled();
     expect(tx.workoutLog.update).not.toHaveBeenCalled();
     expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('oculta de forma idempotente el aviso de una sesión ya omitida sin reescribirla', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      structuredExecution: true,
+      finishedAt: new Date('2020-01-06T19:00:00Z'),
+      durationMinutes: null,
+      performedAt: new Date('2020-01-06T18:00:00Z'),
+      completionStatus: 'SKIPPED',
+    });
+
+    await expect(service.dismissExpired(user, 's', 'a')).resolves.toEqual({
+      dismissed: true,
+    });
+
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(tx.workoutLog.update).not.toHaveBeenCalled();
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('cierra una sesión vencida sin registros como omitida y crea una sola ejecución', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue(null);
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.closeExpired(user, 's', 'a');
+
+    expect(tx.workoutLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        studentId: user.id,
+        sessionId: 's',
+        programAssignmentId: 'a',
+        structuredExecution: true,
+        finishedAt: expect.any(Date),
+        durationMinutes: null,
+        completionStatus: 'SKIPPED',
+        omittedSets: [
+          { sessionExerciseId: 'e', setNumber: 1 },
+          { sessionExerciseId: 'e', setNumber: 2 },
+        ],
+      }),
+    });
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('cierra una sesión vencida parcial conservando registros y omitiendo solo lo restante', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      revision: 3,
+      structuredExecution: true,
+      finishedAt: null,
+      durationMinutes: null,
+      performedAt: new Date('2020-01-06T18:00:00Z'),
+      setLogs: [
+        {
+          sessionExerciseId: 'e',
+          setNumber: 1,
+          createdAt: new Date('2020-01-06T18:05:00Z'),
+        },
+      ],
+    });
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.closeExpired(user, 's', 'a');
+
+    expect(tx.workoutLog.update).toHaveBeenCalledWith({
+      where: { id: 'log' },
+      data: expect.objectContaining({
+        revision: { increment: 1 },
+        finishedAt: expect.any(Date),
+        durationMinutes: null,
+        completionStatus: 'PARTIAL',
+        omittedSets: [{ sessionExerciseId: 'e', setNumber: 2 }],
+      }),
+    });
+    expect(tx.setLog.deleteMany).not.toHaveBeenCalled();
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('trata el cierre rápido repetido como idempotente', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      structuredExecution: true,
+      finishedAt: new Date('2020-01-06T19:00:00Z'),
+      durationMinutes: null,
+      performedAt: new Date('2020-01-06T18:00:00Z'),
+      setLogs: [],
+    });
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.closeExpired(user, 's', 'a');
+
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+    expect(tx.workoutLog.update).not.toHaveBeenCalled();
+  });
+  it('calcula la duración con el primer y último timestamp persistidos', async () => {
+    const { tx, service } = setup();
+    tx.setLog.findMany.mockResolvedValue([
+      { createdAt: new Date('2026-10-21T18:05:00Z') },
+      { createdAt: new Date('2026-10-21T19:12:00Z') },
+    ]);
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', dto);
+
+    expect(tx.workoutLog.update).toHaveBeenCalledWith({
+      where: { id: 'log' },
+      data: expect.objectContaining({
+        durationMinutes: 67,
+        finishedAt: null,
+      }),
+    });
+    expect(tx.setLog.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: { actualLoad: 97.5, actualReps: 5, actualRpe: 8 },
+      }),
+    );
+  });
+  it('no inventa duración cuando existe un solo instante de anotación', async () => {
+    const { tx, service } = setup();
+    tx.setLog.findMany.mockResolvedValue([
+      { createdAt: new Date('2026-10-21T18:05:00Z') },
+    ]);
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', dto);
+
+    expect(tx.workoutLog.update).toHaveBeenCalledWith({
+      where: { id: 'log' },
+      data: expect.objectContaining({ durationMinutes: null }),
+    });
+  });
+  it('al finalizar conserva lo registrado, omite lo restante y queda parcial', async () => {
+    const { tx, service } = setup();
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', { ...dto, finish: true });
+
+    expect(tx.workoutLog.update).toHaveBeenCalledWith({
+      where: { id: 'log' },
+      data: expect.objectContaining({
+        completionStatus: 'PARTIAL',
+        omittedSets: [{ sessionExerciseId: 'e', setNumber: 2 }],
+        finishedAt: expect.any(Date),
+      }),
+    });
+    expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
   });
   it('permite iniciar explícitamente la siguiente sesión futura elegible', async () => {
     const { tx, service, assignment } = setup();

@@ -1,22 +1,25 @@
-import { readableDate } from '../../lib/readableDate';
-import { CoachOperations } from '../../components/coaching/CoachOperations';
-import { useContext, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
-import { useDashboardSummary, useRecentActivity } from '../../api/dashboard';
-import { ApiError } from '../../lib/apiClient';
-import type { WorkoutCompletionStatus } from '../../types/workoutLog';
-import { WorkoutCompletionStatusBadge } from '../student-training/WorkoutCompletionStatusBadge';
-import { EmptyState, Skeleton } from '../../components/ui/Primitives';
-import { AuthContext } from '../../auth/authContextObject';
-import { Icon } from '../../components/ui/Icon';
+import { readableDate } from "../../lib/readableDate";
+import { CoachOperations } from "../../components/coaching/CoachOperations";
+import { useContext, useState } from "react";
+import type { FormEvent } from "react";
+import { Link } from "react-router-dom";
+import { useDashboardSummary, useRecentActivity } from "../../api/dashboard";
+import { ApiError } from "../../lib/apiClient";
+import {
+  isWorkoutFinished,
+  type WorkoutCompletionStatus,
+} from "../../types/workoutLog";
+import { WorkoutCompletionStatusBadge } from "../student-training/WorkoutCompletionStatusBadge";
+import { EmptyState, Skeleton } from "../../components/ui/Primitives";
+import { AuthContext } from "../../auth/authContextObject";
+import { Icon } from "../../components/ui/Icon";
 
 const PAGE_SIZE = 20;
 
 const STATUS_OPTIONS: { value: WorkoutCompletionStatus; label: string }[] = [
-  { value: 'COMPLETED', label: 'Completado' },
-  { value: 'PARTIAL', label: 'Parcial' },
-  { value: 'SKIPPED', label: 'Omitido' },
+  { value: "COMPLETED", label: "Completado" },
+  { value: "PARTIAL", label: "Parcial" },
+  { value: "SKIPPED", label: "Omitido" },
 ];
 
 // Dashboard del Coach (PROMPT 12, RF-26): resumen agregado de TODOS sus
@@ -30,11 +33,11 @@ export function DashboardPage() {
   const auth = useContext(AuthContext);
   const [hour] = useState(() => new Date().getHours());
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [completionStatus, setCompletionStatus] = useState<
-    WorkoutCompletionStatus | ''
-  >('');
+    WorkoutCompletionStatus | ""
+  >("");
 
   const summaryQuery = useDashboardSummary();
   const activityQuery = useRecentActivity({
@@ -53,14 +56,15 @@ export function DashboardPage() {
   return (
     <section className="coach-dashboard">
       <p className="eyebrow">Vista general · Coach</p>
-      <h1>Dashboard</h1><CoachOperations />
+      <h1>Dashboard</h1>
+      <CoachOperations />
       {auth?.user && (
         <p className="dashboard-greeting">
           {hour < 12
-            ? 'Buenos días'
+            ? "Buenos días"
             : hour < 20
-              ? 'Buenas tardes'
-              : 'Buenas noches'}
+              ? "Buenas tardes"
+              : "Buenas noches"}
           , {auth.user.name}.
         </p>
       )}
@@ -77,13 +81,13 @@ export function DashboardPage() {
         <p role="alert" className="field-error">
           {summaryQuery.error instanceof ApiError
             ? summaryQuery.error.message
-            : 'No se pudo cargar el resumen.'}
+            : "No se pudo cargar el resumen."}
         </p>
       )}
 
       {summaryQuery.isSuccess && summaryQuery.data.totalStudents === 0 && (
         <p>
-          Todavía no tienes alumnos.{' '}
+          Todavía no tienes alumnos.{" "}
           <Link to="/students">Invita al primero desde Mis alumnos</Link>.
         </p>
       )}
@@ -140,10 +144,10 @@ export function DashboardPage() {
             <>
               <h3>Distribución de cumplimiento (entrenamientos finalizados)</h3>
               <p>
-                Completados:{' '}
+                Completados:{" "}
                 {summaryQuery.data.completionStatusBreakdown.completed} ·
-                Parciales: {summaryQuery.data.completionStatusBreakdown.partial}{' '}
-                · Omitidos:{' '}
+                Parciales: {summaryQuery.data.completionStatusBreakdown.partial}{" "}
+                · Omitidos:{" "}
                 {summaryQuery.data.completionStatusBreakdown.skipped}
               </p>
             </>
@@ -184,7 +188,7 @@ export function DashboardPage() {
             value={completionStatus}
             onChange={(event) =>
               setCompletionStatus(
-                event.target.value as WorkoutCompletionStatus | '',
+                event.target.value as WorkoutCompletionStatus | "",
               )
             }
           >
@@ -207,7 +211,7 @@ export function DashboardPage() {
         <p role="alert" className="field-error">
           {activityQuery.error instanceof ApiError
             ? activityQuery.error.message
-            : 'No se pudo cargar la actividad reciente.'}
+            : "No se pudo cargar la actividad reciente."}
         </p>
       )}
 
@@ -248,28 +252,30 @@ export function DashboardPage() {
                           {workoutLog.student.name}
                         </Link>
                       ) : (
-                        '—'
+                        "—"
                       )}
                     </td>
                     <td data-label="Fecha">
                       {readableDate(workoutLog.performedAt)}
                     </td>
                     <td data-label="Sesión">
-                      {workoutLog.session?.name ?? '—'}
+                      {workoutLog.session?.name ?? "—"}
                     </td>
                     <td data-label="Programa">
-                      {workoutLog.session?.week.block.program.name ?? '—'}
+                      {workoutLog.session?.week.block.program.name ?? "—"}
                     </td>
                     <td data-label="Estado">
                       <WorkoutCompletionStatusBadge
                         status={workoutLog.completionStatus}
-                      />{' '}
-                      {workoutLog.durationMinutes === null && '(en curso)'}
+                      />{" "}
+                      {!isWorkoutFinished(workoutLog) && "(en curso)"}
                     </td>
                     <td data-label="Duración">
                       {workoutLog.durationMinutes !== null
                         ? `${workoutLog.durationMinutes} min`
-                        : '—'}
+                        : isWorkoutFinished(workoutLog)
+                          ? "No disponible"
+                          : "—"}
                     </td>
                   </tr>
                 ))}
@@ -289,7 +295,7 @@ export function DashboardPage() {
               Anterior
             </button>
             <span>
-              Página {activityQuery.data.meta.page} de{' '}
+              Página {activityQuery.data.meta.page} de{" "}
               {activityQuery.data.meta.totalPages} (
               {activityQuery.data.meta.total} registros)
             </span>

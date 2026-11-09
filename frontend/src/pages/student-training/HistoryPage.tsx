@@ -1,29 +1,32 @@
-import { readableDate } from '../../lib/readableDate';
-import { PersonalPerformance } from '../../components/ui/PersonalPerformance';
-import { Skeleton } from '../../components/ui/Primitives';
-import { useMemo, useState } from 'react';
-import type { FormEvent } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { readableDate } from "../../lib/readableDate";
+import { PersonalPerformance } from "../../components/ui/PersonalPerformance";
+import { Skeleton } from "../../components/ui/Primitives";
+import { useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   useWorkoutEvolution,
   useWorkoutLogsHistory,
-} from '../../api/workoutLogs';
-import { useMyProgramAssignments } from '../../api/programAssignments';
-import { ApiError } from '../../lib/apiClient';
-import type { WorkoutCompletionStatus } from '../../types/workoutLog';
-import { WorkoutCompletionStatusBadge } from './WorkoutCompletionStatusBadge';
-import { EvolutionChart } from '../../components/ui/EvolutionChart';
+} from "../../api/workoutLogs";
+import { useMyProgramAssignments } from "../../api/programAssignments";
+import { ApiError } from "../../lib/apiClient";
+import {
+  isWorkoutFinished,
+  type WorkoutCompletionStatus,
+} from "../../types/workoutLog";
+import { WorkoutCompletionStatusBadge } from "./WorkoutCompletionStatusBadge";
+import { EvolutionChart } from "../../components/ui/EvolutionChart";
 
 const PAGE_SIZE = 20;
 
 const STATUS_OPTIONS: { value: WorkoutCompletionStatus; label: string }[] = [
-  { value: 'COMPLETED', label: 'Completado' },
-  { value: 'PARTIAL', label: 'Parcial' },
-  { value: 'SKIPPED', label: 'Omitido' },
+  { value: "COMPLETED", label: "Completado" },
+  { value: "PARTIAL", label: "Parcial" },
+  { value: "SKIPPED", label: "Omitido" },
 ];
 
 function formatNumber(value: number | null, digits = 1): string {
-  return value !== null ? value.toFixed(digits) : '—';
+  return value !== null ? value.toFixed(digits) : "—";
 }
 
 // "Mi historial" (PROMPT 11, RF-25): historial de entrenamientos REALMENTE
@@ -37,15 +40,15 @@ function formatNumber(value: number | null, digits = 1): string {
 export function HistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [page, setPage] = useState(1);
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [completionStatus, setCompletionStatus] = useState<
-    WorkoutCompletionStatus | ''
-  >('');
-  const [programId, setProgramId] = useState('');
+    WorkoutCompletionStatus | ""
+  >("");
+  const [programId, setProgramId] = useState("");
 
-  const exerciseId = searchParams.get('exerciseId') ?? undefined;
-  const exerciseName = searchParams.get('exerciseName') ?? undefined;
+  const exerciseId = searchParams.get("exerciseId") ?? undefined;
+  const exerciseName = searchParams.get("exerciseName") ?? undefined;
 
   const assignmentsQuery = useMyProgramAssignments();
   const programOptions = useMemo(() => {
@@ -83,8 +86,8 @@ export function HistoryPage() {
 
   function clearExerciseFilter() {
     const next = new URLSearchParams(searchParams);
-    next.delete('exerciseId');
-    next.delete('exerciseName');
+    next.delete("exerciseId");
+    next.delete("exerciseName");
     setSearchParams(next);
   }
 
@@ -119,7 +122,7 @@ export function HistoryPage() {
             value={completionStatus}
             onChange={(event) =>
               setCompletionStatus(
-                event.target.value as WorkoutCompletionStatus | '',
+                event.target.value as WorkoutCompletionStatus | "",
               )
             }
           >
@@ -160,7 +163,7 @@ export function HistoryPage() {
         <p role="alert" className="field-error">
           {evolutionQuery.error instanceof ApiError
             ? evolutionQuery.error.message
-            : 'No se pudo calcular tu evolución.'}
+            : "No se pudo calcular tu evolución."}
         </p>
       )}
 
@@ -177,7 +180,7 @@ export function HistoryPage() {
             recent={evolutionQuery.data.recentPerformance}
           />
           <p className="muted">
-            Fatiga promedio (historial consultado):{' '}
+            Fatiga promedio (historial consultado):{" "}
             {formatNumber(evolutionQuery.data.summary.averageFatigue)} · Series
             registradas: {evolutionQuery.data.summary.totalSetLogs}
           </p>
@@ -188,7 +191,7 @@ export function HistoryPage() {
                 points={evolutionQuery.data.exerciseEvolution ?? []}
               />
               <h3>
-                Evolución de {exerciseName ?? 'este ejercicio'}{' '}
+                Evolución de {exerciseName ?? "este ejercicio"}{" "}
                 <button type="button" onClick={clearExerciseFilter}>
                   Quitar filtro
                 </button>
@@ -219,11 +222,9 @@ export function HistoryPage() {
                       <tbody>
                         {evolutionQuery.data.exerciseEvolution.map((point) => (
                           <tr key={point.workoutLogId}>
-                            <td>
-                              {readableDate(point.performedAt, false)}
-                            </td>
-                            <td>{point.maxActualLoad ?? '—'}</td>
-                            <td>{point.totalActualReps ?? '—'}</td>
+                            <td>{readableDate(point.performedAt, false)}</td>
+                            <td>{point.maxActualLoad ?? "—"}</td>
+                            <td>{point.totalActualReps ?? "—"}</td>
                             <td>{point.setCount}</td>
                           </tr>
                         ))}
@@ -244,7 +245,7 @@ export function HistoryPage() {
         <p role="alert" className="field-error">
           {historyQuery.error instanceof ApiError
             ? historyQuery.error.message
-            : 'No se pudo cargar tu historial.'}
+            : "No se pudo cargar tu historial."}
         </p>
       )}
 
@@ -279,20 +280,22 @@ export function HistoryPage() {
                         {readableDate(workoutLog.performedAt)}
                       </Link>
                     </td>
-                    <td>{workoutLog.session?.name ?? '—'}</td>
+                    <td>{workoutLog.session?.name ?? "—"}</td>
                     <td>
-                      {workoutLog.session?.week.block.program.name ?? '—'}
+                      {workoutLog.session?.week.block.program.name ?? "—"}
                     </td>
                     <td>
                       <WorkoutCompletionStatusBadge
                         status={workoutLog.completionStatus}
-                      />{' '}
-                      {workoutLog.durationMinutes === null && '(en curso)'}
+                      />{" "}
+                      {!isWorkoutFinished(workoutLog) && "(en curso)"}
                     </td>
                     <td>
                       {workoutLog.durationMinutes !== null
                         ? `${workoutLog.durationMinutes} min`
-                        : '—'}
+                        : isWorkoutFinished(workoutLog)
+                          ? "No disponible"
+                          : "—"}
                     </td>
                     <td>{workoutLog.setLogsCount ?? 0}</td>
                   </tr>
@@ -312,7 +315,7 @@ export function HistoryPage() {
               ←
             </button>
             <span>
-              Página {historyQuery.data.meta.page} de{' '}
+              Página {historyQuery.data.meta.page} de{" "}
               {historyQuery.data.meta.totalPages} (
               {historyQuery.data.meta.total} entrenamientos)
             </span>

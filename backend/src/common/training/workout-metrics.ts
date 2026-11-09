@@ -107,6 +107,34 @@ export interface RecentPerformance {
   lastActivityAt: Date | null;
 }
 
+/**
+ * Structured executions close with finishedAt, independently of whether two
+ * recorded-set timestamps exist to calculate a duration. Legacy executions
+ * keep their historical durationMinutes closure signal.
+ */
+export function finishedWorkoutWhere(
+  where: Prisma.WorkoutLogWhereInput,
+): Prisma.WorkoutLogWhereInput {
+  const { AND: existingAnd, ...scope } = where;
+  const conjunctions = existingAnd
+    ? Array.isArray(existingAnd)
+      ? existingAnd
+      : [existingAnd]
+    : [];
+  return {
+    ...scope,
+    AND: [
+      ...conjunctions,
+      {
+        OR: [
+          { structuredExecution: true, finishedAt: { not: null } },
+          { structuredExecution: false, durationMinutes: { not: null } },
+        ],
+      },
+    ],
+  };
+}
+
 /** Personal only. Rolling 15 × 24 hours, inclusive; never substitutes fatigue or set RPE. */
 export async function computeRecentPerformance(
   prisma: PrismaService,
@@ -121,16 +149,15 @@ export async function computeRecentPerformance(
       _max: { performedAt: true },
     }),
     prisma.workoutLog.findMany({
-      where: {
+      where: finishedWorkoutWhere({
         AND: [
           where,
           {
             performedAt: { gte: from, lte: now },
-            durationMinutes: { not: null },
             overallRpe: { not: null },
           },
         ],
-      },
+      }),
       select: { performedAt: true, overallRpe: true },
       orderBy: { performedAt: 'asc' },
     }),
@@ -152,19 +179,16 @@ export async function computeRecentPerformance(
   };
 }
 
-// "Realizado" = un WorkoutLog que pasó por finish() al menos una vez
-// (`durationMinutes !== null`, misma señal ya establecida en PROMPT 10 —
-// ver el comentario de clase de WorkoutLogsService). Un WorkoutLog todavía
-// en curso no entra en estas métricas descriptivas: promediar duración/RPE
-// de entrenamientos a medio registrar produciría números sin sentido real.
+// "Realizado" = un WorkoutLog cerrado. Para ejecuciones estructuradas la
+// señal es finishedAt; los registros legacy conservan durationMinutes como
+// señal histórica. El promedio SQL excluye durationMinutes null, por lo que
+// una sesión cerrada con una sola serie cuenta como finalizada pero no aporta
+// un cero ficticio al promedio.
 export async function computeWorkoutSummaryMetrics(
   prisma: PrismaService,
   where: Prisma.WorkoutLogWhereInput,
 ): Promise<WorkoutSummaryMetrics> {
-  const finishedWhere: Prisma.WorkoutLogWhereInput = {
-    ...where,
-    durationMinutes: { not: null },
-  };
+  const finishedWhere = finishedWorkoutWhere(where);
 
   const [aggregate, totalSetLogs] = await Promise.all([
     prisma.workoutLog.aggregate({
@@ -343,9 +367,8 @@ export interface CompletionStatusBreakdown {
   skipped: number;
 }
 
-// Distribución de `completionStatus` entre los WorkoutLog YA FINALIZADOS
-// (mismo criterio "finalizado" = `durationMinutes !== null` que el resto de
-// este archivo). Esta es la ÚNICA lectura de "cumplimiento" que PROMPT 12
+// Distribución de `completionStatus` entre los WorkoutLog YA FINALIZADOS.
+// Esta es la ÚNICA lectura de "cumplimiento" que PROMPT 12
 // permite sin inventar una fórmula: cuenta un valor que el propio alumno ya
 // registró al finalizar (completionStatus), nunca lo compara contra una
 // frecuencia prescrita — el esquema actual no modela "cuántos
@@ -360,10 +383,7 @@ export async function computeCompletionStatusBreakdown(
   prisma: PrismaService,
   where: Prisma.WorkoutLogWhereInput,
 ): Promise<CompletionStatusBreakdown> {
-  const finishedWhere: Prisma.WorkoutLogWhereInput = {
-    ...where,
-    durationMinutes: { not: null },
-  };
+  const finishedWhere = finishedWorkoutWhere(where);
 
   const grouped = await prisma.workoutLog.groupBy({
     by: ['completionStatus'],

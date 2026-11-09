@@ -36,7 +36,7 @@ export interface TrainingAssignment {
   finishedSessions: number;
   totalSessions: number;
   adherence: {
-    insufficientReason?: 'legacy-history';
+    insufficientReason?: "legacy-history";
     scheduledSessions: number;
     completedSessions: number;
     adherenceRate: number | null;
@@ -88,6 +88,7 @@ export interface TrainingDetail {
   revision: number;
   workoutLogId: string | null;
   durationMinutes: number | null;
+  finishedAt: string | null;
   finished: boolean;
   scheduledDate: string | null;
   actualDate: string | null;
@@ -118,16 +119,11 @@ export const useTrainingSession = (id: string, assignmentId = "") =>
         )
       ).data,
   });
-export function trainingPayload(
-  session: TrainingDetail,
-  finish: boolean,
-  durationMinutes?: number,
-) {
+export function trainingPayload(session: TrainingDetail, finish: boolean) {
   return {
     revision: session.revision,
     assignmentId: session.assignmentId,
     finish,
-    durationMinutes,
     sets: session.exercises.flatMap((e) =>
       e.sets
         .filter((s) => s.status !== "PENDING")

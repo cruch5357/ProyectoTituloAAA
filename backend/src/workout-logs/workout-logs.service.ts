@@ -243,7 +243,14 @@ export class WorkoutLogsService {
           : {}),
         sessionId: query.sessionId,
       }),
-      ...(query.state === 'in-progress' ? { durationMinutes: null } : {}),
+      ...(query.state === 'in-progress'
+        ? {
+            OR: [
+              { structuredExecution: true, finishedAt: null },
+              { structuredExecution: false, durationMinutes: null },
+            ],
+          }
+        : {}),
     };
 
     const [items, total] = await Promise.all([
