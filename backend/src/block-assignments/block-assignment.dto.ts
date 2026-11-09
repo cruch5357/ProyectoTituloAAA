@@ -49,3 +49,29 @@ export class SaveTrainingDto {
   sets: PerformedSetDto[];
   @IsOptional() @IsInt() @Min(0) @Max(1440) durationMinutes?: number;
 }
+
+export class StartTrainingDto {
+  @IsOptional() @IsString() assignmentId?: string;
+}
+
+export class RequestWorkoutCorrectionDto {
+  @IsString() assignmentId: string;
+  @IsString() sessionExerciseId: string;
+  @IsInt() @Min(1) setNumber: number;
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(9999.99)
+  weight?: number | null;
+  @IsOptional() @IsInt() @Min(0) @Max(10000) reps?: number | null;
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 1 })
+  @Min(0)
+  @Max(10)
+  rpe?: number | null;
+  @IsOptional() @IsString() reason?: string;
+}
+
+export class DecideWorkoutCorrectionDto {
+  @IsIn(['APPROVE', 'REJECT']) decision: 'APPROVE' | 'REJECT';
+}

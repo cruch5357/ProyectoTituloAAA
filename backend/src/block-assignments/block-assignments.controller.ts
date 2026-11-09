@@ -15,7 +15,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { BlockAssignmentsService } from './block-assignments.service';
 import { TrainingService } from './training.service';
-import { AssignBlockDto, SaveTrainingDto } from './block-assignment.dto';
+import {
+  AssignBlockDto,
+  DecideWorkoutCorrectionDto,
+  RequestWorkoutCorrectionDto,
+  SaveTrainingDto,
+  StartTrainingDto,
+} from './block-assignment.dto';
 const envelope = <T>(data: T) => ({ data, error: null, meta: {} });
 @Controller()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -60,5 +66,43 @@ export class BlockAssignmentsController {
     @Body() dto: SaveTrainingDto,
   ) {
     return envelope(await this.training.save(u, id, dto));
+  }
+  @Post('training/sessions/:id/start')
+  @Roles(Role.STUDENT)
+  async start(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: StartTrainingDto,
+  ) {
+    return envelope(await this.training.start(u, id, dto.assignmentId));
+  }
+  @Post('training/sessions/:id/dismiss')
+  @Roles(Role.STUDENT)
+  async dismissExpired(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: StartTrainingDto,
+  ) {
+    return envelope(
+      await this.training.dismissExpired(u, id, dto.assignmentId),
+    );
+  }
+  @Post('training/sessions/:id/corrections')
+  @Roles(Role.STUDENT)
+  async requestCorrection(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: RequestWorkoutCorrectionDto,
+  ) {
+    return envelope(await this.training.requestCorrection(u, id, dto));
+  }
+  @Patch('training/corrections/:id/decision')
+  @Roles(Role.COACH)
+  async decideCorrection(
+    @CurrentUser() u: AuthenticatedUser,
+    @Param('id') id: string,
+    @Body() dto: DecideWorkoutCorrectionDto,
+  ) {
+    return envelope(await this.training.decideCorrection(u, id, dto.decision));
   }
 }

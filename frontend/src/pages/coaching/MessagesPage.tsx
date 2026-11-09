@@ -10,7 +10,53 @@ import { useBackdropClose } from '../../lib/useBackdropClose';
 import { Card, ErrorState, Skeleton } from '../../components/ui/Primitives';
 
 interface Attachment { id: string; type: 'IMAGE' | 'VIDEO'; originalFilename: string; }
-interface Message { id: string; senderId: string; body: string; createdAt: string; readAt: string | null; attachments: Attachment[]; }
+interface CorrectionRequest {
+  id: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; sessionName: string;
+  exerciseName: string; scheduledDate: string; setNumber: number; originalStatus: string;
+  originalLoad: number | string | null; originalReps: number | null; originalRpe: number | string | null;
+  proposedLoad: number | string | null; proposedReps: number | null; proposedRpe: number | string | null;
+  proposedFields: string[]; reason: string | null; reviewedAt: string | null;
+}
+interface Message { id: string; senderId: string; body: string; createdAt: string; readAt: string | null; attachments: Attachment[]; correctionRequest: CorrectionRequest | null; }
+
+function CorrectionMessage({ correction }: { correction: CorrectionRequest }) {
+  const { user } = useAuth();
+  const client = useQueryClient();
+  const decision = useMutation({
+    mutationFn: async (value: 'APPROVE' | 'REJECT') =>
+      apiClient.patch(`/training/corrections/${correction.id}/decision`, { decision: value }),
+    onSuccess: () => {
+      for (const key of ['coaching', 'training', 'workoutLogs', 'dashboard'])
+        void client.invalidateQueries({ queryKey: [key] });
+    },
+  });
+  const original = correction.originalStatus === 'NO_DATA'
+    ? 'Sin datos'
+    : `${correction.originalLoad ?? '—'} kg · ${correction.originalReps ?? '—'} repeticiones · RPE ${correction.originalRpe ?? '—'}`;
+  const proposed = [
+    correction.proposedFields.includes('weight') ? `${correction.proposedLoad ?? '—'} kg` : null,
+    correction.proposedFields.includes('reps') ? `${correction.proposedReps ?? '—'} repeticiones` : null,
+    correction.proposedFields.includes('rpe') ? `RPE ${correction.proposedRpe ?? '—'}` : null,
+  ].filter(Boolean).join(' · ');
+  const status = correction.status === 'PENDING' ? 'Pendiente de aprobación' : correction.status === 'APPROVED' ? 'Aprobada' : 'Rechazada';
+  return <section className="chat-correction" aria-label="Solicitud de corrección de entrenamiento">
+    <h3>Solicitud de corrección de entrenamiento</h3>
+    <p><strong>{correction.sessionName}</strong> · {readableDate(correction.scheduledDate, false)}</p>
+    <dl>
+      <dt>Ejercicio</dt><dd>{correction.exerciseName}</dd>
+      <dt>Serie</dt><dd>{correction.setNumber}</dd>
+      <dt>Registro original</dt><dd>{original}</dd>
+      <dt>Corrección solicitada</dt><dd>{proposed}</dd>
+      {correction.reason && <><dt>Motivo</dt><dd>{correction.reason}</dd></>}
+      <dt>Estado</dt><dd><strong>{status}</strong></dd>
+    </dl>
+    {user?.role === 'COACH' && correction.status === 'PENDING' && <div className="dialog-actions">
+      <button type="button" disabled={decision.isPending} onClick={() => decision.mutate('APPROVE')}>Aprobar</button>
+      <button type="button" className="button--danger" disabled={decision.isPending} onClick={() => decision.mutate('REJECT')}>Rechazar</button>
+    </div>}
+    {decision.isError && <ErrorState message={decision.error.message} />}
+  </section>;
+}
 export function MediaPreview({ url, video, name }: { url: string; video: boolean; name: string }) {
   return video ? <video className="chat-media" src={url} controls preload="metadata" aria-label={name} /> : <img className="chat-media" src={url} alt={name} />;
 }
@@ -100,6 +146,7 @@ function Conversation({ peer }: { peer: string }) {
   return <Card><h2>Chat Coach ↔ Alumno</h2>{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
     <div ref={threadRef} onScroll={trackScroll} onLoadCapture={scrollToBottom} onLoadedMetadataCapture={scrollToBottom} className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
       <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small><p>{m.body}</p>
+      {m.correctionRequest && <CorrectionMessage correction={m.correctionRequest} />}
       {m.attachments.map((a) => <PrivateAttachment key={a.id} attachment={a} />)}<small>{m.senderId === user?.id ? m.readAt ? 'Leído' : 'Enviado' : ''}</small>
     </article>)}</div>
     {query.isSuccess && query.data.length === 0 && <p>Comienza la conversación.</p>}

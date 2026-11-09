@@ -153,6 +153,7 @@ export interface PublicWorkoutLog {
   >;
   id: string;
   sessionId: string;
+  programAssignmentId: string | null;
   studentId: string;
   performedAt: Date;
   completionStatus: WorkoutCompletionStatus;
@@ -208,6 +209,7 @@ export function toPublicWorkoutLog(
     structuredExecution: workoutLog.structuredExecution,
     id: workoutLog.id,
     sessionId: workoutLog.sessionId,
+    programAssignmentId: workoutLog.programAssignmentId,
     studentId: workoutLog.studentId,
     performedAt: workoutLog.performedAt,
     completionStatus: workoutLog.completionStatus,

@@ -24,6 +24,10 @@ const initial: TrainingDetail = {
   dayNumber: 1,
   revision: 0,
   finished: false,
+  scheduledDate: "2026-10-21",
+  actualDate: null,
+  canRequestCorrection: false,
+  canStartEarly: false,
   status: "NOT_STARTED",
   readOnly: false,
   cycleStatus: "ACTIVE",
@@ -341,5 +345,71 @@ describe("Ejecución compacta y registro seguro", () => {
     expect(body.finish).toBe(true);
     expect(body.sets).toHaveLength(6);
     expect(body.sets.every((s) => s.status === "SKIPPED")).toBe(true);
+  });
+  it("una sesión cerrada solo permite enviar una solicitud, sin modificar datos", async () => {
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: { id: "correction" },
+      error: null,
+      meta: {},
+    });
+    setup({
+      ...initial,
+      readOnly: true,
+      status: "SKIPPED",
+      canRequestCorrection: true,
+    });
+    await userEvent.click(
+      await screen.findByRole("button", {
+        name: "Solicitar corrección al coach",
+      }),
+    );
+    expect(screen.getByText(/Registro original: Sin datos/)).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText("Peso corregido"), "60");
+    await userEvent.type(
+      screen.getByLabelText("Repeticiones corregidas"),
+      "10",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Enviar solicitud" }),
+    );
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith(
+        "/training/sessions/s/corrections",
+        expect.objectContaining({
+          assignmentId: "a",
+          sessionExerciseId: "e0",
+          setNumber: 1,
+          weight: 60,
+          reps: 10,
+        }),
+      ),
+    );
+    expect(
+      await screen.findByText(/Los datos no cambiarán hasta que sea aprobada/),
+    ).toBeInTheDocument();
+  });
+  it("inicia anticipadamente solo mediante la acción explícita", async () => {
+    const started = {
+      ...initial,
+      workoutLogId: "log",
+      readOnly: false,
+      canStartEarly: false,
+      actualDate: "2026-10-20",
+    };
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: started,
+      error: null,
+      meta: {},
+    });
+    setup({ ...initial, readOnly: true, canStartEarly: true });
+    await userEvent.click(
+      await screen.findByRole("button", { name: "Iniciar anticipadamente" }),
+    );
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/training/sessions/s/start", {
+        assignmentId: "a",
+      }),
+    );
+    expect(await screen.findByRole("button", { name: "Finalizar sesión" })).toBeInTheDocument();
   });
 });

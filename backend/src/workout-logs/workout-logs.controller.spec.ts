@@ -24,6 +24,7 @@ function buildWorkoutLog(): PublicWorkoutLog {
     prescriptionSource: 'legacy-current',
     id: 'workout-log-1',
     sessionId: 'session-1',
+    programAssignmentId: null,
     studentId: 'student-123',
     performedAt: new Date(),
     completionStatus: WorkoutCompletionStatus.PARTIAL,

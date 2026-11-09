@@ -16,7 +16,7 @@ export interface CalendarData {
   competitions: Competition[]; competitionsTruncated: boolean;
   today: string; nextSession: CalendarSession | null; pendingSession: CalendarSession | null;
   nextCompetition: Competition | null; sessions: CalendarSession[];
-  assignments: { adherence?: { insufficientReason?: 'legacy-history'; scheduledSessions: number; completedSessions: number; adherenceRate: number | null }; id: string; programId: string; name: string; startDate: string | null; currentWeek?: { blockName: string; weekNumber: number } | null }[];
+  assignments: { adherence?: { insufficientReason?: 'legacy-history'; scheduledSessions: number; completedSessions: number; adherenceRate: number | null; fullyCompletedSessions?: number; skippedSessions?: number; expiredPartialSessions?: number; actionableSessions?: number }; id: string; programId: string; name: string; startDate: string | null; currentWeek?: { blockName: string; weekNumber: number } | null }[];
 }
 export interface ProfileData {
   id: string; name: string; email: string; role: string;

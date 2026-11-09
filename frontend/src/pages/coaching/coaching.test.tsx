@@ -145,6 +145,31 @@ describe('Evolución coaching', () => {
     expect(await screen.findByText('Listo', { selector: 'p' })).toBeInTheDocument();
     await waitFor(() => expect(thread.scrollTop).toBe(900));
   });
+  it('el coach procesa controles persistentes de una solicitud de corrección', async () => {
+    const correctionRequest = {
+      id: 'correction-1', status: 'PENDING', sessionName: 'Fuerza A',
+      exerciseName: 'Sentadilla', scheduledDate: '2026-10-06', setNumber: 3,
+      originalStatus: 'NO_DATA', originalLoad: null, originalReps: null, originalRpe: null,
+      proposedLoad: 60, proposedReps: 10, proposedRpe: null,
+      proposedFields: ['weight', 'reps'], reason: 'Olvidé registrarla', reviewedAt: null,
+    };
+    const message = { id: 'm-correction', senderId: 's1', body: 'Solicitud de corrección de entrenamiento', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [], correctionRequest };
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path.startsWith('/messages/s1') ? { data: [message], error: null, meta: {} } : defaultGet(path, options));
+    renderWithProviders(
+      <AuthContext.Provider value={{ status: 'authenticated', user: { id: 'coach1', name: 'Coach', email: 'c@example.com', role: 'COACH', coachId: null, isActive: true, createdAt: '' }, login: vi.fn(), logout: vi.fn() }}>
+        <MessagesPage />
+      </AuthContext.Provider>,
+      { route: '/messages?peer=s1' },
+    );
+    const request = await screen.findByRole('region', { name: 'Solicitud de corrección de entrenamiento' });
+    expect(request).toHaveTextContent('Registro originalSin datos');
+    expect(request).toHaveTextContent('Corrección solicitada60 kg · 10 repeticiones');
+    expect(within(request).getByRole('button', { name: 'Rechazar' })).toBeInTheDocument();
+    await userEvent.click(within(request).getByRole('button', { name: 'Aprobar' }));
+    await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith('/training/corrections/correction-1/decision', { decision: 'APPROVE' }));
+  });
   it('las imágenes y videos del chat se amplían en un visor al tocarlos', async () => {
     const message = { id: 'm1', senderId: 'coach1', body: 'Mira la técnica', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [
       { id: 'a1', type: 'IMAGE', originalFilename: 'foto.jpg' },

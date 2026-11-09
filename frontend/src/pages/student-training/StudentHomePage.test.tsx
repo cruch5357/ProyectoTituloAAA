@@ -1,10 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { screen } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../test/renderWithProviders";
 import { apiClient } from "../../lib/apiClient";
-import type { TrainingAssignment } from "../../api/training";
+import type {
+  TrainingAssignment,
+  TrainingOverview,
+  TrainingSessionSummary,
+} from "../../api/training";
 import { StudentHomePage } from "./StudentHomePage";
-const session = {
+const session: TrainingSessionSummary = {
   id: "a:s",
   sessionId: "s",
   assignmentId: "a",
@@ -18,7 +23,53 @@ const session = {
   totalSets: 4,
   exerciseCount: 1,
   muscleGroups: ["quadriceps"],
+  programName: "Fuerza",
+  blockId: "b",
+  blockIndex: 0,
+  completed: false,
+  finished: false,
+  workoutLogId: "log-1",
+  legacy: false,
 };
+const assignment: TrainingAssignment = {
+  id: "a",
+  programId: "p",
+  name: "Fuerza",
+  sourceBlockId: "source",
+  snapshotBlockId: "snapshot",
+  startDate: "2026-10-21",
+  status: "ACTIVE",
+  legacy: false,
+  weekCount: 2,
+  currentWeek: { blockName: "Fuerza", weekNumber: 1 },
+  finishedSessions: 0,
+  totalSessions: 4,
+  adherence: {
+    scheduledSessions: 1,
+    completedSessions: 1,
+    adherenceRate: 100,
+  },
+};
+
+function sessionFor(
+  weekNumber: number,
+  overrides: Partial<TrainingSessionSummary> = {},
+): TrainingSessionSummary {
+  return {
+    ...session,
+    id: `a:s${weekNumber}`,
+    sessionId: `s${weekNumber}`,
+    name: `Sesión semana ${weekNumber}`,
+    weekNumber,
+    date: `2026-10-${String(9 + weekNumber).padStart(2, "0")}`,
+    ...overrides,
+  };
+}
+
+function setupOverview(data: TrainingOverview) {
+  vi.spyOn(apiClient, "get").mockResolvedValue({ data, error: null, meta: {} });
+}
+
 function setup(
   empty = false,
   adherence: TrainingAssignment["adherence"] = {
@@ -34,12 +85,7 @@ function setup(
         ? []
         : [
             {
-              id: "a",
-              name: "Fuerza",
-              weekCount: 2,
-              currentWeek: { weekNumber: 1 },
-              finishedSessions: 0,
-              totalSessions: 4,
+              ...assignment,
               adherence,
             },
           ],
@@ -69,11 +115,11 @@ describe("Inicio basado en bloques", () => {
     setup();
     renderWithProviders(<StudentHomePage />);
     expect(await screen.findByText("Tu ciclo activo")).toBeInTheDocument();
-    expect(screen.getByText("Parcial")).toBeInTheDocument();
+    expect(screen.getAllByText("Parcial")).toHaveLength(2);
     expect(screen.queryByText("Qué vas a trabajar")).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("link", { name: /Continuar entrenamiento/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("link", { name: /Continuar entrenamiento/ }),
+    ).toHaveAttribute("href", "/training");
   });
   it("muestra un estado vacío honesto", async () => {
     setup(true);
@@ -93,6 +139,269 @@ describe("Inicio basado en bloques", () => {
   });
 });
 
+describe("jerarquía semanal del Inicio", () => {
+  it("muestra la semana actual y permite solo las dos anteriores, una a la vez", async () => {
+    const week12 = sessionFor(12, { date: "2026-10-21" });
+    const week11 = sessionFor(11, { date: "2026-10-14" });
+    const week10 = sessionFor(10, { date: "2026-10-07" });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [
+        {
+          ...assignment,
+          startDate: "2026-08-05",
+          weekCount: 12,
+          currentWeek: { blockName: "Segundo bloque", weekNumber: 2 },
+        },
+      ],
+      sessions: [week10, week11, week12],
+      nextSession: week12,
+      pendingSession: null,
+    });
+    renderWithProviders(<StudentHomePage />);
+    const picker = await screen.findByRole("combobox", {
+      name: "Semana visible de Fuerza",
+    });
+    expect(
+      within(picker)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Semana 12 · Actual", "Semana 11", "Semana 10"]);
+    expect(
+      screen.getByRole("region", { name: "Sesiones de la semana 12" }),
+    ).toHaveTextContent("Sesión semana 12");
+    expect(screen.queryByText("Sesión semana 11")).not.toBeInTheDocument();
+    await userEvent.selectOptions(picker, "11");
+    expect(
+      screen.getByRole("region", { name: "Sesiones de la semana 11" }),
+    ).toHaveTextContent("Sesión semana 11");
+    expect(
+      screen.queryByRole("region", { name: "Sesiones de la semana 12" }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Sesión semana 10")).not.toBeInTheDocument();
+  });
+
+  it("en semana 1 no ofrece semanas inexistentes ni futuras", async () => {
+    setup();
+    renderWithProviders(<StudentHomePage />);
+    const picker = await screen.findByRole("combobox", {
+      name: "Semana visible de Fuerza",
+    });
+    expect(within(picker).getAllByRole("option")).toHaveLength(1);
+    expect(within(picker).getByRole("option")).toHaveTextContent(
+      "Semana 1 · Actual",
+    );
+    expect(screen.queryByText(/Semana 0/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Semana 2 · Actual/)).not.toBeInTheDocument();
+  });
+
+  it("conserva estados, series y rutas reales en las sesiones visibles", async () => {
+    const statuses = [
+      sessionFor(1, {
+        id: "a:completed",
+        sessionId: "completed",
+        name: "Completada",
+        dayNumber: 1,
+        status: "COMPLETED",
+        recordedSets: 4,
+        totalSets: 4,
+        finished: true,
+      }),
+      sessionFor(1, {
+        id: "a:partial",
+        sessionId: "partial",
+        name: "Parcial real",
+        dayNumber: 2,
+        status: "PARTIAL",
+        recordedSets: 2,
+        totalSets: 4,
+      }),
+      sessionFor(1, {
+        id: "a:skipped",
+        sessionId: "skipped",
+        name: "Omitida",
+        dayNumber: 3,
+        status: "SKIPPED",
+        recordedSets: 0,
+        totalSets: 3,
+        finished: true,
+      }),
+      sessionFor(1, {
+        id: "a:pending",
+        sessionId: "pending",
+        name: "Pendiente real",
+        dayNumber: 4,
+        status: "NOT_STARTED",
+        recordedSets: 0,
+        totalSets: 5,
+      }),
+    ];
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: statuses,
+      nextSession: statuses[3],
+      pendingSession: null,
+    });
+    renderWithProviders(<StudentHomePage />);
+    const week = await screen.findByRole("region", {
+      name: "Sesiones de la semana 1",
+    });
+    expect(week).toHaveTextContent("Completado4/4 series");
+    expect(week).toHaveTextContent("Parcial2/4 series");
+    expect(week).toHaveTextContent("Omitido0/3 series");
+    expect(week).toHaveTextContent("Pendiente0/5 series");
+    expect(
+      within(week).getByRole("link", { name: /Parcial real/ }),
+    ).toHaveAttribute("href", "/training/sessions/partial?assignmentId=a");
+  });
+});
+
+describe("entrenamiento destacado del Inicio", () => {
+  it("muestra una vencida sin registros como omitida sin desplazar la sesión de hoy", async () => {
+    const omitted = sessionFor(1, {
+      date: "2026-10-20",
+      name: "Sesión omitida",
+      status: "SKIPPED",
+      recordedSets: 0,
+      totalSets: 12,
+      readOnly: true,
+      canRequestCorrection: true,
+    });
+    const today = sessionFor(1, {
+      id: "a:today",
+      sessionId: "today",
+      date: "2026-10-21",
+      name: "Sesión de hoy",
+      status: "NOT_STARTED",
+      recordedSets: 0,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [omitted, today],
+      nextSession: today,
+      pendingSession: omitted,
+    });
+    renderWithProviders(<StudentHomePage />);
+    const todayCard = await screen.findByRole("link", {
+      name: /Entrenamiento de hoy/,
+    });
+    const notice = screen.getByText("Entrenamiento omitido").closest("aside");
+    expect(notice).not.toBeNull();
+    expect(todayCard.compareDocumentPosition(notice!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
+    expect(notice!).toHaveTextContent("Se marcó automáticamente como omitido");
+    expect(
+      within(notice!).queryByText("Ir a entrenar"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Sesiones de la semana 1" }),
+    ).toHaveTextContent("Omitido0/12 series");
+  });
+  it("enlaza la sesión de hoy hacia Entrenamiento, no hacia un registro alternativo", async () => {
+    setup();
+    renderWithProviders(<StudentHomePage />);
+    const card = await screen.findByRole("link", {
+      name: /Entrenamiento de hoy/,
+    });
+    expect(card).toHaveAttribute("href", "/training");
+    expect(card).toHaveTextContent("Continuar entrenamiento");
+  });
+
+  it("distingue una próxima sesión de una sesión de hoy", async () => {
+    const future = sessionFor(2, {
+      date: "2026-10-24",
+      status: "NOT_STARTED",
+      recordedSets: 0,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [future],
+      nextSession: future,
+      pendingSession: null,
+    });
+    renderWithProviders(<StudentHomePage />);
+    expect(
+      await screen.findByText("Próximo entrenamiento"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Entrenamiento de hoy")).not.toBeInTheDocument();
+  });
+
+  it("mantiene la próxima sesión entrenable y presenta la vencida como cerrada", async () => {
+    const pending = sessionFor(1, {
+      date: "2026-10-18",
+      status: "PARTIAL",
+      recordedSets: 2,
+      name: "Pendiente anterior",
+    });
+    const future = sessionFor(2, {
+      date: "2026-10-24",
+      status: "NOT_STARTED",
+      recordedSets: 0,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [pending, future],
+      nextSession: future,
+      pendingSession: pending,
+    });
+    renderWithProviders(<StudentHomePage />);
+    const card = await screen.findByRole("link", {
+      name: /Próximo entrenamiento/,
+    });
+    expect(card).toHaveTextContent("Sesión semana 2");
+    expect(screen.getByText("Entrenamiento cerrado")).toBeInTheDocument();
+    expect(screen.getAllByText("Pendiente anterior")).toHaveLength(2);
+    expect(
+      screen.queryByText("Entrenamiento pendiente"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("permite omitir rápidamente el aviso y no altera el detalle registrado", async () => {
+    const pending = sessionFor(1, {
+      date: "2026-10-18",
+      status: "PARTIAL",
+      recordedSets: 2,
+      name: "Pendiente anterior",
+      readOnly: true,
+    });
+    setupOverview({
+      today: "2026-10-21",
+      assignments: [assignment],
+      sessions: [pending],
+      nextSession: null,
+      pendingSession: pending,
+    });
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: { dismissed: true },
+      error: null,
+      meta: {},
+    });
+    renderWithProviders(<StudentHomePage />);
+    const notice = (await screen.findByText("Entrenamiento cerrado")).closest(
+      "aside",
+    )!;
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Omitir entrenamiento" }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Entrenamiento cerrado"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(post).toHaveBeenCalledWith("/training/sessions/s1/dismiss", {
+      assignmentId: "a",
+    });
+    expect(
+      screen.getByRole("region", { name: "Sesiones de la semana 1" }),
+    ).toHaveTextContent("Parcial2/4 series");
+  });
+});
+
 it("conserva el resumen de adherencia en el inicio del alumno", async () => {
   setup();
   renderWithProviders(<StudentHomePage />);
@@ -101,7 +410,58 @@ it("conserva el resumen de adherencia en el inicio del alumno", async () => {
   ).toBeInTheDocument();
   expect(
     screen.getByRole("region", { name: "Adherencia del programa" }),
-  ).toHaveTextContent("100%");
+  ).toHaveTextContent("100 % de adherencia");
+});
+
+it("calcula la antigüedad desde la fecha real del bloque", async () => {
+  setupOverview({
+    today: "2026-10-21",
+    assignments: [{ ...assignment, startDate: "2026-08-05" }],
+    sessions: [session],
+    nextSession: session,
+    pendingSession: null,
+  });
+  renderWithProviders(<StudentHomePage />);
+  const adherence = await screen.findByRole("region", {
+    name: "Adherencia del programa",
+  });
+  expect(adherence).toHaveTextContent(
+    "Inicio del bloque: 5 de agosto · Hace 11 semanas",
+  );
+  expect(adherence).toHaveTextContent("100 % de adherencia");
+  expect(adherence).toHaveTextContent("1 de 1 sesiones programadas hasta hoy");
+});
+
+it("separa completadas, omitidas, parciales vencidas y sesiones accionables", async () => {
+  setupOverview({
+    today: "2026-10-21",
+    assignments: [
+      {
+        ...assignment,
+        adherence: {
+          scheduledSessions: 34,
+          completedSessions: 25,
+          adherenceRate: 73.53,
+          fullyCompletedSessions: 25,
+          skippedSessions: 6,
+          expiredPartialSessions: 3,
+          actionableSessions: 4,
+        },
+      },
+    ],
+    sessions: [session],
+    nextSession: session,
+    pendingSession: null,
+  });
+  renderWithProviders(<StudentHomePage />);
+  const adherence = await screen.findByRole("region", {
+    name: "Adherencia del programa",
+  });
+  expect(adherence).toHaveTextContent("73,53 % de adherencia");
+  expect(adherence).toHaveTextContent("25 completadas");
+  expect(adherence).toHaveTextContent("6 omitidas");
+  expect(adherence).toHaveTextContent("3 parciales vencidas");
+  expect(adherence).toHaveTextContent("4 disponibles hoy o futuras");
 });
 
 it("muestra incertidumbre histórica sin convertirla en cero por ciento", async () => {

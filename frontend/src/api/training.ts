@@ -19,6 +19,8 @@ export interface TrainingSessionSummary extends CalendarSession {
   muscleGroups: string[];
   exerciseCount: number;
   legacy: boolean;
+  readOnly?: boolean;
+  canRequestCorrection?: boolean;
 }
 export interface TrainingAssignment {
   id: string;
@@ -38,6 +40,10 @@ export interface TrainingAssignment {
     scheduledSessions: number;
     completedSessions: number;
     adherenceRate: number | null;
+    fullyCompletedSessions?: number;
+    skippedSessions?: number;
+    expiredPartialSessions?: number;
+    actionableSessions?: number;
   };
 }
 export interface TrainingOverview {
@@ -83,8 +89,12 @@ export interface TrainingDetail {
   workoutLogId: string | null;
   durationMinutes: number | null;
   finished: boolean;
+  scheduledDate: string | null;
+  actualDate: string | null;
   status: TrainingStatus;
   readOnly: boolean;
+  canRequestCorrection: boolean;
+  canStartEarly: boolean;
   exercises: TrainingExercise[];
 }
 export const useTraining = (studentId?: string) =>

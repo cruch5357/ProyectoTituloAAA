@@ -1,5 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useTraining, trainingLabels } from "../../api/training";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useTraining,
+  trainingLabels,
+  type TrainingAssignment,
+  type TrainingSessionSummary,
+} from "../../api/training";
 import {
   EmptyState,
   ErrorState,
@@ -8,14 +15,247 @@ import {
 import { MUSCLE_GROUPS } from "../../lib/exerciseTaxonomy";
 import { readableDate } from "../../lib/readableDate";
 import { Adherence } from "../../components/coaching/Adherence";
+import { apiClient } from "../../lib/apiClient";
 import "./training.css";
+
+function TrainingSummaryCard({
+  session,
+  today,
+}: {
+  session: TrainingSessionSummary;
+  today: string;
+}) {
+  const isToday = session.date === today;
+  const isPending =
+    !session.finished &&
+    (session.status === "PARTIAL" || (!!session.date && session.date < today));
+  const label = isToday
+    ? "Entrenamiento de hoy"
+    : isPending
+      ? "Entrenamiento pendiente"
+      : "Próximo entrenamiento";
+  const action = session.finished
+    ? "Revisar entrenamiento"
+    : session.status === "PARTIAL"
+      ? "Continuar entrenamiento"
+      : "Ir a entrenar";
+  return (
+    <Link className="training-today-card" to="/training">
+      <span>
+        <span className="eyebrow">{label}</span>
+        <strong>{session.name}</strong>
+        <small>
+          {session.blockName} · Semana {session.weekNumber}
+          {session.date ? ` · ${readableDate(session.date, false)}` : ""}
+        </small>
+      </span>
+      <span className={`training-status training-status--${session.status}`}>
+        {trainingLabels[session.status]}
+      </span>
+      <span className="training-today-card__action">{action} →</span>
+    </Link>
+  );
+}
+
+function ExpiredSessionNotice({
+  session,
+}: {
+  session: TrainingSessionSummary;
+}) {
+  const cache = useQueryClient();
+  const [hidden, setHidden] = useState(false);
+  const href = `/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`;
+  const omitted = session.status === "SKIPPED";
+  const dismiss = useMutation({
+    mutationFn: () =>
+      apiClient.post(`/training/sessions/${session.sessionId}/dismiss`, {
+        assignmentId: session.assignmentId,
+      }),
+    onSuccess: () => {
+      setHidden(true);
+      void cache.invalidateQueries({ queryKey: ["training"] });
+    },
+  });
+  if (hidden) return null;
+  return (
+    <aside className="training-expired-notice">
+      <p className="eyebrow">
+        {omitted ? "Entrenamiento omitido" : "Entrenamiento cerrado"}
+      </p>
+      <h2>{session.name}</h2>
+      <p>
+        Programado para{" "}
+        {session.date
+          ? readableDate(session.date, false).toLocaleLowerCase("es-CL")
+          : "una fecha anterior"}
+      </p>
+      <p>
+        <strong>
+          {omitted
+            ? "No registraste este entrenamiento dentro de su fecha programada. Se marcó automáticamente como omitido."
+            : "El entrenamiento conserva las series registradas, pero su fecha ya venció y quedó cerrado."}
+        </strong>
+      </p>
+      <div className="training-expired-notice__actions">
+        <Link to={href}>Ver detalle</Link>
+        <Link to={`${href}#correction`}>Solicitar corrección</Link>
+        <button
+          type="button"
+          className="training-expired-notice__dismiss"
+          disabled={dismiss.isPending}
+          onClick={() => dismiss.mutate()}
+        >
+          {dismiss.isPending ? "Omitiendo…" : "Omitir entrenamiento"}
+        </button>
+      </div>
+      {dismiss.isError && (
+        <p className="training-expired-notice__error" role="alert">
+          No pudimos guardar la omisión. Inténtalo nuevamente.
+        </p>
+      )}
+    </aside>
+  );
+}
+
+function activeWeekNumber(startDate: string | null, today: string) {
+  const start = startDate?.slice(0, 10) ?? "";
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(start) || !/^\d{4}-\d{2}-\d{2}$/.test(today))
+    return null;
+  const difference =
+    Date.parse(`${today}T00:00:00Z`) - Date.parse(`${start}T00:00:00Z`);
+  if (!Number.isFinite(difference) || difference < 0) return null;
+  return Math.floor(difference / (7 * 86400000)) + 1;
+}
+
+function ActiveCycle({
+  assignment,
+  sessions,
+  focusedSessionId,
+  today,
+}: {
+  assignment: TrainingAssignment;
+  sessions: TrainingSessionSummary[];
+  focusedSessionId?: string;
+  today: string;
+}) {
+  const currentWeek = assignment.currentWeek
+    ? (activeWeekNumber(assignment.startDate, today) ??
+      assignment.currentWeek.weekNumber)
+    : null;
+  const [selectedWeek, setSelectedWeek] = useState(currentWeek);
+  const availableWeeks =
+    currentWeek == null
+      ? []
+      : Array.from(
+          { length: Math.min(3, currentWeek) },
+          (_, index) => currentWeek - index,
+        );
+  const visibleSessions =
+    selectedWeek == null
+      ? []
+      : sessions
+          .filter((session) => session.weekNumber === selectedWeek)
+          .slice()
+          .sort((a, b) => a.dayNumber - b.dayNumber);
+  return (
+    <article className="training-cycle">
+      <p className="eyebrow">Tu ciclo activo</p>
+      <h2>{assignment.name}</h2>
+      <p className="training-cycle__progress-label">
+        {currentWeek
+          ? `Semana ${currentWeek} de ${assignment.weekCount}`
+          : assignment.startDate
+            ? `Inicio: ${readableDate(assignment.startDate, false)}`
+            : "Sin fecha de inicio"}
+      </p>
+      <progress
+        aria-label={`${assignment.finishedSessions} de ${assignment.totalSessions} sesiones finalizadas`}
+        max={assignment.totalSessions || 1}
+        value={assignment.finishedSessions}
+      />
+      <p className="training-cycle__summary">
+        {assignment.finishedSessions} de {assignment.totalSessions} sesiones
+        finalizadas
+      </p>
+      {availableWeeks.length > 0 && (
+        <label className="training-week-picker">
+          <span>Semana visible</span>
+          <select
+            aria-label={`Semana visible de ${assignment.name}`}
+            value={selectedWeek ?? ""}
+            onChange={(event) => setSelectedWeek(Number(event.target.value))}
+          >
+            {availableWeeks.map((week) => (
+              <option key={week} value={week}>
+                Semana {week}
+                {week === currentWeek ? " · Actual" : ""}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {selectedWeek != null && (
+        <section
+          className="training-week"
+          aria-label={`Sesiones de la semana ${selectedWeek}`}
+        >
+          <div className="training-session-list">
+            {visibleSessions.map((session) => (
+              <Link
+                key={session.id}
+                to={`/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`}
+                aria-current={
+                  session.id === focusedSessionId ? "step" : undefined
+                }
+              >
+                <span>
+                  <strong>{session.name}</strong>
+                  <small>
+                    Semana {session.weekNumber} · Día {session.dayNumber} ·{" "}
+                    {session.date
+                      ? readableDate(session.date, false)
+                      : "Sin fecha"}
+                  </small>
+                </span>
+                <span
+                  className={`training-status training-status--${session.status}`}
+                >
+                  {trainingLabels[session.status]}
+                  <small>
+                    {session.recordedSets}/{session.totalSets} series
+                  </small>
+                </span>
+              </Link>
+            ))}
+          </div>
+          {visibleSessions.length === 0 && (
+            <p className="muted training-week__empty">
+              Esta semana no tiene sesiones programadas.
+            </p>
+          )}
+        </section>
+      )}
+      {currentWeek == null && sessions.length === 0 && (
+        <p>Este ciclo no tiene sesiones. Contacta con tu coach.</p>
+      )}
+      {currentWeek == null && sessions.length > 0 && (
+        <p className="muted">Este ciclo aún no tiene una semana activa.</p>
+      )}
+    </article>
+  );
+}
+
 export function StudentHomePage({ training = false }: { training?: boolean }) {
   const query = useTraining();
   if (query.isLoading) return <Skeleton label="Cargando tu entrenamiento…" />;
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
   if (!query.data) return null;
   const data = query.data;
-  const focus = data.nextSession ?? data.pendingSession;
+  const focus = data.nextSession;
+  const todaySession = data.sessions.find(
+    (session) => session.date === data.today && !session.finished,
+  );
+  const homeFocus = todaySession ?? data.nextSession;
   const muscles = MUSCLE_GROUPS.filter((g) =>
     focus?.muscleGroups.some(
       (k) =>
@@ -36,6 +276,19 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           title="Tu próximo ciclo empieza aquí"
           description="Cuando tu coach te asigne un bloque, encontrarás tus sesiones y podrás registrar cada serie aquí."
         />
+      )}
+      {!training && homeFocus && (
+        <TrainingSummaryCard session={homeFocus} today={data.today} />
+      )}
+      {!training && data.pendingSession && (
+        <ExpiredSessionNotice session={data.pendingSession} />
+      )}
+      {!training && !homeFocus && !!data.assignments.length && (
+        <article className="training-today-empty">
+          <p className="eyebrow">Tu entrenamiento</p>
+          <h2>No hay entrenamiento programado para hoy</h2>
+          <p>Revisa tu calendario para consultar las próximas sesiones.</p>
+        </article>
       )}
       {training && focus ? (
         <article className="training-hero">
@@ -96,66 +349,24 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           )}
         </section>
       )}
-      {training && data.pendingSession && data.nextSession && (
-        <p className="training-notice">
-          Tienes una sesión pendiente:{" "}
-          <Link
-            to={`/training/sessions/${data.pendingSession.sessionId}?assignmentId=${data.pendingSession.assignmentId}`}
-          >
-            {data.pendingSession.name}
-          </Link>
-          . Puedes registrarla u omitirla.
-        </p>
+      {training && data.pendingSession && (
+        <ExpiredSessionNotice session={data.pendingSession} />
       )}
       {!training &&
-        data.assignments.map((a) => (
-          <article className="training-cycle" key={a.id}>
-            <p className="eyebrow">Tu ciclo activo</p>
-            <h2>{a.name}</h2>
-            <p>
-              {a.currentWeek
-                ? `Semana ${a.currentWeek.weekNumber} de ${a.weekCount}`
-                : a.startDate
-                  ? `Inicio: ${readableDate(a.startDate, false)}`
-                  : "Sin fecha de inicio"}
-            </p>
-            <progress max={a.totalSessions || 1} value={a.finishedSessions} />
-            <p>
-              {a.finishedSessions} de {a.totalSessions} sesiones finalizadas
-            </p>
-            <div className="training-session-list">
-              {data.sessions
-                .filter((s) => s.assignmentId === a.id)
-                .map((s) => (
-                  <Link
-                    key={s.id}
-                    to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
-                    aria-current={s.id === focus?.id ? "step" : undefined}
-                  >
-                    <span>
-                      <strong>{s.name}</strong>
-                      <small>
-                        Semana {s.weekNumber} · Día {s.dayNumber} ·{" "}
-                        {s.date ? readableDate(s.date, false) : "Sin fecha"}
-                      </small>
-                    </span>
-                    <span
-                      className={`training-status training-status--${s.status}`}
-                    >
-                      {trainingLabels[s.status]}
-                      <small>
-                        {s.recordedSets}/{s.totalSets} series
-                      </small>
-                    </span>
-                  </Link>
-                ))}
-            </div>
-            {!data.sessions.some((s) => s.assignmentId === a.id) && (
-              <p>Este ciclo no tiene sesiones. Contacta con tu coach.</p>
+        data.assignments.map((assignment) => (
+          <ActiveCycle
+            key={`${assignment.id}:${assignment.currentWeek?.weekNumber ?? "none"}`}
+            assignment={assignment}
+            sessions={data.sessions.filter(
+              (session) => session.assignmentId === assignment.id,
             )}
-          </article>
+            focusedSessionId={homeFocus?.id}
+            today={data.today}
+          />
         ))}
-      {!training && <Adherence assignments={data.assignments} />}
+      {!training && (
+        <Adherence assignments={data.assignments} today={data.today} />
+      )}
       <footer className="training-links">
         <Link to="/history">Historial y progreso →</Link>
         <Link to="/messages">Hablar con mi coach →</Link>

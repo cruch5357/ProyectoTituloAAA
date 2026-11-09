@@ -82,6 +82,7 @@ export interface WorkoutLog {
   prescriptions?: WorkoutPrescription[];
   id: string;
   sessionId: string;
+  programAssignmentId?: string | null;
   studentId: string;
   performedAt: string;
   completionStatus: WorkoutCompletionStatus;

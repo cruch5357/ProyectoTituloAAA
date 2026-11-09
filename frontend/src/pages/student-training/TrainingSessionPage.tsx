@@ -39,12 +39,126 @@ export function TrainingSessionPage() {
   if (query.isError) return <ErrorState retry={() => void query.refetch()} />;
   return query.data ? (
     <SessionRecorder
-      key={`${id}:${assignmentId}`}
+      key={`${id}:${assignmentId}:${query.data.workoutLogId ?? "not-started"}`}
       initial={query.data}
       queryAssignmentId={assignmentId}
     />
   ) : null;
 }
+
+function CorrectionRequestForm({ session }: { session: TrainingDetail }) {
+  const [open, setOpen] = useState(
+    () => window.location.hash === "#correction",
+  );
+  const [exerciseId, setExerciseId] = useState(
+    session.exercises[0]?.id ?? "",
+  );
+  const exercise = session.exercises.find((item) => item.id === exerciseId);
+  const [setNumber, setSetNumber] = useState(
+    exercise?.sets[0]?.setNumber ?? 1,
+  );
+  const selectedSet = exercise?.sets.find((set) => set.setNumber === setNumber);
+  const [weight, setWeight] = useState("");
+  const [reps, setReps] = useState("");
+  const [rpe, setRpe] = useState("");
+  const [reason, setReason] = useState("");
+  const request = useMutation({
+    mutationFn: async () =>
+      (
+        await apiClient.post(
+          `/training/sessions/${session.id}/corrections`,
+          {
+            assignmentId: session.assignmentId,
+            sessionExerciseId: exerciseId,
+            setNumber,
+            ...(weight !== "" ? { weight: Number(weight) } : {}),
+            ...(reps !== "" ? { reps: Number(reps) } : {}),
+            ...(rpe !== "" ? { rpe: Number(rpe) } : {}),
+            ...(reason.trim() ? { reason: reason.trim() } : {}),
+          },
+        )
+      ).data,
+  });
+  if (!session.canRequestCorrection || !session.exercises.length) return null;
+  if (request.isSuccess)
+    return (
+      <p className="training-notice" role="status">
+        Tu solicitud fue enviada al coach. Los datos no cambiarán hasta que
+        sea aprobada.
+      </p>
+    );
+  return (
+    <section id="correction" className="training-correction">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)}>
+          Solicitar corrección al coach
+        </button>
+      ) : (
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            request.mutate();
+          }}
+        >
+          <h2>Solicitar corrección al coach</h2>
+          <p>
+            Este entrenamiento está cerrado. La solicitud no cambiará los
+            datos hasta que tu coach la apruebe.
+          </p>
+          <label className="field">
+            Ejercicio
+            <select
+              value={exerciseId}
+              onChange={(event) => {
+                const next = session.exercises.find(
+                  (item) => item.id === event.target.value,
+                );
+                setExerciseId(event.target.value);
+                setSetNumber(next?.sets[0]?.setNumber ?? 1);
+              }}
+            >
+              {session.exercises.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            Serie prescrita
+            <select
+              value={setNumber}
+              onChange={(event) => setSetNumber(Number(event.target.value))}
+            >
+              {exercise?.sets.map((set) => (
+                <option key={set.setNumber} value={set.setNumber}>
+                  Serie {set.setNumber} de {exercise.sets.length}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="muted">
+            Registro original: {selectedSet?.status === "RECORDED"
+              ? `${selectedSet.actual.weight ?? "—"} kg · ${selectedSet.actual.reps ?? "—"} repeticiones · RPE ${selectedSet.actual.rpe ?? "—"}`
+              : "Sin datos"}
+          </p>
+          <div className="performed-set-fields">
+            <label>Peso (kg)<input aria-label="Peso corregido" type="number" min="0" max="9999.99" step="0.01" value={weight} onChange={(event) => setWeight(event.target.value)} /></label>
+            <label>Repeticiones<input aria-label="Repeticiones corregidas" type="number" min="0" max="10000" step="1" value={reps} onChange={(event) => setReps(event.target.value)} /></label>
+            <label>RPE<input aria-label="RPE corregido" type="number" min="0" max="10" step="0.1" value={rpe} onChange={(event) => setRpe(event.target.value)} /></label>
+          </div>
+          <label className="field">Motivo opcional<textarea maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} /></label>
+          <div className="dialog-actions">
+            <button disabled={request.isPending || (!weight && !reps && !rpe)}>
+              {request.isPending ? "Enviando…" : "Enviar solicitud"}
+            </button>
+            <button type="button" className="button--neutral" onClick={() => setOpen(false)}>Cancelar</button>
+          </div>
+          {request.isError && <ErrorState message={request.error.message} />}
+        </form>
+      )}
+    </section>
+  );
+}
+
 function SessionRecorder({
   initial,
   queryAssignmentId,
@@ -93,6 +207,22 @@ function SessionRecorder({
   );
   const [confirm, setConfirm] = useState<"finish" | "skip" | null>(null);
   const cache = useQueryClient();
+  const start = useMutation({
+    mutationFn: async () =>
+      (
+        await apiClient.post<TrainingDetail>(
+          `/training/sessions/${initial.id}/start`,
+          { assignmentId: initial.assignmentId },
+        )
+      ).data,
+    onSuccess: (data) => {
+      cache.setQueryData(
+        ["training-session", data.id, queryAssignmentId],
+        data,
+      );
+      void cache.invalidateQueries({ queryKey: ["training"] });
+    },
+  });
   function persist(value: TrainingDetail, minutes = duration) {
     if (initial.readOnly) return;
     try {
@@ -233,6 +363,20 @@ function SessionRecorder({
           )}
         </p>
       )}
+      {initial.canStartEarly && (
+        <div className="training-notice">
+          <p>
+            Esta es tu siguiente sesión elegible. Puedes adelantarla; quedará
+            registrada con la fecha real de inicio y será tu único
+            entrenamiento activo.
+          </p>
+          <button type="button" disabled={start.isPending} onClick={() => start.mutate()}>
+            {start.isPending ? "Iniciando…" : "Iniciar anticipadamente"}
+          </button>
+          {start.isError && <ErrorState message={start.error.message} />}
+        </div>
+      )}
+      <CorrectionRequestForm session={initial} />
       {!initial.readOnly && (
         <p className="muted">
           Anota cada serie al terminarla. Si escribes los valores y pasas a
@@ -629,7 +773,7 @@ function SessionRecorder({
           <p>
             {confirm === "skip"
               ? "Todas las series de esta sesión quedarán omitidas, incluidos los valores registrados."
-              : `${done + filledPending} series registradas${filledPending ? ` (incluye ${filledPending} con datos escritos sin anotar)` : ""}. ${pending - filledPending === 0 ? "No quedan series pendientes." : `Las ${pending - filledPending} pendientes sin datos quedarán omitidas.`} Después podrás corregir tu registro mientras el ciclo siga activo.`}
+              : `${done + filledPending} series registradas${filledPending ? ` (incluye ${filledPending} con datos escritos sin anotar)` : ""}. ${pending - filledPending === 0 ? "No quedan series pendientes." : `Las ${pending - filledPending} pendientes sin datos quedarán omitidas.`} Después quedará cerrado; cualquier cambio requerirá aprobación de tu coach.`}
           </p>
           <div className="dialog-actions">
             <button

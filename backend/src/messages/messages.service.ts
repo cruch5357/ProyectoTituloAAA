@@ -18,6 +18,26 @@ const attachments = {
     sizeBytes: true,
   },
 };
+const correctionRequest = {
+  select: {
+    id: true,
+    status: true,
+    sessionName: true,
+    exerciseName: true,
+    scheduledDate: true,
+    setNumber: true,
+    originalStatus: true,
+    originalLoad: true,
+    originalReps: true,
+    originalRpe: true,
+    proposedLoad: true,
+    proposedReps: true,
+    proposedRpe: true,
+    proposedFields: true,
+    reason: true,
+    reviewedAt: true,
+  },
+};
 
 @Injectable()
 export class MessagesService {
@@ -53,7 +73,7 @@ export class MessagesService {
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: 30,
       skip: (page - 1) * 30,
-      include: { attachments },
+      include: { attachments, correctionRequest },
     });
   }
   async send(

@@ -4,6 +4,7 @@ import { TrainingService } from './training.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import { SaveTrainingDto } from './block-assignment.dto';
+import { dateOnly, todayDate } from '../common/training/calendar-date';
 
 const user = { id: 'student', role: Role.STUDENT } as AuthenticatedUser;
 const session = {
@@ -35,28 +36,62 @@ const session = {
   ],
 };
 function setup() {
+  const today = todayDate();
+  const weekday = new Date(`${today}T12:00:00Z`).getUTCDay() || 7;
+  const assignment = {
+    id: 'a',
+    studentId: 'student',
+    status: 'ACTIVE',
+    snapshotBlockId: 'b',
+    startDate: dateOnly(today),
+    scheduleOverrides: [],
+    program: {
+      coachId: 'coach',
+      blocks: [{ weeks: [{ sessions: [{ id: 's', dayOfWeek: weekday }] }] }],
+    },
+  };
+  const existingLog = {
+    id: 'log',
+    revision: 3,
+    structuredExecution: true,
+    durationMinutes: null,
+    setLogs: [],
+  };
   const tx = {
     $queryRaw: jest.fn().mockResolvedValue([]),
+    $executeRaw: jest.fn().mockResolvedValue(1),
     session: { findUnique: jest.fn().mockResolvedValue(session) },
     programAssignment: {
-      findFirst: jest.fn().mockResolvedValue({
-        id: 'a',
-        studentId: 'student',
-        status: 'ACTIVE',
-        snapshotBlockId: 'b',
-      }),
+      findFirst: jest.fn().mockResolvedValue(assignment),
     },
     workoutLog: {
-      findFirst: jest.fn().mockResolvedValue({
-        id: 'log',
-        revision: 3,
-        structuredExecution: true,
-        durationMinutes: null,
-      }),
+      findFirst: jest
+        .fn()
+        .mockImplementation((args) =>
+          args?.where?.NOT
+            ? Promise.resolve(null)
+            : Promise.resolve(existingLog),
+        ),
+      findMany: jest.fn().mockResolvedValue([]),
       update: jest.fn().mockResolvedValue({ id: 'log' }),
       create: jest.fn().mockResolvedValue({ id: 'log' }),
     },
-    setLog: { deleteMany: jest.fn(), upsert: jest.fn() },
+    setLog: {
+      deleteMany: jest.fn(),
+      upsert: jest.fn(),
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ sessionExerciseId: 'e', setNumber: 1 }]),
+    },
+    workoutCorrectionRequest: {
+      findFirst: jest.fn().mockResolvedValue(null),
+      create: jest.fn().mockResolvedValue({ id: 'correction' }),
+      findUnique: jest.fn(),
+      update: jest.fn().mockResolvedValue({ id: 'correction' }),
+    },
+    message: { create: jest.fn().mockResolvedValue({ id: 'message' }) },
+    notification: { create: jest.fn() },
+    auditLog: { create: jest.fn() },
   };
   const prisma = {
     ...tx,
@@ -67,7 +102,7 @@ function setup() {
       ),
   };
   const service = new TrainingService(prisma as unknown as PrismaService);
-  return { tx, service };
+  return { tx, service, assignment };
 }
 const dto: SaveTrainingDto = {
   assignmentId: 'a',
@@ -134,12 +169,10 @@ describe('TrainingService: registro seguro', () => {
     expect(tx.workoutLog.update).not.toHaveBeenCalled();
   });
   it('no acepta un ciclo ajeno', async () => {
-    const { tx, service } = setup();
+    const { tx, service, assignment } = setup();
     tx.programAssignment.findFirst.mockResolvedValue({
-      id: 'a',
+      ...assignment,
       studentId: 'other',
-      status: 'ACTIVE',
-      snapshotBlockId: 'b',
     });
     await expect(service.save(user, 's', dto)).rejects.toThrow(
       NotFoundException,
@@ -152,6 +185,67 @@ describe('TrainingService: registro seguro', () => {
     await expect(
       service.save(user, 's', { ...dto, revision: 0, sets: [] }),
     ).rejects.toThrow('Registra u omite');
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('rechaza por API la edición de una sesión vencida', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    await expect(service.save(user, 's', dto)).rejects.toThrow(
+      'Este entrenamiento ya está cerrado',
+    );
+    expect(tx.workoutLog.update).not.toHaveBeenCalled();
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('rechaza cambios ordinarios después de finalizar, incluso el mismo día', async () => {
+    const { tx, service } = setup();
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      revision: 3,
+      structuredExecution: true,
+      durationMinutes: 30,
+    });
+    await expect(service.save(user, 's', dto)).rejects.toThrow(
+      'solo puede cambiar mediante una corrección autorizada',
+    );
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('guarda la omisión del aviso vencido sin alterar series ni crear logs', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    await expect(service.dismissExpired(user, 's', 'a')).resolves.toEqual({
+      dismissed: true,
+    });
+    expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+    expect(tx.workoutLog.update).not.toHaveBeenCalled();
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+  });
+  it('permite iniciar explícitamente la siguiente sesión futura elegible', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2099-01-05T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue(null);
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+    await service.start(user, 's', 'a');
+    expect(tx.workoutLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          studentId: user.id,
+          sessionId: 's',
+          durationMinutes: null,
+          structuredExecution: true,
+        }),
+      }),
+    );
+  });
+  it('no permite iniciar otra sesión cuando existe un entrenamiento activo', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2099-01-05T00:00:00Z');
+    tx.workoutLog.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ id: 'other-open' });
+    await expect(service.start(user, 's', 'a')).rejects.toThrow(
+      'entrenamiento activo',
+    );
     expect(tx.workoutLog.create).not.toHaveBeenCalled();
   });
   it.each(['Nota congelada', null])(
@@ -172,4 +266,86 @@ describe('TrainingService: registro seguro', () => {
       expect(result.exercises[0].sets[0].status).toBe('PENDING');
     },
   );
+  it('crea una solicitud cerrada sin modificar el registro real', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2020-01-06T00:00:00Z');
+    await service.requestCorrection(user, 's', {
+      assignmentId: 'a',
+      sessionExerciseId: 'e',
+      setNumber: 1,
+      weight: 60,
+      reps: 10,
+      reason: 'Olvidé anotarla',
+    });
+    expect(tx.workoutCorrectionRequest.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        proposedLoad: 60,
+        proposedReps: 10,
+        proposedFields: ['weight', 'reps'],
+      }),
+    });
+    expect(tx.setLog.upsert).not.toHaveBeenCalled();
+    expect(tx.workoutLog.update).not.toHaveBeenCalled();
+  });
+  it('aplica una aprobación una sola vez y registra auditoría', async () => {
+    const { tx, service, assignment } = setup();
+    const request = {
+      id: 'correction',
+      status: 'PENDING',
+      coachId: 'coach',
+      studentId: 'student',
+      programAssignmentId: assignment.id,
+      workoutLogId: 'log',
+      sessionId: 's',
+      sessionExerciseId: 'e',
+      setNumber: 1,
+      sessionName: 'Día',
+      originalLoad: null,
+      originalReps: null,
+      originalRpe: null,
+      proposedLoad: 60,
+      proposedReps: 10,
+      proposedRpe: null,
+      proposedFields: ['weight', 'reps'],
+      session,
+      workoutLog: {
+        id: 'log',
+        revision: 3,
+        structuredExecution: true,
+        durationMinutes: 0,
+        setLogs: [],
+      },
+    };
+    tx.workoutCorrectionRequest.findUnique.mockResolvedValue(request);
+    await service.decideCorrection(
+      { id: 'coach', role: Role.COACH } as AuthenticatedUser,
+      'correction',
+      'APPROVE',
+    );
+    expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.workoutCorrectionRequest.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'APPROVED' }),
+      }),
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          action: 'WORKOUT_CORRECTION_APPROVED',
+        }),
+      }),
+    );
+    tx.workoutCorrectionRequest.findUnique.mockResolvedValue({
+      ...request,
+      status: 'APPROVED',
+    });
+    await expect(
+      service.decideCorrection(
+        { id: 'coach', role: Role.COACH } as AuthenticatedUser,
+        'correction',
+        'APPROVE',
+      ),
+    ).rejects.toThrow('ya fue procesada');
+    expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
+  });
 });
