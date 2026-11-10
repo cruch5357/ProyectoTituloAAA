@@ -44,6 +44,7 @@ describe("WeeklyTrainingPlanner", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Descansa al menos un día",
     );
+    expect(screen.getByText(/máximo un entrenamiento por día/i)).toBeVisible();
   });
 
   it("applies the spaced recommendation and saves it", async () => {

@@ -409,6 +409,43 @@ describe('TrainingService: registro seguro', () => {
     );
     expect(tx.workoutLog.create).not.toHaveBeenCalled();
   });
+  it('no permite iniciar un segundo entrenamiento el mismo día', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.program.blocks[0].weeks[0].sessions.push({
+      id: 'other',
+      dayOfWeek: 2,
+    });
+    tx.workoutLog.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'finished-today',
+        performedAt: new Date('2026-11-09T12:00:00.000Z'),
+      });
+
+    await expect(service.start(user, 's', 'a')).rejects.toThrow(
+      'un entrenamiento por día',
+    );
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('permite el siguiente entrenamiento en un día posterior', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.program.blocks[0].weeks[0].sessions.push({
+      id: 'other',
+      dayOfWeek: 2,
+    });
+    tx.workoutLog.findFirst
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({
+        id: 'finished-yesterday',
+        performedAt: new Date('2026-11-08T12:00:00.000Z'),
+      });
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await expect(service.start(user, 's', 'a')).resolves.toEqual({});
+    expect(tx.workoutLog.create).toHaveBeenCalledTimes(1);
+  });
   it('rechaza por API una sesión de la semana siguiente', async () => {
     const { tx, service, assignment } = setup();
     assignment.program.blocks[0].weeks = [

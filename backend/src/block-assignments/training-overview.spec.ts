@@ -209,6 +209,38 @@ describe('Training overview: adherencia e historia por ciclo', () => {
     });
     expect(result.assignments[0].adherence.actionableSessions).toBe(1);
   });
+  it('bloquea las demás sesiones después de entrenar ese día', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    const first = current.program.blocks[0].weeks[0].sessions[0];
+    current.program.blocks[0].weeks[0].sessions.push({
+      ...first,
+      id: 'session-2',
+      name: 'Sesión 2',
+      order: 2,
+    });
+    const completedToday = {
+      ...log('current', 45, 'COMPLETED', 3),
+      structuredExecution: true,
+      finishedAt: new Date('2026-11-09T16:00:00.000Z'),
+      performedAt: new Date('2026-11-09T15:00:00.000Z'),
+    };
+
+    const result = await setup([completedToday], [current]).service.overview(
+      student,
+      student.id,
+    );
+
+    expect(
+      result.sessions.find((session) => session.sessionId === 'session-2'),
+    ).toMatchObject({
+      availability: 'BLOCKED',
+      canStart: false,
+      startBlockedReason: expect.stringContaining('entrenamiento hoy'),
+    });
+    expect(result.nextSession).toBeNull();
+    expect(result.assignments[0].adherence.actionableSessions).toBe(0);
+  });
   it.each(['COMPLETED', 'PARTIAL', 'SKIPPED'] as const)(
     'cuenta una sesión finalizada %s sin recalcular su estado histórico contra la plantilla',
     async (status) => {

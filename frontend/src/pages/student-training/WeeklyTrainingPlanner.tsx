@@ -92,7 +92,7 @@ export function WeeklyTrainingPlanner({ plan }: { plan: TrainingWeekPlan }) {
       <h2 id="weekly-plan-title">Organiza tus días</h2>
       <p>
         Elige cuándo entrenar según tu tiempo libre. Esto no fija el orden de
-        las sesiones ni bloquea los otros días.
+        las sesiones. Puedes realizar como máximo un entrenamiento por día.
       </p>
       <div className="training-week-plan__days">
         {weekDates(plan.availableFrom, plan.weekEnd).map((date) => (

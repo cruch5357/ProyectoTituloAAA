@@ -320,19 +320,35 @@ export class TrainingService {
         .filter((session) => session.availability === 'IN_PROGRESS')
         .map((session) => session.assignmentId),
     );
-    const sessions = baseSessions.map((session) =>
-      assignmentsWithOpenWorkout.has(session.assignmentId) &&
-      session.availability === 'AVAILABLE'
-        ? {
-            ...session,
-            availability: 'BLOCKED' as const,
-            canStart: false,
-            startBlockedReason:
-              'Finaliza u omite el entrenamiento activo antes de iniciar otro.',
-            readOnly: true,
-          }
-        : session,
+    const assignmentsTrainedToday = new Set(
+      baseSessions
+        .filter(
+          (session) =>
+            session.actualDate === today &&
+            session.status !== 'SKIPPED' &&
+            (session.finished || session.availability === 'IN_PROGRESS'),
+        )
+        .map((session) => session.assignmentId),
     );
+    const sessions = baseSessions.map((session) => {
+      if (session.availability !== 'AVAILABLE') return session;
+      const hasOpenWorkout = assignmentsWithOpenWorkout.has(
+        session.assignmentId,
+      );
+      const alreadyTrainedToday = assignmentsTrainedToday.has(
+        session.assignmentId,
+      );
+      if (!hasOpenWorkout && !alreadyTrainedToday) return session;
+      return {
+        ...session,
+        availability: 'BLOCKED' as const,
+        canStart: false,
+        startBlockedReason: hasOpenWorkout
+          ? 'Finaliza u omite el entrenamiento activo antes de iniciar otro.'
+          : 'Ya registraste un entrenamiento hoy. Descansa y continúa otro día.',
+        readOnly: true,
+      };
+    });
     const active = sessions.filter((s) => s.cycleStatus === 'ACTIVE');
     const nextSession =
       active.find((s) => s.availability === 'IN_PROGRESS') ??
@@ -710,6 +726,36 @@ export class TrainingService {
       select: { id: true },
     });
   }
+  private async otherWorkoutToday(
+    tx: Prisma.TransactionClient,
+    assignment: AssignmentSchedule,
+    sessionId: string,
+    today: string,
+  ) {
+    const activeSessionIds = this.schedule(assignment)
+      .filter(
+        (item) =>
+          item.availableFrom &&
+          item.weekEnd &&
+          item.availableFrom <= today &&
+          item.weekEnd >= today &&
+          item.sessionId !== sessionId,
+      )
+      .map((item) => item.sessionId);
+    if (!activeSessionIds.length) return null;
+    const latest = await tx.workoutLog.findFirst({
+      where: {
+        studentId: assignment.studentId,
+        programAssignmentId: assignment.id,
+        sessionId: { in: activeSessionIds },
+        structuredExecution: true,
+        completionStatus: { not: 'SKIPPED' },
+      },
+      orderBy: { performedAt: 'desc' },
+      select: { id: true, performedAt: true },
+    });
+    return latest && todayDate(latest.performedAt) === today ? latest : null;
+  }
   async detail(user: AuthenticatedUser, id: string, assignmentId?: string) {
     const { session, assignment } = await this.sessionContext(
       this.prisma,
@@ -805,7 +851,11 @@ export class TrainingService {
     const otherOpen = otherwiseStartable
       ? await this.otherActiveWorkout(this.prisma, assignment, id, today)
       : null;
-    const canStart = otherwiseStartable && !otherOpen;
+    const otherToday =
+      otherwiseStartable && !otherOpen
+        ? await this.otherWorkoutToday(this.prisma, assignment, id, today)
+        : null;
+    const canStart = otherwiseStartable && !otherOpen && !otherToday;
     const availability = finished
       ? ('COMPLETED' as const)
       : assignment.status !== 'ACTIVE'
@@ -818,7 +868,7 @@ export class TrainingService {
               ? ('UNSCHEDULED' as const)
               : log
                 ? ('IN_PROGRESS' as const)
-                : otherOpen
+                : otherOpen || otherToday
                   ? ('BLOCKED' as const)
                   : ('AVAILABLE' as const);
     const startBlockedReason =
@@ -827,7 +877,9 @@ export class TrainingService {
         : availability === 'EXPIRED'
           ? 'La semana de esta sesión ya terminó.'
           : availability === 'BLOCKED'
-            ? 'Finaliza u omite el entrenamiento activo antes de iniciar otro.'
+            ? otherOpen
+              ? 'Finaliza u omite el entrenamiento activo antes de iniciar otro.'
+              : 'Ya registraste un entrenamiento hoy. Descansa y continúa otro día.'
             : availability === 'HISTORICAL'
               ? 'Este ciclo está cerrado.'
               : availability === 'COMPLETED'
@@ -916,6 +968,16 @@ export class TrainingService {
       if (otherOpen)
         throw new ConflictException(
           'Finaliza u omite el entrenamiento activo antes de iniciar otro',
+        );
+      const otherToday = await this.otherWorkoutToday(
+        tx,
+        assignment,
+        id,
+        today,
+      );
+      if (otherToday)
+        throw new ConflictException(
+          'Solo puedes realizar un entrenamiento por día. Continúa otro día.',
         );
       if (!existing)
         await tx.workoutLog.create({
