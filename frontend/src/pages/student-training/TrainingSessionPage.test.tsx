@@ -25,9 +25,16 @@ const initial: TrainingDetail = {
   revision: 0,
   finished: false,
   scheduledDate: "2026-10-21",
+  suggestedDate: "2026-10-21",
+  weekStart: "2026-10-19",
+  availableFrom: "2026-10-19",
+  weekEnd: "2026-10-25",
   actualDate: null,
   canRequestCorrection: false,
   canStartEarly: false,
+  canStart: false,
+  availability: "IN_PROGRESS",
+  startBlockedReason: null,
   status: "NOT_STARTED",
   readOnly: false,
   cycleStatus: "ACTIVE",
@@ -162,6 +169,66 @@ const sentSets = (patch: ReturnType<typeof mockSave>) =>
   (patch.mock.calls.at(-1)![1] as { sets: Record<string, unknown>[] }).sets;
 
 describe("Ejecución compacta y registro seguro", () => {
+  it("inicia una sesión disponible de la semana y habilita el registro", async () => {
+    const available: TrainingDetail = {
+      ...initial,
+      readOnly: true,
+      canStart: true,
+      availability: "AVAILABLE",
+      workoutLogId: null,
+    };
+    const started: TrainingDetail = {
+      ...available,
+      readOnly: false,
+      canStart: false,
+      availability: "IN_PROGRESS",
+      workoutLogId: "log",
+      actualDate: "2026-10-21",
+    };
+    const post = vi.spyOn(apiClient, "post").mockResolvedValue({
+      data: started,
+      error: null,
+      meta: {},
+    });
+    setup(available);
+
+    expect(
+      await screen.findByRole("button", { name: "Iniciar entrenamiento" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/registro es de solo lectura/i),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Iniciar entrenamiento" }),
+    );
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("/training/sessions/s/start", {
+        assignmentId: "a",
+      }),
+    );
+    expect(
+      await screen.findByRole("button", { name: "Finalizar sesión" }),
+    ).toBeInTheDocument();
+  });
+
+  it("explica el bloqueo de una semana futura sin habilitar el inicio", async () => {
+    setup({
+      ...initial,
+      readOnly: true,
+      canStart: false,
+      availability: "FUTURE",
+      startBlockedReason:
+        "Esta sesión se habilitará cuando comience su semana.",
+    });
+    expect(
+      await screen.findByText(/se habilitará cuando comience su semana/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Iniciar entrenamiento" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("inicia contraído, permite solo un ejercicio abierto y puede contraer todos", async () => {
     const patch = mockSave();
     setup();
@@ -381,10 +448,7 @@ describe("Ejecución compacta y registro seguro", () => {
     );
   });
   it("el Coach puede consultar acordeones sin acciones de escritura", async () => {
-    setup(
-      { ...initial, readOnly: true, canRequestCorrection: true },
-      "COACH",
-    );
+    setup({ ...initial, readOnly: true, canRequestCorrection: true }, "COACH");
     const remo = await screen.findByRole("button", { name: /Remo.*series/ });
     expect(remo).toHaveAttribute("aria-expanded", "false");
     await openSet(1, "Remo");

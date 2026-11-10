@@ -68,6 +68,7 @@ function setup(logs: ReturnType<typeof log>[], assignments = [assignment()]) {
     $queryRaw: jest.fn().mockResolvedValue([]),
     user: { findFirst: jest.fn().mockResolvedValue({ id: student.id }) },
     programAssignment: { findMany: jest.fn().mockResolvedValue(assignments) },
+    trainingWeekPlan: { findMany: jest.fn().mockResolvedValue([]) },
     workoutLog: { findMany: jest.fn().mockResolvedValue(logs) },
   };
   return {
@@ -77,6 +78,11 @@ function setup(logs: ReturnType<typeof log>[], assignments = [assignment()]) {
 }
 
 describe('Training overview: adherencia e historia por ciclo', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  afterAll(() => jest.useRealTimers());
   it('deriva una sesión vencida sin registros como omitida, sin crear logs', async () => {
     const { service, prisma } = setup([]);
     const result = await service.overview(student, student.id);
@@ -92,7 +98,7 @@ describe('Training overview: adherencia e historia por ciclo', () => {
       skippedSessions: 1,
       expiredPartialSessions: 0,
     });
-    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(1);
+    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(2);
   });
   it('conserva como parcial una sesión vencida con series reales', async () => {
     const { service } = setup([log('current', null, 'PARTIAL', 1)]);
@@ -127,13 +133,81 @@ describe('Training overview: adherencia e historia por ciclo', () => {
     const result = await service.overview(student, student.id);
     expect(result.sessions[0]).toMatchObject({
       status: 'NOT_STARTED',
-      readOnly: false,
+      readOnly: true,
+      availability: 'FUTURE',
+      canStart: false,
     });
     expect(result.assignments[0].adherence).toMatchObject({
       skippedSessions: 0,
       expiredPartialSessions: 0,
+      actionableSessions: 0,
+    });
+  });
+  it('mantiene disponible toda la semana aunque la sugerencia sea posterior o anterior', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    current.program.blocks[0].weeks[0].sessions[0].dayOfWeek = 3;
+    const monday = await setup([], [current]).service.overview(
+      student,
+      student.id,
+    );
+    expect(monday.sessions[0]).toMatchObject({
+      suggestedDate: '2026-11-11',
+      availability: 'AVAILABLE',
+      canStart: true,
+      status: 'NOT_STARTED',
+    });
+    expect(monday.assignments[0].adherence).toMatchObject({
+      scheduledSessions: 0,
+      skippedSessions: 0,
       actionableSessions: 1,
     });
+
+    jest.setSystemTime(new Date('2026-11-13T15:00:00.000Z'));
+    const friday = await setup([], [current]).service.overview(
+      student,
+      student.id,
+    );
+    expect(friday.sessions[0]).toMatchObject({
+      availability: 'AVAILABLE',
+      canStart: true,
+      status: 'NOT_STARTED',
+    });
+    jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  it('prioriza la ejecución abierta y no anuncia otra sesión como iniciable', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    const first = current.program.blocks[0].weeks[0].sessions[0];
+    current.program.blocks[0].weeks[0].sessions.push({
+      ...first,
+      id: 'session-2',
+      name: 'Sesión 2',
+      order: 2,
+    });
+    const open = {
+      ...log('current', null, 'PARTIAL', 1),
+      structuredExecution: true,
+      finishedAt: null,
+      performedAt: new Date('2026-11-09T15:00:00.000Z'),
+    };
+    const { service } = setup([open], [current]);
+
+    const result = await service.overview(student, student.id);
+
+    expect(result.nextSession).toMatchObject({
+      sessionId: 'session',
+      availability: 'IN_PROGRESS',
+      canStart: false,
+    });
+    expect(
+      result.sessions.find((session) => session.sessionId === 'session-2'),
+    ).toMatchObject({
+      availability: 'BLOCKED',
+      canStart: false,
+      startBlockedReason: expect.stringContaining('entrenamiento activo'),
+    });
+    expect(result.assignments[0].adherence.actionableSessions).toBe(1);
   });
   it.each(['COMPLETED', 'PARTIAL', 'SKIPPED'] as const)(
     'cuenta una sesión finalizada %s sin recalcular su estado histórico contra la plantilla',

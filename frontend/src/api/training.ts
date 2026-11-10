@@ -3,6 +3,15 @@ import { apiClient } from "../lib/apiClient";
 import type { CalendarSession } from "./coaching";
 export type TrainingStatus =
   "NOT_STARTED" | "PARTIAL" | "COMPLETED" | "SKIPPED";
+export type TrainingAvailability =
+  | "AVAILABLE"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "EXPIRED"
+  | "FUTURE"
+  | "BLOCKED"
+  | "HISTORICAL"
+  | "UNSCHEDULED";
 export const trainingLabels: Record<TrainingStatus, string> = {
   NOT_STARTED: "Pendiente",
   PARTIAL: "Parcial",
@@ -21,6 +30,14 @@ export interface TrainingSessionSummary extends CalendarSession {
   legacy: boolean;
   readOnly?: boolean;
   canRequestCorrection?: boolean;
+  suggestedDate: string | null;
+  actualDate: string | null;
+  weekStart: string | null;
+  availableFrom: string | null;
+  weekEnd: string | null;
+  availability: TrainingAvailability;
+  canStart: boolean;
+  startBlockedReason?: string | null;
 }
 export interface TrainingAssignment {
   id: string;
@@ -32,7 +49,14 @@ export interface TrainingAssignment {
   status: "ACTIVE" | "FINISHED";
   legacy: boolean;
   weekCount: number;
-  currentWeek: { blockName: string; weekNumber: number } | null;
+  currentWeek: {
+    blockName: string;
+    weekNumber: number;
+    weekStart: string;
+    availableFrom: string;
+    weekEnd: string;
+    prescribedSessions?: number;
+  } | null;
   finishedSessions: number;
   totalSessions: number;
   adherence: {
@@ -46,12 +70,37 @@ export interface TrainingAssignment {
     actionableSessions?: number;
   };
 }
+export type TrainingWeekPlanLevel =
+  "UNPLANNED" | "BALANCED" | "CAUTION" | "HIGH";
+export interface TrainingWeekPlan {
+  assignmentId: string;
+  weekIndex: number;
+  weekStart: string;
+  availableFrom: string;
+  weekEnd: string;
+  prescribedSessions: number;
+  trainingDates: string[];
+  revision: number;
+  recommendedDates: string[];
+  assessment: {
+    level: TrainingWeekPlanLevel;
+    code: string;
+    message: string;
+    plannedSessions: number;
+    prescribedSessions: number;
+    missingSessions: number;
+    maxConsecutiveDays: number;
+    restDays: number;
+    historicalAverageRestDays: number | null;
+  };
+}
 export interface TrainingOverview {
   today: string;
   assignments: TrainingAssignment[];
   sessions: TrainingSessionSummary[];
   nextSession: TrainingSessionSummary | null;
   pendingSession: TrainingSessionSummary | null;
+  weekPlan?: TrainingWeekPlan | null;
 }
 export interface ActualSet {
   weight: number | null;
@@ -91,11 +140,18 @@ export interface TrainingDetail {
   finishedAt: string | null;
   finished: boolean;
   scheduledDate: string | null;
+  suggestedDate: string | null;
+  weekStart: string | null;
+  availableFrom: string | null;
+  weekEnd: string | null;
   actualDate: string | null;
   status: TrainingStatus;
   readOnly: boolean;
   canRequestCorrection: boolean;
   canStartEarly: boolean;
+  canStart: boolean;
+  availability: TrainingAvailability;
+  startBlockedReason: string | null;
   exercises: TrainingExercise[];
 }
 export const useTraining = (studentId?: string) =>

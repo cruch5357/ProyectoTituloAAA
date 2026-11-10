@@ -9,6 +9,11 @@ export interface Competition {
 }
 export interface CalendarSession {
   id: string; sessionId: string; assignmentId: string; name: string; date: string | null;
+  suggestedDate?: string | null; actualDate?: string | null; weekStart?: string | null;
+  availableFrom?: string | null; weekEnd?: string | null;
+  availability?: 'AVAILABLE' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | 'FUTURE' | 'BLOCKED' | 'HISTORICAL' | 'UNSCHEDULED';
+  canStart?: boolean;
+  finished?: boolean;
   status?: 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'SKIPPED'; rescheduled?: boolean; originalDate?: string | null;
   programName: string; blockId: string; blockName: string; weekNumber: number; blockIndex: number; completed: boolean;
 }

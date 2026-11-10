@@ -121,6 +121,11 @@ const dto: SaveTrainingDto = {
 };
 
 describe('TrainingService: registro seguro', () => {
+  beforeAll(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  afterAll(() => jest.useRealTimers());
   it('actualiza por identidad única y conserva las demás series registradas', async () => {
     const { tx, service } = setup();
     jest.spyOn(service, 'detail').mockResolvedValue({} as never);
@@ -179,12 +184,12 @@ describe('TrainingService: registro seguro', () => {
     );
     expect(tx.workoutLog.update).not.toHaveBeenCalled();
   });
-  it('no crea un registro vacío al guardar sin series', async () => {
+  it('exige inicio explícito y no crea un registro vacío al guardar', async () => {
     const { tx, service } = setup();
     tx.workoutLog.findFirst.mockResolvedValue(null);
     await expect(
       service.save(user, 's', { ...dto, revision: 0, sets: [] }),
-    ).rejects.toThrow('Registra u omite');
+    ).rejects.toThrow('Inicia expresamente');
     expect(tx.workoutLog.create).not.toHaveBeenCalled();
   });
   it('rechaza por API la edición de una sesión vencida', async () => {
@@ -372,9 +377,10 @@ describe('TrainingService: registro seguro', () => {
     });
     expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
   });
-  it('permite iniciar explícitamente la siguiente sesión futura elegible', async () => {
+  it('permite iniciar una sesión sugerida para después dentro de la misma semana', async () => {
     const { tx, service, assignment } = setup();
-    assignment.startDate = new Date('2099-01-05T00:00:00Z');
+    assignment.startDate = new Date('2026-11-09T00:00:00Z');
+    assignment.program.blocks[0].weeks[0].sessions[0].dayOfWeek = 3;
     tx.workoutLog.findFirst.mockResolvedValue(null);
     jest.spyOn(service, 'detail').mockResolvedValue({} as never);
     await service.start(user, 's', 'a');
@@ -391,13 +397,82 @@ describe('TrainingService: registro seguro', () => {
   });
   it('no permite iniciar otra sesión cuando existe un entrenamiento activo', async () => {
     const { tx, service, assignment } = setup();
-    assignment.startDate = new Date('2099-01-05T00:00:00Z');
+    assignment.program.blocks[0].weeks[0].sessions.push({
+      id: 'other',
+      dayOfWeek: 2,
+    });
     tx.workoutLog.findFirst
       .mockResolvedValueOnce(null)
       .mockResolvedValueOnce({ id: 'other-open' });
     await expect(service.start(user, 's', 'a')).rejects.toThrow(
       'entrenamiento activo',
     );
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('rechaza por API una sesión de la semana siguiente', async () => {
+    const { tx, service, assignment } = setup();
+    assignment.program.blocks[0].weeks = [
+      { sessions: [{ id: 'other', dayOfWeek: 1 }] },
+      { sessions: [{ id: 's', dayOfWeek: 1 }] },
+    ];
+    tx.workoutLog.findFirst.mockResolvedValue(null);
+
+    await expect(service.start(user, 's', 'a')).rejects.toThrow(
+      'todavía no está disponible',
+    );
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('continúa y guarda el mismo entrenamiento otro día de la semana', async () => {
+    jest.setSystemTime(new Date('2026-11-12T15:00:00.000Z'));
+    const { tx, service, assignment } = setup();
+    assignment.startDate = new Date('2026-11-09T00:00:00Z');
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      revision: 3,
+      structuredExecution: true,
+      finishedAt: null,
+      durationMinutes: null,
+      performedAt: new Date('2026-11-10T15:00:00.000Z'),
+    });
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', dto);
+
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+    expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
+    jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  it('mantiene el domingo disponible y bloquea la misma sesión el lunes siguiente', async () => {
+    jest.setSystemTime(new Date('2026-11-15T15:00:00.000Z'));
+    const sunday = setup();
+    sunday.assignment.startDate = new Date('2026-11-09T00:00:00Z');
+    sunday.tx.workoutLog.findFirst.mockResolvedValue(null);
+    jest.spyOn(sunday.service, 'detail').mockResolvedValue({} as never);
+    await expect(sunday.service.start(user, 's', 'a')).resolves.toEqual({});
+
+    jest.setSystemTime(new Date('2026-11-16T15:00:00.000Z'));
+    const monday = setup();
+    monday.assignment.startDate = new Date('2026-11-09T00:00:00Z');
+    monday.tx.workoutLog.findFirst.mockResolvedValue(null);
+    await expect(monday.service.start(user, 's', 'a')).rejects.toThrow(
+      'ya está cerrado',
+    );
+    expect(monday.tx.workoutLog.create).not.toHaveBeenCalled();
+    jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  it('trata el inicio repetido de la misma ejecución como idempotente', async () => {
+    const { tx, service } = setup();
+    tx.workoutLog.findFirst.mockResolvedValue({
+      id: 'log',
+      revision: 0,
+      structuredExecution: true,
+      finishedAt: null,
+      durationMinutes: null,
+      performedAt: new Date(),
+    });
+    jest.spyOn(service, 'detail').mockResolvedValue({ id: 's' } as never);
+
+    await expect(service.start(user, 's', 'a')).resolves.toEqual({ id: 's' });
     expect(tx.workoutLog.create).not.toHaveBeenCalled();
   });
   it.each(['Nota congelada', null])(

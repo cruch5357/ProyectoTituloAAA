@@ -26,7 +26,7 @@ const percentage = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 2 });
 export function Adherence({ assignments = [], today = todayDate() }: { assignments: CalendarData['assignments']; today?: string }) {
   return <section aria-label="Adherencia del programa">
     <h2>Adherencia del programa</h2>
-    <p className="muted">Porcentaje de sesiones programadas hasta hoy que fueron finalizadas.</p>
+    <p className="muted">Porcentaje de sesiones de semanas ya cerradas que fueron finalizadas.</p>
     {!assignments.length && <p>Sin programación suficiente</p>}
     <div className="adherence-list">
       {assignments.map((a) => {
@@ -44,9 +44,9 @@ export function Adherence({ assignments = [], today = todayDate() }: { assignmen
                 <li className="adherence-breakdown--success"><span aria-hidden="true" />{a.adherence.fullyCompletedSessions ?? a.adherence.completedSessions} completadas</li>
                 <li className="adherence-breakdown--danger"><span aria-hidden="true" />{a.adherence.skippedSessions ?? 0} omitidas</li>
                 <li className="adherence-breakdown--danger"><span aria-hidden="true" />{a.adherence.expiredPartialSessions ?? 0} parciales vencidas</li>
-                <li className="adherence-breakdown--neutral"><span aria-hidden="true" />{a.adherence.actionableSessions ?? 0} disponibles hoy o futuras</li>
+                <li className="adherence-breakdown--neutral"><span aria-hidden="true" />{a.adherence.actionableSessions ?? 0} disponibles esta semana</li>
               </ul>
-              <p>{a.adherence.completedSessions} de {a.adherence.scheduledSessions} sesiones programadas hasta hoy.</p>
+              <p>{a.adherence.completedSessions} de {a.adherence.scheduledSessions} sesiones de semanas cerradas.</p>
             </>}
         </article>;
       })}

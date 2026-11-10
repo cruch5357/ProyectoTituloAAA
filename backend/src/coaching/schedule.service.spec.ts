@@ -9,6 +9,7 @@ import {
 describe('ScheduleService', () => {
   let tx: any;
   let service: ScheduleService;
+  let notifications: { create: jest.Mock };
   const assignment = {
     id: 'a',
     studentId: 'student',
@@ -38,12 +39,13 @@ describe('ScheduleService', () => {
       },
       auditLog: { create: jest.fn() },
     };
+    notifications = { create: jest.fn() };
     service = new ScheduleService(
       { $transaction: (fn: any) => fn(tx) } as unknown as PrismaService,
-      { create: jest.fn() } as unknown as NotificationsService,
+      notifications as unknown as NotificationsService,
     );
   });
-  it('creates one assignment/session override without modifying template, then preserves originalDate', async () => {
+  it('stores an in-week suggestion, notifies and audits without modifying the template', async () => {
     await expect(
       service.change('coach', 'a', 's', {
         scheduledDate: '2026-10-15',
@@ -57,17 +59,100 @@ describe('ScheduleService', () => {
       programAssignmentId: 'a',
       sessionId: 's',
     });
+    expect(notifications.create).toHaveBeenCalledWith(
+      tx,
+      'student',
+      'SESSION_RESCHEDULED',
+      expect.stringContaining('fecha sugerida el 15 de octubre'),
+      'Session',
+      's',
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: 'coach',
+        action: 'SESSION_RESCHEDULED',
+        entityType: 'ProgramAssignment',
+        entityId: 'a',
+        metadata: { sessionId: 's', scheduledDate: '2026-10-15' },
+      },
+    });
+  });
+  it('preserves originalDate when the suggestion changes inside the same week', async () => {
     tx.sessionScheduleOverride.findUnique.mockResolvedValue({
       originalDate: dateOnly('2026-10-13'),
       scheduledDate: dateOnly('2026-10-15'),
     });
     await service.change('coach', 'a', 's', { scheduledDate: '2026-10-17' });
-    expect(tx.sessionScheduleOverride.upsert.mock.calls[1][0].update).toEqual({
+    expect(tx.sessionScheduleOverride.upsert.mock.calls[0][0].update).toEqual({
       scheduledDate: dateOnly('2026-10-17'),
       reason: null,
     });
   });
-  it('reset deletes override and resolves derived date', async () => {
+  it('allows an optional suggestion when the weekly session has no default day', async () => {
+    const flexible = {
+      ...assignment,
+      program: {
+        blocks: [
+          {
+            weeks: [
+              { sessions: [{ id: 's', name: 'Día libre', dayOfWeek: null }] },
+            ],
+          },
+        ],
+      },
+    };
+    tx.programAssignment.findFirst.mockResolvedValue(flexible);
+    tx.programAssignment.findUniqueOrThrow.mockResolvedValue(flexible);
+
+    await expect(
+      service.change('coach', 'a', 's', { scheduledDate: '2026-10-15' }),
+    ).resolves.toMatchObject({ date: '2026-10-15' });
+    expect(
+      tx.sessionScheduleOverride.upsert.mock.calls[0][0].create.originalDate,
+    ).toEqual(dateOnly('2026-10-15'));
+  });
+  it.each(['2026-10-12', '2026-10-18'])(
+    'accepts the inclusive calendar-week boundary %s',
+    async (scheduledDate) => {
+      await expect(
+        service.change('coach', 'a', 's', { scheduledDate }),
+      ).resolves.toMatchObject({ date: scheduledDate });
+      expect(tx.sessionScheduleOverride.upsert).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each(['2026-10-11', '2026-10-19'])(
+    'rejects suggestion %s outside the prescribed week without side effects',
+    async (scheduledDate) => {
+      await expect(
+        service.change('coach', 'a', 's', { scheduledDate }),
+      ).rejects.toThrow(
+        'La fecha sugerida debe estar entre 2026-10-12 y 2026-10-18',
+      );
+      expect(tx.sessionScheduleOverride.upsert).not.toHaveBeenCalled();
+      expect(tx.sessionScheduleOverride.deleteMany).not.toHaveBeenCalled();
+      expect(notifications.create).not.toHaveBeenCalled();
+      expect(tx.auditLog.create).not.toHaveBeenCalled();
+    },
+  );
+  it('clips the first prescribed week at a mid-week assignment start', async () => {
+    const partialWeek = {
+      ...assignment,
+      startDate: dateOnly('2026-08-26'),
+    };
+    tx.programAssignment.findFirst.mockResolvedValue(partialWeek);
+    tx.programAssignment.findUniqueOrThrow.mockResolvedValue(partialWeek);
+
+    await expect(
+      service.change('coach', 'a', 's', { scheduledDate: '2026-08-25' }),
+    ).rejects.toThrow(
+      'La fecha sugerida debe estar entre 2026-08-26 y 2026-08-30',
+    );
+    await expect(
+      service.change('coach', 'a', 's', { scheduledDate: '2026-08-26' }),
+    ).resolves.toMatchObject({ date: '2026-08-26' });
+    expect(tx.sessionScheduleOverride.upsert).toHaveBeenCalledTimes(1);
+  });
+  it('reset deletes the override, restores the derived suggestion, notifies and audits', async () => {
     tx.sessionScheduleOverride.findUnique.mockResolvedValue({
       scheduledDate: dateOnly('2026-10-15'),
     });
@@ -76,6 +161,66 @@ describe('ScheduleService', () => {
     ).resolves.toMatchObject({ date: '2026-10-13' });
     expect(tx.sessionScheduleOverride.deleteMany).toHaveBeenCalledWith({
       where: { programAssignmentId: 'a', sessionId: 's' },
+    });
+    expect(notifications.create).toHaveBeenCalledWith(
+      tx,
+      'student',
+      'SESSION_RESCHEDULED',
+      expect.stringContaining('restableció su fecha sugerida al 13 de octubre'),
+      'Session',
+      's',
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: 'coach',
+        action: 'SESSION_SCHEDULE_RESET',
+        entityType: 'ProgramAssignment',
+        entityId: 'a',
+        metadata: { sessionId: 's', scheduledDate: '2026-10-13' },
+      },
+    });
+  });
+  it('removes an optional suggestion without inventing a replacement date', async () => {
+    const flexible = {
+      ...assignment,
+      program: {
+        blocks: [
+          {
+            weeks: [
+              { sessions: [{ id: 's', name: 'Día libre', dayOfWeek: null }] },
+            ],
+          },
+        ],
+      },
+    };
+    tx.programAssignment.findFirst.mockResolvedValue(flexible);
+    tx.programAssignment.findUniqueOrThrow.mockResolvedValue(flexible);
+    tx.sessionScheduleOverride.findUnique.mockResolvedValue({
+      originalDate: dateOnly('2026-10-15'),
+      scheduledDate: dateOnly('2026-10-15'),
+    });
+
+    await expect(service.change('coach', 'a', 's', null)).resolves.toEqual({
+      assignmentId: 'a',
+      sessionId: 's',
+      date: null,
+    });
+    expect(notifications.create).toHaveBeenCalledWith(
+      tx,
+      'student',
+      'SESSION_RESCHEDULED',
+      expect.stringContaining('ya no tiene una fecha sugerida'),
+      'Session',
+      's',
+    );
+    expect(tx.auditLog.create).toHaveBeenCalledWith({
+      data: {
+        actorId: 'coach',
+        action: 'SESSION_SCHEDULE_RESET',
+        entityType: 'ProgramAssignment',
+        entityId: 'a',
+        metadata: { sessionId: 's', scheduledDate: null },
+      },
     });
   });
   it.each([null, 40])(

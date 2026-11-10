@@ -16,9 +16,11 @@ export class BlockAssignmentsService {
   constructor(private readonly prisma: PrismaService) {}
   async assign(coachId: string, studentId: string, dto: AssignBlockDto) {
     const startDate = dateOnly(dto.startDate);
+    const dayOffsets = dto.dayOffsets;
     if (
-      new Set(dto.dayOffsets).size !== dto.dayOffsets.length ||
-      dto.dayOffsets.some((n, i) => i > 0 && n <= dto.dayOffsets[i - 1])
+      dayOffsets &&
+      (new Set(dayOffsets).size !== dayOffsets.length ||
+        dayOffsets.some((n, i) => i > 0 && n <= dayOffsets[i - 1]))
     ) {
       throw new BadRequestException(
         'Elige posiciones de día distintas y en orden creciente (1 a 7)',
@@ -51,7 +53,7 @@ export class BlockAssignmentsService {
           throw new BadRequestException(
             'Añade al menos un día al bloque antes de asignarlo',
           );
-        if (dto.dayOffsets.length !== maxDays)
+        if (dayOffsets && dayOffsets.length !== maxDays)
           throw new BadRequestException(
             `Define las posiciones de los ${maxDays} días del bloque`,
           );
@@ -86,13 +88,13 @@ export class BlockAssignmentsService {
                       create: w.sessions.map((d, di) => ({
                         name: d.name,
                         order: di + 1,
-                        dayOfWeek:
-                          ((startDate.getUTCDay() +
-                            dto.dayOffsets[di] -
-                            2 +
-                            7) %
-                            7) +
-                          1,
+                        // New assignments need no fixed weekdays. Legacy
+                        // callers may still keep optional suggestions.
+                        dayOfWeek: dayOffsets
+                          ? ((startDate.getUTCDay() + dayOffsets[di] - 2 + 7) %
+                              7) +
+                            1
+                          : (d.dayOfWeek ?? null),
                         sessionExercises: {
                           create: d.sessionExercises.map((e, ei) => ({
                             exerciseId: e.exerciseId,
@@ -136,6 +138,21 @@ export class BlockAssignmentsService {
             assignedByCoachId: coachId,
           },
         });
+        if (maxDays >= 5) {
+          await tx.notification.upsert({
+            where: { dedupeKey: `assignment-load:${assignment.id}` },
+            create: {
+              userId: coachId,
+              type: 'TRAINING_PLAN_WARNING',
+              title: `Revisar carga de ${student.name}`,
+              body: `El bloque asignado prescribe hasta ${maxDays} entrenamientos por semana. Revisa la recuperación y la distribución de la carga.`,
+              resourceType: 'program-assignment',
+              resourceId: assignment.id,
+              dedupeKey: `assignment-load:${assignment.id}`,
+            },
+            update: { readAt: null },
+          });
+        }
         await tx.auditLog.create({
           data: {
             actorId: coachId,

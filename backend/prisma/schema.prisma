@@ -113,6 +113,7 @@ model User {
   workoutCorrectionsAsCoach   WorkoutCorrectionRequest[] @relation("CorrectionCoach")
   workoutCorrectionsReviewed  WorkoutCorrectionRequest[] @relation("CorrectionReviewer")
   trainingSessionDismissals   TrainingSessionDismissal[]
+  trainingWeekPlans           TrainingWeekPlan[]
 
   // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
   passwordResetTokens PasswordResetToken[]
@@ -350,6 +351,7 @@ model ProgramAssignment {
   scheduleOverrides  SessionScheduleOverride[]
   correctionRequests WorkoutCorrectionRequest[]
   dismissedTrainingSessions TrainingSessionDismissal[]
+  trainingWeekPlans TrainingWeekPlan[]
   startDate  DateTime? @db.Date @map("start_date")
   id         String                  @id @default(cuid())
   programId  String                  @map("program_id")
@@ -579,6 +581,23 @@ model TrainingSessionDismissal {
   @@map("training_session_dismissals")
 }
 
+model TrainingWeekPlan {
+  id                  String            @id @default(cuid())
+  programAssignmentId String            @map("program_assignment_id")
+  programAssignment   ProgramAssignment @relation(fields: [programAssignmentId], references: [id], onDelete: Cascade)
+  studentId           String            @map("student_id")
+  student             User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  weekIndex           Int               @map("week_index")
+  trainingDates       Json              @map("training_dates")
+  revision            Int               @default(1)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  @@unique([programAssignmentId, weekIndex])
+  @@index([studentId, updatedAt])
+  @@map("training_week_plans")
+}
+
 // ---------------------------------------------------------------------------
 // AUDITORIA
 // ---------------------------------------------------------------------------
@@ -689,6 +708,7 @@ enum NotificationType {
   PROGRAM_ASSIGNED
   SESSION_RESCHEDULED
   WORKOUT_COMPLETED
+  TRAINING_PLAN_WARNING
 }
 
 model Competition {

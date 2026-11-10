@@ -18,6 +18,13 @@ const session: TrainingSessionSummary = {
   weekNumber: 1,
   dayNumber: 1,
   date: "2026-10-21",
+  suggestedDate: "2026-10-21",
+  actualDate: "2026-10-21",
+  weekStart: "2026-10-19",
+  availableFrom: "2026-10-21",
+  weekEnd: "2026-10-25",
+  availability: "IN_PROGRESS",
+  canStart: false,
   status: "PARTIAL",
   recordedSets: 1,
   totalSets: 4,
@@ -41,7 +48,13 @@ const assignment: TrainingAssignment = {
   status: "ACTIVE",
   legacy: false,
   weekCount: 2,
-  currentWeek: { blockName: "Fuerza", weekNumber: 1 },
+  currentWeek: {
+    blockName: "Fuerza",
+    weekNumber: 1,
+    weekStart: "2026-10-19",
+    availableFrom: "2026-10-21",
+    weekEnd: "2026-10-25",
+  },
   finishedSessions: 0,
   totalSessions: 4,
   adherence: {
@@ -55,13 +68,16 @@ function sessionFor(
   weekNumber: number,
   overrides: Partial<TrainingSessionSummary> = {},
 ): TrainingSessionSummary {
+  const date =
+    overrides.date ?? `2026-10-${String(9 + weekNumber).padStart(2, "0")}`;
   return {
     ...session,
     id: `a:s${weekNumber}`,
     sessionId: `s${weekNumber}`,
     name: `Sesión semana ${weekNumber}`,
     weekNumber,
-    date: `2026-10-${String(9 + weekNumber).padStart(2, "0")}`,
+    date,
+    suggestedDate: overrides.suggestedDate ?? date,
     ...overrides,
   };
 }
@@ -99,16 +115,22 @@ function setup(
 }
 beforeEach(() => vi.restoreAllMocks());
 describe("Inicio basado en bloques", () => {
-  it("Entrenamiento ofrece registrar la sesión de hoy, sin el ciclo", async () => {
+  it("Entrenamiento prioriza la sesión en curso y muestra la semana activa", async () => {
     setup();
     renderWithProviders(<StudentHomePage training />);
+    const continueLinks = await screen.findAllByRole("link", {
+      name: /Continuar entrenamiento/,
+    });
     expect(
-      await screen.findByRole("link", { name: /Continuar entrenamiento/ }),
-    ).toHaveAttribute("href", "/training/sessions/s?assignmentId=a");
+      continueLinks.some(
+        (link) =>
+          link.getAttribute("href") === "/training/sessions/s?assignmentId=a",
+      ),
+    ).toBe(true);
     expect(
       screen.getByRole("heading", { name: "Tu próximo paso" }),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Tu ciclo activo")).not.toBeInTheDocument();
+    expect(screen.getByText("Tu ciclo activo")).toBeInTheDocument();
     expect(screen.queryByText("Mis programas")).not.toBeInTheDocument();
   });
   it("Inicio muestra el ciclo activo con el progreso real de sus sesiones", async () => {
@@ -118,8 +140,10 @@ describe("Inicio basado en bloques", () => {
     expect(screen.getAllByText("Parcial")).toHaveLength(2);
     expect(screen.queryByText("Qué vas a trabajar")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /Continuar entrenamiento/ }),
-    ).toHaveAttribute("href", "/training");
+      screen
+        .getAllByRole("link", { name: /Continuar entrenamiento/ })
+        .some((link) => link.getAttribute("href") === "/training"),
+    ).toBe(true);
   });
   it("muestra un estado vacío honesto", async () => {
     setup(true);
@@ -151,7 +175,13 @@ describe("jerarquía semanal del Inicio", () => {
           ...assignment,
           startDate: "2026-08-05",
           weekCount: 12,
-          currentWeek: { blockName: "Segundo bloque", weekNumber: 2 },
+          currentWeek: {
+            blockName: "Segundo bloque",
+            weekNumber: 12,
+            weekStart: "2026-10-19",
+            availableFrom: "2026-10-19",
+            weekEnd: "2026-10-25",
+          },
         },
       ],
       sessions: [week10, week11, week12],
@@ -258,7 +288,7 @@ describe("jerarquía semanal del Inicio", () => {
 });
 
 describe("entrenamiento destacado del Inicio", () => {
-  it("muestra una vencida sin registros como omitida sin desplazar la sesión de hoy", async () => {
+  it("muestra una semana vencida sin desplazar una sesión disponible", async () => {
     const omitted = sessionFor(1, {
       date: "2026-10-20",
       name: "Sesión omitida",
@@ -267,6 +297,10 @@ describe("entrenamiento destacado del Inicio", () => {
       totalSets: 12,
       readOnly: true,
       canRequestCorrection: true,
+      availability: "EXPIRED",
+      canStart: false,
+      actualDate: null,
+      weekEnd: "2026-10-18",
     });
     const today = sessionFor(1, {
       id: "a:today",
@@ -275,6 +309,9 @@ describe("entrenamiento destacado del Inicio", () => {
       name: "Sesión de hoy",
       status: "NOT_STARTED",
       recordedSets: 0,
+      availability: "AVAILABLE",
+      canStart: true,
+      actualDate: null,
     });
     setupOverview({
       today: "2026-10-21",
@@ -285,7 +322,7 @@ describe("entrenamiento destacado del Inicio", () => {
     });
     renderWithProviders(<StudentHomePage />);
     const todayCard = await screen.findByRole("link", {
-      name: /Entrenamiento de hoy/,
+      name: /Disponible esta semana/,
     });
     const notice = screen.getByText("Entrenamiento omitido").closest("aside");
     expect(notice).not.toBeNull();
@@ -302,21 +339,26 @@ describe("entrenamiento destacado del Inicio", () => {
       screen.getByRole("region", { name: "Sesiones de la semana 1" }),
     ).toHaveTextContent("Omitido0/12 series");
   });
-  it("enlaza la sesión de hoy hacia Entrenamiento, no hacia un registro alternativo", async () => {
+  it("enlaza la sesión en curso hacia Entrenamiento", async () => {
     setup();
     renderWithProviders(<StudentHomePage />);
-    const card = await screen.findByRole("link", {
-      name: /Entrenamiento de hoy/,
-    });
+    const card = (
+      await screen.findAllByRole("link", {
+        name: /Entrenamiento en curso/,
+      })
+    )[0];
     expect(card).toHaveAttribute("href", "/training");
     expect(card).toHaveTextContent("Continuar entrenamiento");
   });
 
-  it("distingue una próxima sesión de una sesión de hoy", async () => {
+  it("trata una fecha sugerida posterior como disponible en la misma semana", async () => {
     const future = sessionFor(2, {
       date: "2026-10-24",
       status: "NOT_STARTED",
       recordedSets: 0,
+      availability: "AVAILABLE",
+      canStart: true,
+      actualDate: null,
     });
     setupOverview({
       today: "2026-10-21",
@@ -327,22 +369,29 @@ describe("entrenamiento destacado del Inicio", () => {
     });
     renderWithProviders(<StudentHomePage />);
     expect(
-      await screen.findByText("Próximo entrenamiento"),
+      await screen.findByText("Disponible esta semana"),
     ).toBeInTheDocument();
-    expect(screen.queryByText("Entrenamiento de hoy")).not.toBeInTheDocument();
+    expect(screen.getByText(/Sugerido: 24 de octubre/)).toBeInTheDocument();
   });
 
-  it("mantiene la próxima sesión entrenable y presenta la vencida como cerrada", async () => {
+  it("mantiene una sesión semanal entrenable y presenta la vencida como cerrada", async () => {
     const pending = sessionFor(1, {
       date: "2026-10-18",
       status: "PARTIAL",
       recordedSets: 2,
       name: "Pendiente anterior",
+      availability: "EXPIRED",
+      canStart: false,
+      actualDate: null,
+      weekEnd: "2026-10-18",
     });
     const future = sessionFor(2, {
       date: "2026-10-24",
       status: "NOT_STARTED",
       recordedSets: 0,
+      availability: "AVAILABLE",
+      canStart: true,
+      actualDate: null,
     });
     setupOverview({
       today: "2026-10-21",
@@ -353,7 +402,7 @@ describe("entrenamiento destacado del Inicio", () => {
     });
     renderWithProviders(<StudentHomePage />);
     const card = await screen.findByRole("link", {
-      name: /Próximo entrenamiento/,
+      name: /Disponible esta semana/,
     });
     expect(card).toHaveTextContent("Sesión semana 2");
     expect(screen.getByText("Entrenamiento cerrado")).toBeInTheDocument();
@@ -478,9 +527,7 @@ describe("entrenamiento destacado del Inicio", () => {
         assignmentId: "a",
       }),
     );
-    expect(
-      screen.queryByText("Entrenamiento omitido"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Entrenamiento omitido")).not.toBeInTheDocument();
   });
 });
 
@@ -511,7 +558,7 @@ it("calcula la antigüedad desde la fecha real del bloque", async () => {
     "Inicio del bloque: 5 de agosto · Hace 11 semanas",
   );
   expect(adherence).toHaveTextContent("100 % de adherencia");
-  expect(adherence).toHaveTextContent("1 de 1 sesiones programadas hasta hoy");
+  expect(adherence).toHaveTextContent("1 de 1 sesiones de semanas cerradas");
 });
 
 it("separa completadas, omitidas, parciales vencidas y sesiones accionables", async () => {
@@ -543,7 +590,7 @@ it("separa completadas, omitidas, parciales vencidas y sesiones accionables", as
   expect(adherence).toHaveTextContent("25 completadas");
   expect(adherence).toHaveTextContent("6 omitidas");
   expect(adherence).toHaveTextContent("3 parciales vencidas");
-  expect(adherence).toHaveTextContent("4 disponibles hoy o futuras");
+  expect(adherence).toHaveTextContent("4 disponibles esta semana");
 });
 
 it("muestra incertidumbre histórica sin convertirla en cero por ciento", async () => {

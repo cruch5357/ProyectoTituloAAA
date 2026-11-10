@@ -7,7 +7,10 @@ import { useCalendar, useCoachingMutation, useProfile, displayDate, type Competi
 import { Card, ErrorState, Skeleton } from '../ui/Primitives';
 
 export function SessionContext({ session }: { session: CalendarSession }) {
-  return <><h3>{session.name}</h3><p>{session.programName} · {session.blockName} · Semana {session.weekNumber}</p><p>{session.date && displayDate(session.date)}</p>{session.rescheduled && <p>Reprogramada · Original: {session.originalDate && displayDate(session.originalDate)}</p>}</>;
+  const suggestedDate = session.suggestedDate ?? session.date;
+  return <><h3>{session.name}</h3><p>{session.programName} · {session.blockName} · Semana {session.weekNumber}</p>
+    {session.actualDate ? <p>{session.finished ? 'Realizado' : 'Iniciado'}: {displayDate(session.actualDate)}</p> : <p>Fecha sugerida: {suggestedDate && displayDate(suggestedDate)}</p>}
+    {session.rescheduled && <p>Sugerencia modificada · Original: {session.originalDate && displayDate(session.originalDate)}</p>}</>;
 }
 export function NextCompetition({ competition, today }: { competition: Competition | null; today: string }) {
   return <Card><p className="eyebrow">Próximo hito</p>{competition ? <>
@@ -31,6 +34,7 @@ export function AssignmentDate({ id, startDate }: { id: string; startDate?: stri
   </form>;
 }
 const WEEKDAYS = ['LUN', 'MAR', 'MIÉ', 'JUE', 'VIE', 'SÁB', 'DOM'];
+const sessionCalendarDate = (session: CalendarSession) => session.actualDate ?? session.suggestedDate ?? session.date;
 // Mayúscula solo en la primera letra ("Noviembre de 2026", no "Noviembre De 2026").
 const capitalize = (text: string) => text.charAt(0).toLocaleUpperCase('es-CL') + text.slice(1);
 // Calendario mensual compacto (estilo Google Calendar): una grilla de 7
@@ -50,7 +54,8 @@ export function Calendar({ studentId }: { studentId?: string }) {
   const count = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
   const leadingBlanks = (first.getUTCDay() + 6) % 7; // la semana empieza el lunes
   const dates = Array.from({ length: count }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
-  const sessionsOn = (date: string) => d.sessions.filter((s) => s.date === date);
+  const sessionsOn = (date: string) => d.sessions.filter((s) => sessionCalendarDate(s) === date);
+  const activeWeekSessions = d.sessions.filter((s) => s.availability === 'AVAILABLE' || s.availability === 'IN_PROGRESS');
   const milestonesOn = (date: string) => d.competitions?.filter((c) => c.eventDate.slice(0, 10) === date && c.status !== 'CANCELLED') ?? [];
   // Día elegido: el que tocó el usuario; si no, hoy (si está en el mes), el
   // primer día con actividad o el día 1.
@@ -80,14 +85,24 @@ export function Calendar({ studentId }: { studentId?: string }) {
         </button>;
       })}
     </div>
-    <div className="calendar-legend" aria-label="Leyenda del calendario"><span className="legend-training">● Entrenamiento</span><span className="legend-competition">◆ Hito</span><span>○ Finalizada</span></div>
+    <div className="calendar-legend" aria-label="Leyenda del calendario"><span className="legend-training">● Sugerido</span><span className="legend-competition">◆ Hito</span><span>○ Realizado</span></div>
+    {activeWeekSessions.length > 0 && <section className="day-agenda" aria-label="Entrenamientos disponibles esta semana">
+      <h3>Entrenamientos disponibles esta semana</h3>
+      {activeWeekSessions.map((s) => <Link key={`week-${s.id}`} className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>
+        {s.name}<small>{s.blockName} · Semana {s.weekNumber}</small><small>{s.availability === 'IN_PROGRESS' ? 'Continuar entrenamiento' : 'Disponible hasta el domingo'}</small>
+      </Link>)}
+    </section>}
     <section className="day-agenda" aria-live="polite" aria-label={`Actividades del ${displayDate(active)}`}>
       <h3>{capitalize(new Date(`${active}T12:00:00Z`).toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }))}</h3>
       {!daySessions.length && !dayMilestones.length && <p className="muted">Sin actividades este día.</p>}
-      {daySessions.map((s) => <div key={s.id} className="day-agenda__item"><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>{s.completed ? '✓ ' : '● '}{s.name}{s.status && <small>{trainingLabels[s.status]}</small>}<small>{s.blockName} · Semana {s.weekNumber}</small>{s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Nueva: ${s.date && displayDate(s.date)}`}>Reprogramada</small>}</Link>{studentId && <RescheduleSession session={s} />}</div>)}
+      {daySessions.map((s) => <div key={s.id} className="day-agenda__item"><Link className={`calendar-session block-color-${s.blockIndex % 3}`} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>
+        {s.actualDate ? '✓ ' : '● '}{s.name}{s.status && <small>{trainingLabels[s.status]}</small>}<small>{s.blockName} · Semana {s.weekNumber}</small>
+        <small>{s.actualDate ? (s.finished ? 'Fecha real de ejecución' : 'Fecha real de inicio') : 'Fecha sugerida; no limita la ejecución'}</small>
+        {s.rescheduled && <small title={`Original: ${s.originalDate && displayDate(s.originalDate)} · Sugerida: ${(s.suggestedDate ?? s.date) && displayDate((s.suggestedDate ?? s.date)!)}`}>Sugerencia modificada</small>}
+      </Link>{studentId && !s.actualDate && <RescheduleSession session={s} />}</div>)}
       {dayMilestones.map((c) => <p className="calendar-competition" key={c.id}><span aria-hidden="true">◆ </span><strong>Hito</strong><span>{c.name}</span></p>)}
     </section>
     {d.assignments.some((a) => !a.startDate) && <p>Hay asignaciones sin fecha de inicio. La navegación manual sigue disponible.</p>}
-    {d.sessions.some((s) => !s.date) && <p>Las sesiones sin día de semana o fecha de inicio no se ubican en el calendario.</p>}
+    {d.sessions.some((s) => !sessionCalendarDate(s)) && <p>Las sesiones sin fecha sugerida siguen disponibles desde el resumen de su semana.</p>}
   </Card>;
 }

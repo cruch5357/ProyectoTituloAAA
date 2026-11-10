@@ -15,7 +15,12 @@ import { CoachOperations } from '../../components/coaching/CoachOperations';
 import { getHomePathForRole } from '../../auth/roleHome';
 
 const competition = { id: 'c1', name: 'Open Santiago', studentId: 's1', eventDate: '2026-10-20T00:00:00.000Z', category: 'Open', status: 'UPCOMING', goal: 'Técnica', coachGoal: null, notes: null, location: null };
-const session = { id: 'a1:ss1', sessionId: 'ss1', assignmentId: 'a1', name: 'Fuerza de hoy', date: '2026-10-07', programName: 'Fuerza', blockId: 'b1', blockName: 'Base', weekNumber: 2, blockIndex: 0, completed: false, muscleGroups: [], status: 'NOT_STARTED', dayNumber: 1, totalSets: 4, recordedSets: 0, exerciseCount: 1 };
+const session = {
+  id: 'a1:ss1', sessionId: 'ss1', assignmentId: 'a1', name: 'Fuerza de hoy', date: '2026-10-07', suggestedDate: '2026-10-07', actualDate: null,
+  weekStart: '2026-10-05', availableFrom: '2026-10-05', weekEnd: '2026-10-11', availability: 'AVAILABLE', canStart: true,
+  programName: 'Fuerza', blockId: 'b1', blockName: 'Base', weekNumber: 2, blockIndex: 0, completed: false, finished: false,
+  muscleGroups: [], status: 'NOT_STARTED', dayNumber: 1, totalSets: 4, recordedSets: 0, exerciseCount: 1,
+};
 const calendar = { today: '2026-10-07', nextSession: session, pendingSession: null, nextCompetition: competition, sessions: [session], assignments: [], competitions: [competition] };
 function renderUser(children: ReactNode) {
   return renderWithProviders(<AuthContext.Provider value={{ status: 'authenticated', user: { id: 's1', name: 'Atleta', email: 's@example.com', role: 'STUDENT', coachId: 'coach1', isActive: true, createdAt: '' }, login: vi.fn(), logout: vi.fn() }}>{children}</AuthContext.Provider>);
@@ -37,22 +42,25 @@ beforeEach(() => {
   vi.spyOn(apiClient, 'patch').mockResolvedValue({ data: {}, error: null, meta: {} });
 });
 describe('Evolución coaching', () => {
-  it('Entrenamiento muestra la sesión de hoy y qué se va a trabajar', async () => {
+  it('Entrenamiento muestra una sesión disponible de la semana y qué se va a trabajar', async () => {
     expect(getHomePathForRole('STUDENT')).toBe('/home');
     renderUser(<StudentHomePage training />);
-    expect(await screen.findByText('Tu sesión de hoy')).toBeInTheDocument();
-    expect(screen.queryByText('Entrenamiento de hoy')).not.toBeInTheDocument();
+    expect(await screen.findByText('Disponible esta semana')).toBeInTheDocument();
     expect(screen.getByText('Qué vas a trabajar')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Iniciar entrenamiento/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
   });
-  it('muestra sesiones futuras como consulta sin iniciar desde Home', async () => {
-    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...calendar, nextSession: { ...session, date: '2026-10-08' } }, error: null, meta: {} });
+  it('no ofrece iniciar una sesión de una semana futura desde Home', async () => {
+    const future = {
+      ...session, date: '2026-10-12', suggestedDate: '2026-10-12', weekStart: '2026-10-12', availableFrom: '2026-10-12', weekEnd: '2026-10-18',
+      availability: 'FUTURE', canStart: false,
+    };
+    vi.mocked(apiClient.get).mockResolvedValue({ data: { ...calendar, nextSession: future, sessions: [future] }, error: null, meta: {} });
     // Exercise the calendar-driven panel through the real Home queries with narrow responses.
-    vi.mocked(apiClient.get).mockImplementation(async (path) => ({ data: path === '/training/me' ? { ...calendar, nextSession: { ...session, date: '2026-10-08' } } : path.startsWith('/workout-logs/evolution') ? { summary: { totalWorkouts: 0, totalSetLogs: 0 } } : [], error: null, meta: { total: 0 } }));
+    vi.mocked(apiClient.get).mockImplementation(async (path) => ({ data: path === '/training/me' ? { ...calendar, nextSession: future, sessions: [future] } : path.startsWith('/workout-logs/evolution') ? { summary: { totalWorkouts: 0, totalSetLogs: 0 } } : [], error: null, meta: { total: 0 } }));
     renderUser(<StudentHomePage training />);
-    expect(await screen.findByText('Próxima sesión')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Ver entrenamiento/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
-    expect(screen.queryByRole('button', { name: 'Iniciar entrenamiento' })).not.toBeInTheDocument();
+    expect(await screen.findByText('Tu próximo ciclo empieza aquí')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Ver entrenamiento/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Iniciar entrenamiento/ })).not.toBeInTheDocument();
   });
   it('crea competición usando datos del formulario y sin studentId arbitrario', async () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: competition, error: null, meta: {} });
@@ -71,15 +79,18 @@ describe('Evolución coaching', () => {
     vi.setSystemTime(new Date('2026-10-07T15:00:00Z'));
     try {
       renderUser(<Calendar />);
-      // Hoy (7 de octubre) viene elegido: su sesión aparece en el detalle del día.
-      expect(await screen.findByRole('link', { name: /Fuerza de hoy/ })).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
+      // La sesión aparece tanto en el resumen semanal como en el detalle del día; ambos enlaces deben ser correctos.
+      const sessionLinks = await screen.findAllByRole('link', { name: /Fuerza de hoy/ });
+      expect(sessionLinks.every((link) => link.getAttribute('href') === '/training/sessions/ss1?assignmentId=a1')).toBe(true);
       expect(screen.getByRole('button', { name: /1 entrenamiento/ })).toHaveAttribute('aria-pressed', 'true');
       expect(screen.getAllByText(/^(LUN|MAR|MIÉ|JUE|VIE|SÁB|DOM)$/)).toHaveLength(7);
       // El hito del 20 no aparece hasta elegir ese día.
       expect(screen.queryByText('Open Santiago')).toBeNull();
       await userEvent.click(screen.getByRole('button', { name: /1 hito/ }));
       expect(screen.getByText('Open Santiago')).toBeInTheDocument();
-      expect(screen.queryByRole('link', { name: /Fuerza de hoy/ })).toBeNull();
+      const weeklyLinks = screen.getAllByRole('link', { name: /Fuerza de hoy/ });
+      expect(weeklyLinks).toHaveLength(1);
+      expect(weeklyLinks[0]).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
       await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
       await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringMatching(/\/calendar\/me\?month=2026-11/)));
     } finally {

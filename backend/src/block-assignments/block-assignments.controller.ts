@@ -20,6 +20,7 @@ import {
   DecideWorkoutCorrectionDto,
   RequestWorkoutCorrectionDto,
   SaveTrainingDto,
+  SaveTrainingWeekPlanDto,
   StartTrainingDto,
 } from './block-assignment.dto';
 const envelope = <T>(data: T) => ({ data, error: null, meta: {} });
@@ -48,6 +49,14 @@ export class BlockAssignmentsController {
   @Roles(Role.STUDENT)
   async own(@CurrentUser() u: AuthenticatedUser) {
     return envelope(await this.training.overview(u, u.id));
+  }
+  @Patch('training/week-plan')
+  @Roles(Role.STUDENT)
+  async saveWeekPlan(
+    @CurrentUser() u: AuthenticatedUser,
+    @Body() dto: SaveTrainingWeekPlanDto,
+  ) {
+    return envelope(await this.training.saveWeekPlan(u, dto));
   }
   @Get('training/sessions/:id')
   @Roles(Role.STUDENT, Role.COACH)

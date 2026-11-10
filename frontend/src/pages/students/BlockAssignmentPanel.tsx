@@ -19,7 +19,6 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
   const [selected, setSelected] = useState("");
   const [date, setDate] = useState(todayDate());
   const [replace, setReplace] = useState(false);
-  const [offsets, setOffsets] = useState([1, 2, 3, 4, 5, 6, 7]);
   const detail = useLibraryBlock(selected);
   const dialog = useRef<HTMLDialogElement>(null);
   const busy = useRef(false);
@@ -37,7 +36,6 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           blockId: selected,
           startDate: date,
           replaceActive: replace,
-          dayOffsets: offsets.slice(0, maxDays),
         });
       } finally {
         busy.current = false;
@@ -49,9 +47,6 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
       void cache.invalidateQueries({ queryKey: ["coaching"] });
     },
   });
-  const validOffsets = offsets
-    .slice(0, maxDays)
-    .every((n, i, a) => i === 0 || n > a[i - 1]);
   return (
     <section className="training-panel">
       <header className="page-header">
@@ -103,7 +98,10 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
             {query.data?.sessions
               .filter((s) => s.assignmentId === a.id)
               .map((s) => (
-                <Link key={s.id} to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}>
+                <Link
+                  key={s.id}
+                  to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
+                >
                   <span>
                     Semana {s.weekNumber} · {s.name}
                   </span>
@@ -116,6 +114,28 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           </div>
         </article>
       ))}
+      {query.data?.weekPlan && (
+        <aside
+          className={`training-week-plan__advice training-week-plan__advice--${query.data.weekPlan.assessment.level.toLowerCase()}`}
+          role={
+            query.data.weekPlan.assessment.level === "CAUTION" ||
+            query.data.weekPlan.assessment.level === "HIGH"
+              ? "alert"
+              : "status"
+          }
+        >
+          <strong>
+            Organización semanal: {query.data.weekPlan.trainingDates.length} de{" "}
+            {query.data.weekPlan.prescribedSessions} días
+          </strong>
+          <span>{query.data.weekPlan.assessment.message}</span>
+          {query.data.weekPlan.trainingDates.length > 0 && (
+            <small>
+              Días elegidos: {query.data.weekPlan.trainingDates.join(", ")}
+            </small>
+          )}
+        </aside>
+      )}
       <dialog
         ref={dialog}
         className="assign-block-dialog"
@@ -144,10 +164,7 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
               required
               value={selected}
               disabled={mutation.isPending}
-              onChange={(e) => {
-                setSelected(e.target.value);
-                setOffsets([1, 2, 3, 4, 5, 6, 7]);
-              }}
+              onChange={(e) => setSelected(e.target.value)}
             >
               <option value="">Selecciona un bloque</option>
               {blocks.data?.map((b) => (
@@ -183,62 +200,25 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           )}
           {detail.data && (
             <>
-              <h3>Distribución semanal</h3>
+              <h3>Flexibilidad semanal</h3>
               <p className="muted">
-                La posición 1 es la fecha de inicio; la 3 es dos días después.
-                El patrón se repite cada siete días. Las semanas vacías quedan
-                libres.
+                Las sesiones de cada semana estarán disponibles de lunes a
+                domingo. La primera semana respetará la fecha de inicio y el
+                alumno decidirá qué días entrenar.
               </p>
-              {Array.from({ length: maxDays }, (_, i) => (
-                <label key={i} className="field">
-                  Día {i + 1} del bloque → posición
-                  <select
-                    aria-label={`Posición del día ${i + 1}`}
-                    value={offsets[i]}
-                    disabled={mutation.isPending}
-                    onChange={(e) =>
-                      setOffsets((v) =>
-                        v.map((n, j) => (j === i ? Number(e.target.value) : n)),
-                      )
-                    }
-                  >
-                    {[1, 2, 3, 4, 5, 6, 7].map((n) => (
-                      <option key={n} value={n}>
-                        {n}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ))}
               {!maxDays && (
                 <p role="alert">
-                  Este bloque no tiene días. Añádelos en la biblioteca antes de
-                  asignarlo.
+                  Este bloque no tiene sesiones. Añádelas en la biblioteca antes
+                  de asignarlo.
                 </p>
               )}
-              {!validOffsets && (
-                <p role="alert">
-                  Elige posiciones distintas y en orden creciente.
-                </p>
-              )}
-              {date && validOffsets && (
+              {!!maxDays && (
                 <div className="assignment-preview">
-                  <strong>Primera semana</strong>
-                  {detail.data.weeks[0]?.days.map((d, i) => {
-                    const value = new Date(`${date}T12:00:00Z`);
-                    value.setUTCDate(value.getUTCDate() + offsets[i] - 1);
-                    return (
-                      <p key={d.id}>
-                        {d.name} ·{" "}
-                        {Number.isFinite(value.getTime())
-                          ? readableDate(
-                              value.toISOString().slice(0, 10),
-                              false,
-                            )
-                          : "Fecha inválida"}
-                      </p>
-                    );
-                  })}
+                  <strong>Sesiones prescritas por semana</strong>
+                  <p>
+                    El bloque conserva sus días y prescripciones, sin fijarlos a
+                    días concretos de la semana.
+                  </p>
                 </div>
               )}
             </>
@@ -266,7 +246,6 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
                 !selected ||
                 !date ||
                 !maxDays ||
-                !validOffsets ||
                 !query.isSuccess ||
                 (!!query.data?.assignments.length && !replace)
               }

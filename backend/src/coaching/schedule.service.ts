@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  assignmentWeekBounds,
   dateOnly,
   effectiveSessionDate,
 } from '../common/training/calendar-date';
@@ -62,6 +63,20 @@ export class ScheduleService {
       if (!session) throw new NotFoundException('Sesión no encontrada');
       if (current.status !== 'ACTIVE')
         throw new BadRequestException('La asignación no está activa');
+      const weekBounds = assignmentWeekBounds(current.startDate, weekIndex);
+      if (!weekBounds)
+        throw new BadRequestException(
+          'Configura la fecha de inicio antes de sugerir una fecha para la sesión',
+        );
+      const suggestedDate = scheduledDate?.toISOString().slice(0, 10);
+      if (
+        suggestedDate &&
+        (suggestedDate < weekBounds.availableFrom ||
+          suggestedDate > weekBounds.weekEnd)
+      )
+        throw new BadRequestException(
+          `La fecha sugerida debe estar entre ${weekBounds.availableFrom} y ${weekBounds.weekEnd}, dentro de la semana prescrita`,
+        );
       if (
         await tx.workoutLog.findFirst({
           where: {
@@ -82,24 +97,20 @@ export class ScheduleService {
           sessionId,
         },
       };
-      const existing = await tx.sessionScheduleOverride.findUnique({ where });
-      const original = effectiveSessionDate(
+      const defaultSuggestion = effectiveSessionDate(
         current.startDate,
         weekIndex,
         session.dayOfWeek,
-        existing,
       );
-      if (!original)
-        throw new BadRequestException(
-          'Configura fecha de inicio y día de la sesión antes de reprogramar',
-        );
       if (scheduledDate) {
         await tx.sessionScheduleOverride.upsert({
           where,
           create: {
             programAssignmentId: assignmentId,
             sessionId,
-            originalDate: dateOnly(original),
+            // The legacy column is required. For a weekly session without a
+            // default weekday, its first explicit suggestion is the baseline.
+            originalDate: dateOnly(defaultSuggestion ?? suggestedDate!),
             scheduledDate,
             reason: input?.reason,
             createdByUserId: coachId,
@@ -112,18 +123,23 @@ export class ScheduleService {
         });
       }
       const date =
-        scheduledDate?.toISOString().slice(0, 10) ??
-        effectiveSessionDate(current.startDate, weekIndex, session.dayOfWeek);
-      const formatted = new Intl.DateTimeFormat('es-CL', {
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'UTC',
-      }).format(dateOnly(date!));
+        scheduledDate?.toISOString().slice(0, 10) ?? defaultSuggestion;
+      const formatted = date
+        ? new Intl.DateTimeFormat('es-CL', {
+            day: 'numeric',
+            month: 'long',
+            timeZone: 'UTC',
+          }).format(dateOnly(date))
+        : null;
       await this.notifications.create(
         tx,
         assignment.studentId,
         'SESSION_RESCHEDULED',
-        `Tu sesión ${session.name} ${input ? 'fue reprogramada' : 'restableció su programación'} para el ${formatted}.`,
+        input
+          ? `Tu sesión ${session.name} tiene como fecha sugerida el ${formatted!}. Puedes realizarla cualquier día disponible de su semana.`
+          : formatted
+            ? `Tu sesión ${session.name} restableció su fecha sugerida al ${formatted}.`
+            : `Tu sesión ${session.name} ya no tiene una fecha sugerida. Puedes realizarla cualquier día disponible de su semana.`,
         'Session',
         sessionId,
       );

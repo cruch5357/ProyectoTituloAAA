@@ -9,15 +9,23 @@ import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import {
+  assignmentWeekBounds,
+  assignmentWeekIndex,
+  assignmentWeekState,
   dateOnly,
   effectiveSessionDate,
   todayDate,
 } from '../common/training/calendar-date';
 import { computeAdherence } from '../common/training/adherence';
+import {
+  assessTrainingWeek,
+  recommendTrainingDates,
+} from '../common/training/week-plan';
 import { capturePrescription } from '../common/training/workout-prescription';
 import {
   RequestWorkoutCorrectionDto,
   SaveTrainingDto,
+  SaveTrainingWeekPlanDto,
 } from './block-assignment.dto';
 import {
   exerciseInfo,
@@ -155,6 +163,23 @@ export class TrainingService {
       },
       orderBy: { performedAt: 'desc' },
     });
+    const recentWorkoutHistory = await this.prisma.workoutLog.findMany({
+      where: {
+        studentId,
+        OR: [{ finishedAt: { not: null } }, { durationMinutes: { not: null } }],
+      },
+      select: { performedAt: true },
+      orderBy: { performedAt: 'desc' },
+      take: 12,
+    });
+    const weekPlans = await this.prisma.trainingWeekPlan.findMany({
+      where: {
+        studentId,
+        programAssignmentId: {
+          in: assignments.map((assignment) => assignment.id),
+        },
+      },
+    });
     // Unscoped history signals uncertainty; it must never count for a cycle.
     const ambiguousSessions = new Set(
       logs
@@ -162,7 +187,7 @@ export class TrainingService {
         .map((l) => l.sessionId),
     );
     const today = todayDate();
-    const sessions = assignments
+    const baseSessions = assignments
       .flatMap((a) => {
         let wi = 0;
         return a.program.blocks.flatMap((b, bi) =>
@@ -190,9 +215,10 @@ export class TrainingService {
                 s.dayOfWeek,
                 override,
               );
-              const expired =
-                (!!scheduledDate && scheduledDate < today) ||
-                (!!log && !finished && todayDate(log.performedAt) < today);
+              const week = assignmentWeekBounds(a.startDate, index);
+              const weekState = assignmentWeekState(a.startDate, index, today);
+              const expired = weekState === 'EXPIRED';
+              const activeWeek = weekState === 'ACTIVE';
               let status = log
                 ? finished
                   ? log.completionStatus
@@ -207,6 +233,21 @@ export class TrainingService {
                     )
                 : 'NOT_STARTED';
               if (expired && status === 'NOT_STARTED') status = 'SKIPPED';
+              const availability = finished
+                ? ('COMPLETED' as const)
+                : a.status !== 'ACTIVE'
+                  ? ('HISTORICAL' as const)
+                  : expired
+                    ? ('EXPIRED' as const)
+                    : activeWeek
+                      ? log
+                        ? log.structuredExecution
+                          ? ('IN_PROGRESS' as const)
+                          : ('HISTORICAL' as const)
+                        : ('AVAILABLE' as const)
+                      : week
+                        ? ('FUTURE' as const)
+                        : ('UNSCHEDULED' as const);
               return {
                 id: `${a.id}:${s.id}`,
                 assignmentId: a.id,
@@ -217,8 +258,13 @@ export class TrainingService {
                 blockId: b.id,
                 blockIndex: bi,
                 weekNumber: index + 1,
+                prescribedWeekIndex: index,
                 dayNumber: s.order,
                 date: scheduledDate,
+                suggestedDate: scheduledDate,
+                weekStart: week?.weekStart ?? null,
+                availableFrom: week?.availableFrom ?? null,
+                weekEnd: week?.weekEnd ?? null,
                 originalDate:
                   override?.originalDate.toISOString().slice(0, 10) ?? null,
                 rescheduled: Boolean(override),
@@ -228,7 +274,22 @@ export class TrainingService {
                 recordedSets: recorded,
                 totalSets: total,
                 finished,
-                readOnly: expired || finished || a.status !== 'ACTIVE',
+                actualDate: log ? todayDate(log.performedAt) : null,
+                availability,
+                canStart: availability === 'AVAILABLE',
+                startBlockedReason:
+                  availability === 'FUTURE'
+                    ? 'Disponible cuando comience su semana.'
+                    : availability === 'EXPIRED'
+                      ? 'La semana de esta sesión ya terminó.'
+                      : availability === 'HISTORICAL'
+                        ? 'Este ciclo está cerrado.'
+                        : availability === 'COMPLETED'
+                          ? 'Este entrenamiento ya está finalizado.'
+                          : availability === 'UNSCHEDULED'
+                            ? 'Esta sesión no tiene una semana disponible.'
+                            : null,
+                readOnly: availability !== 'IN_PROGRESS',
                 canRequestCorrection: expired || finished,
                 workoutLogId: log?.id ?? null,
                 muscleGroups: [
@@ -246,78 +307,315 @@ export class TrainingService {
           }),
         );
       })
-      .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
+      .sort(
+        (a, b) =>
+          a.prescribedWeekIndex - b.prescribedWeekIndex ||
+          a.dayNumber - b.dayNumber,
+      );
+    // Keep overview and detail coherent with the existing single-open-workout
+    // rule. The in-progress session remains actionable; its weekly siblings
+    // are visible but cannot advertise a start that the backend will reject.
+    const assignmentsWithOpenWorkout = new Set(
+      baseSessions
+        .filter((session) => session.availability === 'IN_PROGRESS')
+        .map((session) => session.assignmentId),
+    );
+    const sessions = baseSessions.map((session) =>
+      assignmentsWithOpenWorkout.has(session.assignmentId) &&
+      session.availability === 'AVAILABLE'
+        ? {
+            ...session,
+            availability: 'BLOCKED' as const,
+            canStart: false,
+            startBlockedReason:
+              'Finaliza u omite el entrenamiento activo antes de iniciar otro.',
+            readOnly: true,
+          }
+        : session,
+    );
     const active = sessions.filter((s) => s.cycleStatus === 'ACTIVE');
     const nextSession =
-      active.find((s) => s.date === today && !s.finished && !s.readOnly) ??
-      active.find(
-        (s) => s.date && s.date > today && !s.finished && !s.readOnly,
-      ) ??
-      active.find((s) => !s.date && !s.finished && !s.readOnly) ??
+      active.find((s) => s.availability === 'IN_PROGRESS') ??
+      active.find((s) => s.availability === 'AVAILABLE') ??
       null;
     const pendingSession =
       [...active]
         .reverse()
         .find(
           (s) =>
-            s.readOnly &&
+            s.availability === 'EXPIRED' &&
             !s.finished &&
             s.status !== 'COMPLETED' &&
             !dismissedSessionKeys.has(`${s.assignmentId}:${s.sessionId}`),
         ) ?? null;
+    const assignmentRows = assignments.map((a) => {
+      let globalWeek = 0;
+      const weeks = a.program.blocks.flatMap((b) =>
+        b.weeks.map((week) => ({
+          blockName: b.name,
+          weekNumber: ++globalWeek,
+          prescribedSessions: week.sessions.length,
+        })),
+      );
+      const index = assignmentWeekIndex(a.startDate, today);
+      const currentBounds =
+        index >= 0 ? assignmentWeekBounds(a.startDate, index) : null;
+      const own = sessions.filter((s) => s.assignmentId === a.id);
+      return {
+        id: a.id,
+        programId: a.programId,
+        name: a.program.name,
+        sourceBlockId: a.sourceBlockId,
+        snapshotBlockId: a.snapshotBlockId,
+        startDate: a.startDate,
+        status: a.status,
+        legacy: !a.snapshotBlockId,
+        weekCount: weeks.length,
+        currentWeek:
+          weeks[index] && currentBounds
+            ? { ...weeks[index], ...currentBounds }
+            : null,
+        finishedSessions: own.filter((s) => s.finished).length,
+        totalSessions: own.length,
+        // Adherence measures finalized scheduled sessions (including partial
+        // and skipped), separately from full prescription completion.
+        adherence: {
+          ...computeAdherence(
+            a.startDate,
+            own.map((s) => ({
+              ...s,
+              completed: s.finished,
+              weekEnd: s.weekEnd,
+            })),
+            today,
+          ),
+          fullyCompletedSessions: own.filter(
+            (s) => s.weekEnd && s.weekEnd < today && s.status === 'COMPLETED',
+          ).length,
+          skippedSessions: own.filter(
+            (s) => s.weekEnd && s.weekEnd < today && s.status === 'SKIPPED',
+          ).length,
+          expiredPartialSessions: own.filter(
+            (s) => s.weekEnd && s.weekEnd < today && s.status === 'PARTIAL',
+          ).length,
+          actionableSessions: own.filter(
+            (s) =>
+              s.availability === 'AVAILABLE' ||
+              s.availability === 'IN_PROGRESS',
+          ).length,
+        },
+      };
+    });
+    const activeAssignment = assignmentRows.find(
+      (assignment) => assignment.status === 'ACTIVE' && assignment.currentWeek,
+    );
+    const activeWeekIndex = activeAssignment
+      ? assignmentWeekIndex(activeAssignment.startDate, today)
+      : -1;
+    const storedPlan = activeAssignment
+      ? weekPlans.find(
+          (plan) =>
+            plan.programAssignmentId === activeAssignment.id &&
+            plan.weekIndex === activeWeekIndex,
+        )
+      : null;
+    const trainingDates = Array.isArray(storedPlan?.trainingDates)
+      ? storedPlan.trainingDates.filter(
+          (value): value is string => typeof value === 'string',
+        )
+      : [];
+    const prescribedSessions =
+      activeAssignment?.currentWeek?.prescribedSessions ?? 0;
+    const weekPlan =
+      activeAssignment?.currentWeek && activeWeekIndex >= 0
+        ? {
+            assignmentId: activeAssignment.id,
+            weekIndex: activeWeekIndex,
+            weekStart: activeAssignment.currentWeek.weekStart,
+            availableFrom: activeAssignment.currentWeek.availableFrom,
+            weekEnd: activeAssignment.currentWeek.weekEnd,
+            prescribedSessions,
+            trainingDates,
+            revision: storedPlan?.revision ?? 0,
+            recommendedDates: recommendTrainingDates(
+              activeAssignment.currentWeek.availableFrom,
+              activeAssignment.currentWeek.weekEnd,
+              prescribedSessions,
+              today,
+            ),
+            assessment: assessTrainingWeek(
+              trainingDates,
+              prescribedSessions,
+              recentWorkoutHistory
+                .filter((log) => log.performedAt instanceof Date)
+                .map((log) => todayDate(log.performedAt)),
+            ),
+          }
+        : null;
     return {
       today,
       sessions,
       nextSession,
       pendingSession,
-      assignments: assignments.map((a) => {
-        const weeks = a.program.blocks.flatMap((b) =>
-          b.weeks.map((w) => ({ blockName: b.name, weekNumber: w.number })),
-        );
-        const index = a.startDate
-          ? Math.floor(
-              (dateOnly(today).getTime() - a.startDate.getTime()) /
-                (7 * 86400000),
-            )
-          : -1;
-        const own = sessions.filter((s) => s.assignmentId === a.id);
-        return {
-          id: a.id,
-          programId: a.programId,
-          name: a.program.name,
-          sourceBlockId: a.sourceBlockId,
-          snapshotBlockId: a.snapshotBlockId,
-          startDate: a.startDate,
-          status: a.status,
-          legacy: !a.snapshotBlockId,
-          weekCount: weeks.length,
-          currentWeek: weeks[index] ?? null,
-          finishedSessions: own.filter((s) => s.finished).length,
-          totalSessions: own.length,
-          // Adherence measures finalized scheduled sessions (including partial
-          // and skipped), separately from full prescription completion.
-          adherence: {
-            ...computeAdherence(
-              a.startDate,
-              own.map((s) => ({ ...s, completed: s.finished })),
-              today,
-            ),
-            fullyCompletedSessions: own.filter(
-              (s) => s.date && s.date <= today && s.status === 'COMPLETED',
-            ).length,
-            skippedSessions: own.filter(
-              (s) => s.date && s.date < today && s.status === 'SKIPPED',
-            ).length,
-            expiredPartialSessions: own.filter(
-              (s) => s.date && s.date < today && s.status === 'PARTIAL',
-            ).length,
-            actionableSessions: own.filter(
-              (s) => s.date && s.date >= today && !s.finished && !s.readOnly,
-            ).length,
-          },
-        };
-      }),
+      assignments: assignmentRows,
+      weekPlan,
     };
+  }
+
+  async saveWeekPlan(user: AuthenticatedUser, dto: SaveTrainingWeekPlanDto) {
+    if (user.role !== Role.STUDENT)
+      throw new NotFoundException('Plan semanal no encontrado');
+    const today = todayDate();
+    return this.prisma.$transaction(async (tx) => {
+      const assignment = await tx.programAssignment.findFirst({
+        where: {
+          id: dto.assignmentId,
+          studentId: user.id,
+          status: 'ACTIVE',
+          program: { isActive: true },
+        },
+        include: assignmentTree,
+      });
+      if (!assignment)
+        throw new NotFoundException('Plan semanal no encontrado');
+      const currentWeekIndex = assignmentWeekIndex(assignment.startDate, today);
+      const bounds = assignmentWeekBounds(
+        assignment.startDate,
+        currentWeekIndex,
+      );
+      if (
+        currentWeekIndex < 0 ||
+        dto.weekIndex !== currentWeekIndex ||
+        !bounds ||
+        assignmentWeekState(assignment.startDate, currentWeekIndex, today) !==
+          'ACTIVE'
+      )
+        throw new BadRequestException(
+          'Solo puedes organizar la semana que está activa.',
+        );
+      const weeks = assignment.program.blocks.flatMap((block) => block.weeks);
+      const prescribedSessions = weeks[currentWeekIndex]?.sessions.length ?? 0;
+      const trainingDates = [...new Set(dto.trainingDates)].sort();
+      if (trainingDates.length !== dto.trainingDates.length)
+        throw new BadRequestException('No repitas días de entrenamiento.');
+      if (trainingDates.length > prescribedSessions)
+        throw new BadRequestException(
+          'No puedes planificar más días que sesiones prescritas.',
+        );
+      if (
+        trainingDates.some(
+          (date) => date < bounds.availableFrom || date > bounds.weekEnd,
+        )
+      )
+        throw new BadRequestException(
+          'Los días deben pertenecer a la semana activa.',
+        );
+      const current = await tx.trainingWeekPlan.findUnique({
+        where: {
+          programAssignmentId_weekIndex: {
+            programAssignmentId: assignment.id,
+            weekIndex: currentWeekIndex,
+          },
+        },
+      });
+      if ((current?.revision ?? 0) !== dto.revision)
+        throw new ConflictException(
+          'El plan semanal cambió. Recarga antes de guardar nuevamente.',
+        );
+      let saved = null;
+      if (trainingDates.length) {
+        saved = current
+          ? await tx.trainingWeekPlan.update({
+              where: { id: current.id },
+              data: {
+                trainingDates,
+                revision: { increment: 1 },
+              },
+            })
+          : await tx.trainingWeekPlan.create({
+              data: {
+                programAssignmentId: assignment.id,
+                studentId: user.id,
+                weekIndex: currentWeekIndex,
+                trainingDates,
+              },
+            });
+      } else if (current) {
+        await tx.trainingWeekPlan.delete({ where: { id: current.id } });
+      }
+      const recentLogs = await tx.workoutLog.findMany({
+        where: {
+          studentId: user.id,
+          OR: [
+            { finishedAt: { not: null } },
+            { durationMinutes: { not: null } },
+          ],
+        },
+        select: { performedAt: true },
+        orderBy: { performedAt: 'desc' },
+        take: 12,
+      });
+      const assessment = assessTrainingWeek(
+        trainingDates,
+        prescribedSessions,
+        recentLogs.map((log) => todayDate(log.performedAt)),
+      );
+      const student = await tx.user.findUnique({
+        where: { id: user.id },
+        select: { coachId: true, name: true },
+      });
+      if (
+        student?.coachId &&
+        (assessment.level === 'CAUTION' || assessment.level === 'HIGH')
+      ) {
+        const dedupeKey = `training-plan:${assignment.id}:${currentWeekIndex}:${assessment.code}`;
+        await tx.notification.upsert({
+          where: { dedupeKey },
+          create: {
+            userId: student.coachId,
+            type: 'TRAINING_PLAN_WARNING',
+            title: `Revisar organización de ${student.name}`,
+            body: assessment.message,
+            resourceType: 'training-week-plan',
+            resourceId: assignment.id,
+            dedupeKey,
+          },
+          update: { body: assessment.message, readAt: null },
+        });
+      }
+      await tx.auditLog.create({
+        data: {
+          actorId: user.id,
+          action: trainingDates.length
+            ? 'TRAINING_WEEK_PLAN_SAVED'
+            : 'TRAINING_WEEK_PLAN_CLEARED',
+          entityType: 'ProgramAssignment',
+          entityId: assignment.id,
+          metadata: {
+            weekIndex: currentWeekIndex,
+            trainingDates,
+            assessment: assessment.code,
+          },
+        },
+      });
+      return {
+        assignmentId: assignment.id,
+        weekIndex: currentWeekIndex,
+        weekStart: bounds.weekStart,
+        availableFrom: bounds.availableFrom,
+        weekEnd: bounds.weekEnd,
+        prescribedSessions,
+        trainingDates,
+        revision: saved?.revision ?? 0,
+        recommendedDates: recommendTrainingDates(
+          bounds.availableFrom,
+          bounds.weekEnd,
+          prescribedSessions,
+          today,
+        ),
+        assessment,
+      };
+    });
   }
   private async sessionContext(
     tx: Prisma.TransactionClient,
@@ -353,6 +651,8 @@ export class TrainingService {
           const index = weekIndex++;
           return week.sessions.map((session) => ({
             sessionId: session.id,
+            weekIndex: index,
+            ...assignmentWeekBounds(assignment.startDate, index),
             date: effectiveSessionDate(
               assignment.startDate,
               index,
@@ -364,40 +664,51 @@ export class TrainingService {
           }));
         }),
       )
-      .sort((a, b) => (a.date ?? '9999').localeCompare(b.date ?? '9999'));
+      .sort((a, b) => a.weekIndex - b.weekIndex);
   }
-  private scheduledDate(assignment: AssignmentSchedule, sessionId: string) {
-    return (
-      this.schedule(assignment).find((item) => item.sessionId === sessionId)
-        ?.date ?? null
+  private sessionTiming(
+    assignment: AssignmentSchedule,
+    sessionId: string,
+    today = todayDate(),
+  ) {
+    const timing = this.schedule(assignment).find(
+      (item) => item.sessionId === sessionId,
     );
+    if (!timing) return { ...timing, state: 'UNSCHEDULED' as const };
+    return {
+      ...timing,
+      state:
+        assignmentWeekState(assignment.startDate, timing.weekIndex, today) ??
+        ('UNSCHEDULED' as const),
+    };
   }
-  private async nextEligible(
+  private async otherActiveWorkout(
     tx: Prisma.TransactionClient,
     assignment: AssignmentSchedule,
     sessionId: string,
     today: string,
   ) {
-    const closed = await tx.workoutLog.findMany({
+    const activeSessionIds = this.schedule(assignment)
+      .filter(
+        (item) =>
+          item.availableFrom &&
+          item.weekEnd &&
+          item.availableFrom <= today &&
+          item.weekEnd >= today &&
+          item.sessionId !== sessionId,
+      )
+      .map((item) => item.sessionId);
+    if (!activeSessionIds.length) return null;
+    return tx.workoutLog.findFirst({
       where: {
         studentId: assignment.studentId,
         programAssignmentId: assignment.id,
-        OR: [
-          { structuredExecution: true, finishedAt: { not: null } },
-          { structuredExecution: false, durationMinutes: { not: null } },
-        ],
+        sessionId: { in: activeSessionIds },
+        structuredExecution: true,
+        finishedAt: null,
       },
-      select: { sessionId: true },
+      select: { id: true },
     });
-    const closedIds = new Set(closed.map((log) => log.sessionId));
-    return (
-      this.schedule(assignment).find(
-        (item) =>
-          item.date !== null &&
-          item.date >= today &&
-          !closedIds.has(item.sessionId),
-      )?.sessionId === sessionId
-    );
   }
   async detail(user: AuthenticatedUser, id: string, assignmentId?: string) {
     const { session, assignment } = await this.sessionContext(
@@ -472,11 +783,10 @@ export class TrainingService {
     });
     const allSets = exercises.flatMap((e) => e.sets);
     const today = todayDate();
-    const scheduledDate = this.scheduledDate(assignment, id);
+    const timing = this.sessionTiming(assignment, id, today);
+    const scheduledDate = timing?.date ?? null;
     const finished = isWorkoutFinished(log);
-    const expired =
-      (!!scheduledDate && scheduledDate < today) ||
-      (!!log && !finished && todayDate(log.performedAt) < today);
+    const expired = timing?.state === 'EXPIRED';
     const calculatedStatus = trainingStatus(
       allSets.length,
       allSets.filter((s) => s.status === 'RECORDED').length,
@@ -487,26 +797,44 @@ export class TrainingService {
       expired && calculatedStatus === 'NOT_STARTED'
         ? 'SKIPPED'
         : calculatedStatus;
-    const nextEligible =
+    const otherwiseStartable =
       user.role === Role.STUDENT &&
       assignment.status === 'ACTIVE' &&
-      !log &&
-      !!scheduledDate &&
-      scheduledDate > today &&
-      (await this.nextEligible(this.prisma, assignment, id, today));
-    const otherOpen = nextEligible
-      ? await this.prisma.workoutLog.findFirst({
-          where: {
-            studentId: user.id,
-            structuredExecution: true,
-            finishedAt: null,
-            NOT: { programAssignmentId: assignment.id, sessionId: id },
-          },
-          select: { id: true },
-        })
+      timing?.state === 'ACTIVE' &&
+      !log;
+    const otherOpen = otherwiseStartable
+      ? await this.otherActiveWorkout(this.prisma, assignment, id, today)
       : null;
-    const canStartEarly = nextEligible && !otherOpen;
-    const futureNotStarted = !!scheduledDate && scheduledDate > today && !log;
+    const canStart = otherwiseStartable && !otherOpen;
+    const availability = finished
+      ? ('COMPLETED' as const)
+      : assignment.status !== 'ACTIVE'
+        ? ('HISTORICAL' as const)
+        : timing?.state === 'EXPIRED'
+          ? ('EXPIRED' as const)
+          : timing?.state === 'FUTURE'
+            ? ('FUTURE' as const)
+            : timing?.state !== 'ACTIVE'
+              ? ('UNSCHEDULED' as const)
+              : log
+                ? ('IN_PROGRESS' as const)
+                : otherOpen
+                  ? ('BLOCKED' as const)
+                  : ('AVAILABLE' as const);
+    const startBlockedReason =
+      availability === 'FUTURE'
+        ? 'Esta sesión se habilitará cuando comience su semana.'
+        : availability === 'EXPIRED'
+          ? 'La semana de esta sesión ya terminó.'
+          : availability === 'BLOCKED'
+            ? 'Finaliza u omite el entrenamiento activo antes de iniciar otro.'
+            : availability === 'HISTORICAL'
+              ? 'Este ciclo está cerrado.'
+              : availability === 'COMPLETED'
+                ? 'Este entrenamiento ya está finalizado.'
+                : availability === 'UNSCHEDULED'
+                  ? 'Esta sesión no tiene una semana disponible.'
+                  : null;
     return {
       id: session.id,
       name: session.name,
@@ -523,17 +851,24 @@ export class TrainingService {
       finishedAt: log?.finishedAt ?? null,
       finished,
       scheduledDate,
+      suggestedDate: scheduledDate,
+      weekStart: timing?.weekStart ?? null,
+      availableFrom: timing?.availableFrom ?? null,
+      weekEnd: timing?.weekEnd ?? null,
       actualDate: log ? todayDate(log.performedAt) : null,
       exercises,
       status,
       canRequestCorrection: expired || finished,
-      canStartEarly,
+      availability,
+      canStart,
+      canStartEarly: false,
+      startBlockedReason,
       readOnly:
         user.role === Role.COACH ||
         assignment.status !== 'ACTIVE' ||
-        expired ||
+        timing?.state !== 'ACTIVE' ||
         finished ||
-        futureNotStarted ||
+        !log ||
         (!!log && !log.structuredExecution),
     };
   }
@@ -549,10 +884,14 @@ export class TrainingService {
       if (assignment.status !== 'ACTIVE')
         throw new ConflictException('Este ciclo está cerrado');
       const today = todayDate();
-      const scheduledDate = this.scheduledDate(assignment, id);
-      if (!scheduledDate || scheduledDate < today)
+      const timing = this.sessionTiming(assignment, id, today);
+      if (timing?.state === 'EXPIRED')
         throw new ConflictException(
           'Este entrenamiento ya está cerrado y no puede iniciarse',
+        );
+      if (timing?.state !== 'ACTIVE')
+        throw new ConflictException(
+          'Este entrenamiento todavía no está disponible',
         );
       const existing = await tx.workoutLog.findFirst({
         where: {
@@ -564,24 +903,19 @@ export class TrainingService {
       });
       if (isWorkoutFinished(existing))
         throw new ConflictException('Este entrenamiento ya está finalizado');
-      const otherOpen = await tx.workoutLog.findFirst({
-        where: {
-          studentId: user.id,
-          structuredExecution: true,
-          finishedAt: null,
-          NOT: { programAssignmentId: assignment.id, sessionId: id },
-        },
-      });
+      if (existing && !existing.structuredExecution)
+        throw new ConflictException(
+          'Este registro es histórico. Consulta su detalle en el historial.',
+        );
+      const otherOpen = await this.otherActiveWorkout(
+        tx,
+        assignment,
+        id,
+        today,
+      );
       if (otherOpen)
         throw new ConflictException(
           'Finaliza u omite el entrenamiento activo antes de iniciar otro',
-        );
-      if (
-        scheduledDate > today &&
-        !(await this.nextEligible(tx, assignment, id, today))
-      )
-        throw new ConflictException(
-          'Solo puedes adelantar el siguiente entrenamiento disponible',
         );
       if (!existing)
         await tx.workoutLog.create({
@@ -620,20 +954,9 @@ export class TrainingService {
       );
       if (assignment.studentId !== user.id)
         throw new NotFoundException('Sesión no encontrada');
-      const log = await tx.workoutLog.findFirst({
-        where: {
-          studentId: user.id,
-          sessionId: id,
-          programAssignmentId: assignment.id,
-        },
-        orderBy: { performedAt: 'desc' },
-      });
       const today = todayDate();
-      const scheduledDate = this.scheduledDate(assignment, id);
-      const expired =
-        (!!scheduledDate && scheduledDate < today) ||
-        (!!log && todayDate(log.performedAt) < today);
-      if (!expired)
+      const timing = this.sessionTiming(assignment, id, today);
+      if (timing?.state !== 'EXPIRED')
         throw new ConflictException(
           'Solo puedes omitir este aviso para un entrenamiento vencido',
         );
@@ -660,7 +983,7 @@ export class TrainingService {
       );
       if (assignment.studentId !== user.id)
         throw new NotFoundException('Sesión no encontrada');
-      const scheduledDate = this.scheduledDate(assignment, id);
+      const timing = this.sessionTiming(assignment, id);
       const existing = await tx.workoutLog.findFirst({
         where: {
           studentId: user.id,
@@ -670,10 +993,7 @@ export class TrainingService {
         orderBy: { performedAt: 'desc' },
         include: { setLogs: true },
       });
-      const expired =
-        (!!scheduledDate && scheduledDate < todayDate()) ||
-        (!!existing && todayDate(existing.performedAt) < todayDate());
-      if (!expired)
+      if (timing?.state !== 'EXPIRED')
         throw new ConflictException(
           'Solo puedes cerrar rápidamente un entrenamiento vencido',
         );
@@ -708,9 +1028,9 @@ export class TrainingService {
             sessionId: id,
             programAssignmentId: assignment.id,
             structuredExecution: true,
-            performedAt: scheduledDate
-              ? new Date(`${scheduledDate}T12:00:00.000Z`)
-              : finishedAt,
+            // This is an omission closed now, not a workout performed on its
+            // former suggested day.
+            performedAt: finishedAt,
             finishedAt,
             durationMinutes: null,
             revision: 1,
@@ -776,35 +1096,29 @@ export class TrainingService {
           orderBy: { performedAt: 'desc' },
         });
         const today = todayDate();
-        const scheduledDate = this.scheduledDate(assignment, id);
-        if (!scheduledDate || scheduledDate < today)
+        const timing = this.sessionTiming(assignment, id, today);
+        if (timing?.state === 'EXPIRED')
           throw new ConflictException(
             'Este entrenamiento ya está cerrado. Solicita una corrección a tu coach.',
+          );
+        if (timing?.state !== 'ACTIVE')
+          throw new ConflictException(
+            'Este entrenamiento todavía no está disponible',
           );
         if (isWorkoutFinished(existing))
           throw new ConflictException(
             'Un entrenamiento finalizado solo puede cambiar mediante una corrección autorizada',
           );
-        if (
-          existing &&
-          !isWorkoutFinished(existing) &&
-          todayDate(existing.performedAt) < today
-        )
+        if (!existing)
           throw new ConflictException(
-            'Este entrenamiento quedó cerrado al cambiar de fecha. Solicita una corrección a tu coach.',
+            'Inicia expresamente el entrenamiento antes de registrar series',
           );
-        if (scheduledDate > today && !existing)
-          throw new ConflictException(
-            'Inicia expresamente el entrenamiento anticipado antes de registrar series',
-          );
-        const otherOpen = await tx.workoutLog.findFirst({
-          where: {
-            studentId: user.id,
-            structuredExecution: true,
-            finishedAt: null,
-            NOT: { programAssignmentId: assignment.id, sessionId: id },
-          },
-        });
+        const otherOpen = await this.otherActiveWorkout(
+          tx,
+          assignment,
+          id,
+          today,
+        );
         if (otherOpen)
           throw new ConflictException(
             'Finaliza u omite el entrenamiento activo antes de modificar otro',
@@ -960,7 +1274,8 @@ export class TrainingService {
       );
       if (!assignment.program.coachId)
         throw new ConflictException('La asignación no tiene un coach válido');
-      const scheduledDate = this.scheduledDate(assignment, sessionId);
+      const timing = this.sessionTiming(assignment, sessionId);
+      const scheduledDate = timing?.date ?? null;
       const log = await tx.workoutLog.findFirst({
         where: {
           studentId: user.id,
@@ -970,10 +1285,9 @@ export class TrainingService {
         orderBy: { performedAt: 'desc' },
         include: { setLogs: true },
       });
-      const closed =
-        (!!scheduledDate && scheduledDate < todayDate()) ||
-        isWorkoutFinished(log);
-      if (!closed || !scheduledDate)
+      const closed = timing?.state === 'EXPIRED' || isWorkoutFinished(log);
+      const correctionReferenceDate = scheduledDate ?? timing?.weekEnd ?? null;
+      if (!closed || !correctionReferenceDate)
         throw new ConflictException(
           'Solo puedes solicitar correcciones para entrenamientos cerrados',
         );
@@ -1031,7 +1345,7 @@ export class TrainingService {
           messageId: message.id,
           sessionName: session.name,
           exerciseName: info.name,
-          scheduledDate: dateOnly(scheduledDate),
+          scheduledDate: dateOnly(correctionReferenceDate),
           originalStatus: performed ? 'RECORDED' : 'NO_DATA',
           originalLoad: performed?.actualLoad ?? null,
           originalReps: performed?.actualReps ?? null,
@@ -1119,9 +1433,9 @@ export class TrainingService {
             sessionId: request.sessionId,
             programAssignmentId: request.programAssignmentId,
             structuredExecution: true,
-            performedAt: new Date(
-              `${request.scheduledDate.toISOString().slice(0, 10)}T12:00:00.000Z`,
-            ),
+            // No original execution timestamp exists. Use the real approval
+            // instant instead of fabricating one from a suggested date.
+            performedAt: reviewedAt,
             finishedAt: reviewedAt,
             durationMinutes: null,
             completionStatus: 'PARTIAL',

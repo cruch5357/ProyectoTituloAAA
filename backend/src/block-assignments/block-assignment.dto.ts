@@ -18,13 +18,14 @@ export class AssignBlockDto {
   @IsString() @Matches(/^c[a-z0-9]{24}$/) blockId: string;
   @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) startDate: string;
   @IsOptional() @IsBoolean() replaceActive?: boolean;
-  // Explicit offsets relative to start date; e.g. [1,3,5] for three days.
+  // Legacy, optional suggested positions. They never restrict weekly execution.
+  @IsOptional()
   @IsArray()
   @ArrayMaxSize(7)
   @IsInt({ each: true })
   @Min(1, { each: true })
   @Max(7, { each: true })
-  dayOffsets: number[];
+  dayOffsets?: number[];
 }
 export class PerformedSetDto {
   @IsString() sessionExerciseId: string;
@@ -51,6 +52,16 @@ export class SaveTrainingDto {
 
 export class StartTrainingDto {
   @IsOptional() @IsString() assignmentId?: string;
+}
+
+export class SaveTrainingWeekPlanDto {
+  @IsString() assignmentId: string;
+  @IsInt() @Min(0) weekIndex: number;
+  @IsInt() @Min(0) revision: number;
+  @IsArray()
+  @ArrayMaxSize(7)
+  @Matches(/^\d{4}-\d{2}-\d{2}$/, { each: true })
+  trainingDates: string[];
 }
 
 export class RequestWorkoutCorrectionDto {

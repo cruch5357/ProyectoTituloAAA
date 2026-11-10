@@ -268,7 +268,8 @@ function SessionRecorder({
         ["training-session", data.id, queryAssignmentId],
         data,
       );
-      void cache.invalidateQueries({ queryKey: ["training"] });
+      for (const key of ["training", "coaching", "dashboard"])
+        void cache.invalidateQueries({ queryKey: [key] });
     },
   });
   function persist(value: TrainingDetail) {
@@ -425,9 +426,10 @@ function SessionRecorder({
         )}
         <progress max={sets.length || 1} value={done} />
       </header>
-      {initial.readOnly && (
+      {initial.readOnly && !initial.canStart && (
         <p className="training-notice">
           Consulta de entrenamiento. Este registro es de solo lectura.
+          {initial.startBlockedReason && ` ${initial.startBlockedReason}`}
           {initial.legacy && initial.workoutLogId && (
             <>
               {" "}
@@ -437,6 +439,22 @@ function SessionRecorder({
             </>
           )}
         </p>
+      )}
+      {initial.canStart && (
+        <div className="training-notice">
+          <p>
+            Disponible hasta el domingo de esta semana. La fecha sugerida es
+            informativa: puedes entrenar hoy y se registrará tu inicio real.
+          </p>
+          <button
+            type="button"
+            disabled={start.isPending}
+            onClick={() => start.mutate()}
+          >
+            {start.isPending ? "Iniciando…" : "Iniciar entrenamiento"}
+          </button>
+          {start.isError && <ErrorState message={start.error.message} />}
+        </div>
       )}
       {initial.canStartEarly && (
         <div className="training-notice">
