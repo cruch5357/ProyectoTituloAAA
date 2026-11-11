@@ -98,7 +98,7 @@ describe('Training overview: adherencia e historia por ciclo', () => {
       skippedSessions: 1,
       expiredPartialSessions: 0,
     });
-    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(2);
+    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(1);
   });
   it('conserva como parcial una sesión vencida con series reales', async () => {
     const { service } = setup([log('current', null, 'PARTIAL', 1)]);
@@ -240,6 +240,45 @@ describe('Training overview: adherencia e historia por ciclo', () => {
     });
     expect(result.nextSession).toBeNull();
     expect(result.assignments[0].adherence.actionableSessions).toBe(0);
+  });
+  it('builds the active plan from real weekly sessions and recommends only free dates', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    const first = current.program.blocks[0].weeks[0].sessions[0];
+    current.program.blocks[0].weeks[0].sessions.push({
+      ...first,
+      id: 'session-2',
+      name: 'Sesión 2',
+      order: 2,
+    });
+    const completedToday = {
+      ...log('current', 45, 'PARTIAL', 2),
+      structuredExecution: true,
+      finishedAt: new Date('2026-11-09T16:00:00.000Z'),
+      performedAt: new Date('2026-11-09T15:00:00.000Z'),
+    };
+
+    const result = await setup([completedToday], [current]).service.overview(
+      student,
+      student.id,
+    );
+
+    expect(result.weekPlan).toMatchObject({
+      prescribedSessions: 2,
+      remainingSessions: 1,
+      actualSessions: [
+        expect.objectContaining({
+          sessionId: 'session',
+          actualDate: '2026-11-09',
+          status: 'PARTIAL',
+          recordedSets: 2,
+        }),
+      ],
+    });
+    expect(result.weekPlan?.recommendedDates).not.toContain('2026-11-09');
+    expect(result.weekPlan?.assessment).not.toHaveProperty(
+      'historicalAverageRestDays',
+    );
   });
   it.each(['COMPLETED', 'PARTIAL', 'SKIPPED'] as const)(
     'cuenta una sesión finalizada %s sin recalcular su estado histórico contra la plantilla',

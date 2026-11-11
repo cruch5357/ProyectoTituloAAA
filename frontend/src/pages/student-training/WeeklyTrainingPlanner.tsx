@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { TrainingWeekPlan } from "../../api/training";
+import type { TrainingStatus, TrainingWeekPlan } from "../../api/training";
+import { trainingLabels } from "../../api/training";
 import { apiClient } from "../../lib/apiClient";
 import { readableDate } from "../../lib/readableDate";
 
@@ -16,7 +17,7 @@ function weekDates(first: string, last: string) {
 }
 
 function consecutiveDays(dates: string[]) {
-  const sorted = [...dates]
+  const sorted = [...new Set(dates)]
     .sort()
     .map((date) => Date.parse(`${date}T00:00:00Z`));
   let run = sorted.length ? 1 : 0;
@@ -28,84 +29,291 @@ function consecutiveDays(dates: string[]) {
   return maximum;
 }
 
-function draftAdvice(plan: TrainingWeekPlan, selected: string[]) {
-  if (plan.prescribedSessions >= 5)
-    return {
-      level: "HIGH",
-      message:
-        "Esta semana prescribe 5 o más entrenamientos. Tu coach recibirá una advertencia para revisar carga y recuperación.",
-    };
-  const consecutive = consecutiveDays(selected);
-  if (consecutive >= 3)
-    return {
-      level: consecutive >= 4 ? "HIGH" : "CAUTION",
-      message: `Planificaste ${consecutive} días seguidos. Descansa al menos un día antes de volver a entrenar.`,
-    };
-  if (selected.length < plan.prescribedSessions)
-    return {
-      level: "UNPLANNED",
-      message: `Elige ${plan.prescribedSessions - selected.length} día${plan.prescribedSessions - selected.length === 1 ? "" : "s"} más para completar tu semana.`,
-    };
-  if (consecutive === 2)
+function normalizedGroups(groups: string[]) {
+  return new Set(groups.map((group) => group.trim().toLocaleLowerCase()));
+}
+
+function hasNearbySimilarMuscles(plan: TrainingWeekPlan) {
+  const worked = plan.actualSessions.filter(
+    (session) => session.recordedSets > 0 && session.status !== "SKIPPED",
+  );
+  return worked.some((session, index) => {
+    const groups = normalizedGroups(session.muscleGroups);
+    if (!groups.size) return false;
+    return worked.slice(index + 1).some((candidate) => {
+      const days =
+        Math.abs(
+          Date.parse(`${candidate.actualDate}T00:00:00Z`) -
+            Date.parse(`${session.actualDate}T00:00:00Z`),
+        ) / DAY_MS;
+      return (
+        days <= 1 &&
+        candidate.muscleGroups.some((group) =>
+          groups.has(group.trim().toLocaleLowerCase()),
+        )
+      );
+    });
+  });
+}
+
+type PlannerAdvice = {
+  level: "UNPLANNED" | "BALANCED" | "CAUTION" | "HIGH";
+  title: string;
+  message: string;
+};
+
+function completionSummary(plan: TrainingWeekPlan) {
+  const counts = plan.actualSessions.reduce<Record<TrainingStatus, number>>(
+    (result, session) => {
+      result[session.status] += 1;
+      return result;
+    },
+    { NOT_STARTED: 0, PARTIAL: 0, COMPLETED: 0, SKIPPED: 0 },
+  );
+  const parts = [
+    counts.COMPLETED
+      ? `${counts.COMPLETED} completada${counts.COMPLETED === 1 ? "" : "s"}`
+      : null,
+    counts.PARTIAL
+      ? `${counts.PARTIAL} parcial${counts.PARTIAL === 1 ? "" : "es"}`
+      : null,
+    counts.SKIPPED
+      ? `${counts.SKIPPED} omitida${counts.SKIPPED === 1 ? "" : "s"}`
+      : null,
+  ].filter(Boolean);
+  return parts.join(", ");
+}
+
+function plannerAdvice(
+  plan: TrainingWeekPlan,
+  plannedDates: string[],
+): PlannerAdvice {
+  const actualDates = plan.actualSessions.map((session) => session.actualDate);
+  const organized = plan.actualSessions.length + plannedDates.length;
+  const missing = Math.max(0, plan.prescribedSessions - organized);
+  const distribution = [...actualDates, ...plannedDates];
+  const consecutive = consecutiveDays(distribution);
+  const allFinished =
+    plan.actualSessions.length >= plan.prescribedSessions &&
+    plan.actualSessions.every((session) => session.finished);
+
+  if (allFinished) {
+    const summary = completionSummary(plan);
     return {
       level: "BALANCED",
-      message:
-        "Dos días seguidos están bien. Procura descansar un día antes del próximo entrenamiento.",
+      title: "Semana completada",
+      message: summary
+        ? `Registraste todas las sesiones de la semana: ${summary}.`
+        : "Registraste todas las sesiones de la semana.",
     };
+  }
+  if (plannedDates.length > plan.remainingSessions) {
+    return {
+      level: "CAUTION",
+      title: "Revisa los días guardados",
+      message:
+        "Hay más días planificados que sesiones pendientes. Quita un día o aplica una nueva distribución antes de guardar.",
+    };
+  }
+  if (missing > 0) {
+    return {
+      level: "UNPLANNED",
+      title: `${missing} ${missing === 1 ? "sesión" : "sesiones"} por organizar`,
+      message:
+        "Todavía tienes sesiones por organizar. Puedes distribuirlas entre los días disponibles.",
+    };
+  }
+  if (consecutive >= 3) {
+    return {
+      level: consecutive >= 4 ? "HIGH" : "CAUTION",
+      title: `${consecutive} días consecutivos`,
+      message: `Planificaste ${consecutive} días seguidos. Considera dejar un día de recuperación antes de volver a entrenar.`,
+    };
+  }
+  if (hasNearbySimilarMuscles(plan)) {
+    return {
+      level: "CAUTION",
+      title: "Recuperación muscular",
+      message:
+        "Registraste sesiones en días consecutivos que trabajan grupos musculares similares. Si fueron exigentes, considera separarlas para favorecer la recuperación.",
+    };
+  }
+  if (consecutive === 2) {
+    return {
+      level: "BALANCED",
+      title: "Dos días consecutivos",
+      message:
+        "Entrenar en días consecutivos puede ser adecuado si cambia el grupo muscular o la carga. Sigue las indicaciones de tu coach y ajusta según tu recuperación.",
+    };
+  }
   return {
     level: "BALANCED",
+    title: "Distribución equilibrada",
     message:
-      "Tu distribución alterna entrenamiento y descanso de forma equilibrada.",
+      "Buena distribución: dejaste días de recuperación entre tus entrenamientos.",
   };
 }
 
-export function WeeklyTrainingPlanner({ plan }: { plan: TrainingWeekPlan }) {
+export function WeeklyTrainingPlanner({
+  plan,
+  today,
+}: {
+  plan: TrainingWeekPlan;
+  today: string;
+}) {
   const cache = useQueryClient();
-  const [selected, setSelected] = useState(plan.trainingDates);
+  const actualDates = useMemo(
+    () => [
+      ...new Set(plan.actualSessions.map((session) => session.actualDate)),
+    ],
+    [plan.actualSessions],
+  );
+  const initialPlanned = plan.trainingDates.filter(
+    (date) => !actualDates.includes(date),
+  );
+  const [selected, setSelected] = useState(initialPlanned);
   const [revision, setRevision] = useState(plan.revision);
-  const advice = draftAdvice(plan, selected);
+  const [confirmingRecommendation, setConfirmingRecommendation] =
+    useState(false);
+  const futurePlanned = selected.filter((date) => date >= today);
+  const organizedSessions = Math.min(
+    plan.prescribedSessions,
+    plan.actualSessions.length + futurePlanned.length,
+  );
+  const advice = plannerAdvice(plan, futurePlanned);
+  const recommendationChangesPlan =
+    [...futurePlanned].sort().join(",") !==
+    [...plan.recommendedDates].sort().join(",");
+  const hasSavedPlan = initialPlanned.length > 0;
+  const canSave =
+    futurePlanned.length <= plan.remainingSessions &&
+    plan.actualSessions.length + futurePlanned.length ===
+      plan.prescribedSessions;
+
   const save = useMutation({
     mutationFn: () =>
       apiClient.patch<TrainingWeekPlan>("/training/week-plan", {
         assignmentId: plan.assignmentId,
         weekIndex: plan.weekIndex,
         revision,
-        trainingDates: selected,
+        trainingDates: [...new Set([...actualDates, ...futurePlanned])].sort(),
       }),
     onSuccess: ({ data }) => {
       setRevision(data.revision);
-      setSelected(data.trainingDates);
+      setSelected(
+        data.trainingDates.filter(
+          (date) => !actualDates.includes(date) && date >= today,
+        ),
+      );
+      setConfirmingRecommendation(false);
       void cache.invalidateQueries({ queryKey: ["training"] });
     },
   });
+
   const toggle = (date: string) => {
+    if (actualDates.includes(date)) return;
+    setConfirmingRecommendation(false);
     setSelected((current) => {
       if (current.includes(date))
         return current.filter((item) => item !== date);
-      if (current.length >= plan.prescribedSessions) return current;
+      const currentFutureCount = current.filter((item) => item >= today).length;
+      if (date < today || currentFutureCount >= plan.remainingSessions)
+        return current;
       return [...current, date].sort();
     });
   };
+  const applyRecommendation = () => {
+    setSelected(plan.recommendedDates);
+    setConfirmingRecommendation(false);
+  };
+  const requestRecommendation = () => {
+    if (hasSavedPlan && recommendationChangesPlan) {
+      setConfirmingRecommendation(true);
+      return;
+    }
+    applyRecommendation();
+  };
+
   return (
     <section className="training-week-plan" aria-labelledby="weekly-plan-title">
-      <p className="eyebrow">Planificación flexible</p>
-      <h2 id="weekly-plan-title">Organiza tus días</h2>
-      <p>
-        Elige cuándo entrenar según tu tiempo libre. Esto no fija el orden de
-        las sesiones. Puedes realizar como máximo un entrenamiento por día.
+      <header className="training-week-plan__header">
+        <div>
+          <p className="eyebrow">Planificación flexible</p>
+          <h2 id="weekly-plan-title">Organiza tus días</h2>
+        </div>
+        <strong className="training-week-plan__counter">
+          {organizedSessions} de {plan.prescribedSessions}
+          <span>sesiones organizadas</span>
+        </strong>
+      </header>
+      <p className="training-week-plan__intro">
+        Elige días para las sesiones que faltan. El orden sigue siendo flexible
+        y se mantiene el máximo de un entrenamiento por día.
       </p>
+      <div
+        className="training-week-plan__legend"
+        aria-label="Estados de los días"
+      >
+        <span className="training-week-plan__key training-week-plan__key--trained">
+          Ya entrenado
+        </span>
+        <span className="training-week-plan__key training-week-plan__key--planned">
+          Planificado
+        </span>
+        <span className="training-week-plan__key training-week-plan__key--available">
+          Disponible
+        </span>
+      </div>
       <div className="training-week-plan__days">
-        {weekDates(plan.availableFrom, plan.weekEnd).map((date) => (
-          <button
-            type="button"
-            key={date}
-            aria-pressed={selected.includes(date)}
-            onClick={() => toggle(date)}
-          >
-            <strong>{readableDate(date, false).split(",")[0]}</strong>
-            <span>{date.slice(8, 10)}</span>
-          </button>
-        ))}
+        {weekDates(plan.weekStart, plan.weekEnd).map((date) => {
+          const actual = plan.actualSessions.filter(
+            (session) => session.actualDate === date,
+          );
+          const trained = actual.length > 0;
+          const planned = selected.includes(date) && !trained;
+          const unavailable =
+            !trained && !planned && (date < plan.availableFrom || date < today);
+          const state = trained
+            ? actual.some((session) => session.status !== "SKIPPED")
+              ? "Entrenado"
+              : "Registrado · Omitido"
+            : planned
+              ? date < today
+                ? "Plan vencido"
+                : "Planificado"
+              : unavailable
+                ? "No disponible"
+                : "Disponible";
+          const actualDetails = actual
+            .map(
+              (session) =>
+                `${session.name}: ${trainingLabels[session.status]}, ${session.recordedSets}/${session.totalSets} series`,
+            )
+            .join(". ");
+          return (
+            <button
+              type="button"
+              key={date}
+              aria-label={`${readableDate(date, false)}. ${state}${actualDetails ? `. ${actualDetails}` : ""}`}
+              aria-pressed={trained || planned}
+              disabled={trained || unavailable}
+              data-state={
+                trained
+                  ? "trained"
+                  : planned
+                    ? "planned"
+                    : unavailable
+                      ? "unavailable"
+                      : "available"
+              }
+              onClick={() => toggle(date)}
+            >
+              <strong>{readableDate(date, false).split(",")[0]}</strong>
+              <span>{date.slice(8, 10)}</span>
+              <small>{state}</small>
+            </button>
+          );
+        })}
       </div>
       <aside
         className={`training-week-plan__advice training-week-plan__advice--${advice.level.toLowerCase()}`}
@@ -115,37 +323,68 @@ export function WeeklyTrainingPlanner({ plan }: { plan: TrainingWeekPlan }) {
             : "status"
         }
       >
-        <strong>
-          {selected.length} de {plan.prescribedSessions} días organizados
-        </strong>
+        <strong>{advice.title}</strong>
         <span>{advice.message}</span>
-        {plan.assessment.historicalAverageRestDays != null && (
-          <small>
-            En tus registros recientes promediaste{" "}
-            {plan.assessment.historicalAverageRestDays} días completos de
-            descanso entre entrenamientos.
-          </small>
-        )}
+        <small>
+          Orientación general: tras fuerza intensa sobre el mismo grupo muscular
+          suelen considerarse 48–72 horas de recuperación, según carga y
+          contexto. Los días consecutivos no son por sí solos un problema si
+          cambia el trabajo realizado.
+        </small>
       </aside>
       <div className="training-week-plan__actions">
         <button
           type="button"
           className="button button--neutral"
-          onClick={() => setSelected(plan.recommendedDates)}
+          disabled={!plan.recommendedDates.length || save.isPending}
+          onClick={requestRecommendation}
         >
           Usar distribución recomendada
         </button>
         <button
           type="button"
           className="button"
-          disabled={
-            save.isPending || selected.length !== plan.prescribedSessions
-          }
+          disabled={save.isPending || !canSave}
           onClick={() => save.mutate()}
         >
           {save.isPending ? "Guardando…" : "Guardar organización"}
         </button>
       </div>
+      {confirmingRecommendation && (
+        <div
+          className="training-week-plan__confirmation"
+          role="alertdialog"
+          aria-label="Confirmar distribución recomendada"
+        >
+          <p>
+            La recomendación reemplazará los días planificados en el editor. Tus
+            entrenamientos registrados no se modificarán y el cambio no se
+            guardará hasta que presiones “Guardar organización”.
+          </p>
+          <div>
+            <button
+              type="button"
+              className="button"
+              onClick={applyRecommendation}
+            >
+              Confirmar distribución
+            </button>
+            <button
+              type="button"
+              className="button button--neutral"
+              onClick={() => setConfirmingRecommendation(false)}
+            >
+              Mantener mi organización
+            </button>
+          </div>
+        </div>
+      )}
+      {selected.some((date) => date < today) && (
+        <p className="training-week-plan__stale" role="status">
+          Hay un día planificado que ya pasó sin registro. Quítalo y elige una
+          fecha disponible.
+        </p>
+      )}
       {save.isSuccess && <p role="status">Organización semanal guardada.</p>}
       {save.isError && (
         <p className="training-expired-notice__error" role="alert">

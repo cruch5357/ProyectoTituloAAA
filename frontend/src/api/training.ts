@@ -81,6 +81,17 @@ export interface TrainingWeekPlan {
   prescribedSessions: number;
   trainingDates: string[];
   revision: number;
+  actualSessions: Array<{
+    sessionId: string;
+    name: string;
+    actualDate: string;
+    status: TrainingStatus;
+    finished: boolean;
+    recordedSets: number;
+    totalSets: number;
+    muscleGroups: string[];
+  }>;
+  remainingSessions: number;
   recommendedDates: string[];
   assessment: {
     level: TrainingWeekPlanLevel;
@@ -90,8 +101,6 @@ export interface TrainingWeekPlan {
     prescribedSessions: number;
     missingSessions: number;
     maxConsecutiveDays: number;
-    restDays: number;
-    historicalAverageRestDays: number | null;
   };
 }
 export interface TrainingOverview {

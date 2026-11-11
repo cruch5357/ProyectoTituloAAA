@@ -463,6 +463,62 @@ describe("Ejecución compacta y registro seguro", () => {
       screen.queryByRole("button", { name: "Solicitar corrección al coach" }),
     ).not.toBeInTheDocument();
   });
+  it("aplica a cada estado de ejercicio el mismo color semántico de Inicio", async () => {
+    const exerciseStates: {
+      name: string;
+      label: string;
+      className: string;
+      statuses: Array<"RECORDED" | "SKIPPED" | "PENDING">;
+    }[] = [
+      {
+        name: "Ejercicio completo",
+        label: "Completado",
+        className: "training-status--COMPLETED",
+        statuses: ["RECORDED", "RECORDED", "RECORDED"],
+      },
+      {
+        name: "Ejercicio parcial",
+        label: "Parcial",
+        className: "training-status--PARTIAL",
+        statuses: ["RECORDED", "PENDING", "PENDING"],
+      },
+      {
+        name: "Ejercicio omitido",
+        label: "Omitido",
+        className: "training-status--SKIPPED",
+        statuses: ["SKIPPED", "SKIPPED", "SKIPPED"],
+      },
+      {
+        name: "Ejercicio pendiente",
+        label: "Pendiente",
+        className: "training-status--PENDING",
+        statuses: ["PENDING", "PENDING", "PENDING"],
+      },
+    ];
+    setup({
+      ...initial,
+      readOnly: true,
+      exercises: exerciseStates.map((state, exerciseIndex) => ({
+        ...initial.exercises[0],
+        id: `state-${exerciseIndex}`,
+        name: state.name,
+        sets: initial.exercises[0].sets.map((set, setIndex) => ({
+          ...set,
+          status: state.statuses[setIndex],
+        })),
+      })),
+    });
+
+    for (const state of exerciseStates) {
+      const toggle = await screen.findByRole("button", {
+        name: new RegExp(`${state.name}.*series`),
+      });
+      expect(within(toggle).getByText(state.label)).toHaveClass(
+        "training-exercise-status",
+        state.className,
+      );
+    }
+  });
   it("requiere confirmar y omite todas las series si no existe ninguna registrada", async () => {
     const patch = mockSave();
     setup();

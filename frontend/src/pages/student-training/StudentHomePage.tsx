@@ -189,6 +189,8 @@ function ActiveCycle({
           .filter((session) => session.weekNumber === selectedWeek)
           .slice()
           .sort((a, b) => a.dayNumber - b.dayNumber);
+  const sessionHref = (session: TrainingSessionSummary) =>
+    `/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`;
   return (
     <article className="training-cycle">
       <p className="eyebrow">Tu ciclo activo</p>
@@ -239,44 +241,39 @@ function ActiveCycle({
           aria-label={`Sesiones de la semana ${selectedWeek}`}
         >
           <div className="training-session-list">
-            {visibleSessions.map((session) => (
-              <Link
-                key={session.id}
-                to={`/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`}
-                aria-current={
-                  session.id === focusedSessionId ? "step" : undefined
-                }
-              >
-                <span>
-                  <strong>{session.name}</strong>
-                  <small>
-                    Semana {session.weekNumber} · Día {session.dayNumber}
-                    {session.actualDate
-                      ? ` · ${session.finished ? "Realizado" : "Iniciado"}: ${readableDate(session.actualDate, false)}`
-                      : session.suggestedDate
-                        ? ` · Sugerido: ${readableDate(session.suggestedDate, false)}`
-                        : " · Sin día fijo"}
-                  </small>
-                </span>
-                <span
-                  className={`training-status training-status--${session.status}`}
+            {visibleSessions.map((session) => {
+              const href = sessionHref(session);
+              return (
+                <Link
+                  className="training-session-card"
+                  key={session.id}
+                  to={href}
+                  aria-current={
+                    session.id === focusedSessionId ? "step" : undefined
+                  }
                 >
-                  {trainingLabels[session.status]}
-                  <small>
-                    {session.recordedSets}/{session.totalSets} series
-                  </small>
-                  <small>
-                    {session.availability === "IN_PROGRESS"
-                      ? "Continuar entrenamiento"
-                      : session.availability === "AVAILABLE"
-                        ? "Iniciar entrenamiento"
-                        : session.finished
-                          ? "Consultar"
-                          : (session.startBlockedReason ?? "Solo lectura")}
-                  </small>
-                </span>
-              </Link>
-            ))}
+                  <span className="training-session-card__main">
+                    <strong>{session.name}</strong>
+                    <small>
+                      Semana {session.weekNumber} · Día {session.dayNumber}
+                      {session.actualDate
+                        ? ` · ${session.finished ? "Realizado" : "Iniciado"}: ${readableDate(session.actualDate, false)}`
+                        : session.suggestedDate
+                          ? ` · Sugerido: ${readableDate(session.suggestedDate, false)}`
+                          : " · Sin día fijo"}
+                    </small>
+                  </span>
+                  <span
+                    className={`training-session-card__status training-status training-status--${session.status}`}
+                  >
+                    <span>{trainingLabels[session.status]}</span>
+                    <small>
+                      {session.recordedSets}/{session.totalSets} series
+                    </small>
+                  </span>
+                </Link>
+              );
+            })}
           </div>
           {visibleSessions.length === 0 && (
             <p className="muted training-week__empty">
@@ -405,6 +402,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
         <WeeklyTrainingPlanner
           key={`${data.weekPlan.assignmentId}:${data.weekPlan.weekIndex}`}
           plan={data.weekPlan}
+          today={data.today}
         />
       )}
       {data.assignments.map((assignment) => (

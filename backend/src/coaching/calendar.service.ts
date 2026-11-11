@@ -6,6 +6,7 @@ import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import { CompetitionsService } from '../competitions/competitions.service';
 import { dateOnly, todayDate } from '../common/training/calendar-date';
 import { finishedWorkoutWhere } from '../common/training/workout-metrics';
+import { trainingStatus } from '../block-assignments/training-state';
 
 @Injectable()
 export class CalendarService {
@@ -20,7 +21,18 @@ export class CalendarService {
     const monthStart = dateOnly(`${month ?? today.slice(0, 7)}-01`);
     const monthEnd = new Date(monthStart);
     monthEnd.setUTCMonth(monthEnd.getUTCMonth() + 1);
-    const [nextCompetition, competitions] = await Promise.all([
+    // performedAt is an instant while the calendar groups by the configured
+    // application timezone. Query one extra UTC day on each side and apply
+    // the definitive local-date filter below so midnight offsets never move
+    // a real workout to the wrong month.
+    const workoutSearchStart = new Date(monthStart);
+    workoutSearchStart.setUTCDate(workoutSearchStart.getUTCDate() - 1);
+    const workoutSearchEnd = new Date(monthEnd);
+    workoutSearchEnd.setUTCDate(workoutSearchEnd.getUTCDate() + 1);
+    const assignmentIds = training.assignments.map(
+      (assignment) => assignment.id,
+    );
+    const [nextCompetition, competitions, workoutLogs] = await Promise.all([
       this.prisma.competition.findFirst({
         where: this.competitions.upcomingWhere({ id: studentId }),
         orderBy: [{ eventDate: 'asc' }, { id: 'asc' }],
@@ -30,13 +42,83 @@ export class CalendarService {
         orderBy: { eventDate: 'asc' },
         take: 201,
       }),
+      assignmentIds.length
+        ? this.prisma.workoutLog.findMany({
+            where: {
+              studentId,
+              programAssignmentId: { in: assignmentIds },
+              performedAt: {
+                gte: workoutSearchStart,
+                lt: workoutSearchEnd,
+              },
+            },
+            select: {
+              id: true,
+              sessionId: true,
+              programAssignmentId: true,
+              performedAt: true,
+              completionStatus: true,
+              structuredExecution: true,
+              finishedAt: true,
+              durationMinutes: true,
+              omittedSets: true,
+              _count: { select: { setLogs: true } },
+            },
+            orderBy: [{ performedAt: 'asc' }, { id: 'asc' }],
+          })
+        : Promise.resolve([]),
     ]);
+    const requestedMonth = month ?? today.slice(0, 7);
+    const sessionTemplates = new Map(
+      training.sessions.map((session) => [
+        `${session.assignmentId}:${session.sessionId}`,
+        session,
+      ]),
+    );
+    const workouts = workoutLogs.flatMap((log) => {
+      const template = sessionTemplates.get(
+        `${log.programAssignmentId}:${log.sessionId}`,
+      );
+      const actualDate = todayDate(log.performedAt);
+      if (!template || !actualDate.startsWith(`${requestedMonth}-`)) return [];
+      const finished = log.structuredExecution
+        ? log.finishedAt != null
+        : log.durationMinutes != null;
+      const recordedSets = log._count.setLogs;
+      const omittedSets = Array.isArray(log.omittedSets)
+        ? log.omittedSets.length
+        : 0;
+      const status = finished
+        ? log.completionStatus
+        : trainingStatus(
+            template.totalSets,
+            recordedSets,
+            recordedSets + omittedSets,
+            false,
+          );
+      return [
+        {
+          ...template,
+          id: `${template.id}:workout:${log.id}`,
+          workoutLogId: log.id,
+          actualDate,
+          status,
+          recordedSets,
+          finished,
+          completed: finished && status === 'COMPLETED',
+          availability: finished
+            ? ('COMPLETED' as const)
+            : ('IN_PROGRESS' as const),
+          canStart: false,
+          readOnly: finished,
+        },
+      ];
+    });
     return {
       ...training,
       assignments: training.assignments.filter((a) => a.status === 'ACTIVE'),
-      sessions: training.sessions.filter(
-        (s) => s.cycleStatus === 'ACTIVE' || s.workoutLogId,
-      ),
+      sessions: training.sessions.filter((s) => s.cycleStatus === 'ACTIVE'),
+      workouts,
       nextCompetition,
       competitions: competitions.slice(0, 200),
       competitionsTruncated: competitions.length > 200,

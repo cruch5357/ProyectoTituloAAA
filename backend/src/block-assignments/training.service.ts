@@ -163,15 +163,6 @@ export class TrainingService {
       },
       orderBy: { performedAt: 'desc' },
     });
-    const recentWorkoutHistory = await this.prisma.workoutLog.findMany({
-      where: {
-        studentId,
-        OR: [{ finishedAt: { not: null } }, { durationMinutes: { not: null } }],
-      },
-      select: { performedAt: true },
-      orderBy: { performedAt: 'desc' },
-      take: 12,
-    });
     const weekPlans = await this.prisma.trainingWeekPlan.findMany({
       where: {
         studentId,
@@ -442,6 +433,35 @@ export class TrainingService {
       : [];
     const prescribedSessions =
       activeAssignment?.currentWeek?.prescribedSessions ?? 0;
+    const currentWeekSessions = activeAssignment?.currentWeek
+      ? sessions.filter(
+          (session) =>
+            session.assignmentId === activeAssignment.id &&
+            session.weekNumber === activeAssignment.currentWeek?.weekNumber,
+        )
+      : [];
+    const actualSessions = currentWeekSessions
+      .filter((session) => session.actualDate)
+      .map((session) => ({
+        sessionId: session.sessionId,
+        name: session.name,
+        actualDate: session.actualDate!,
+        status: session.status,
+        finished: session.finished,
+        recordedSets: session.recordedSets,
+        totalSets: session.totalSets,
+        muscleGroups: session.muscleGroups,
+      }));
+    const actualDates = [
+      ...new Set(actualSessions.map((item) => item.actualDate)),
+    ];
+    const plannedDates = trainingDates.filter(
+      (date) => !actualDates.includes(date),
+    );
+    const remainingSessions = Math.max(
+      0,
+      prescribedSessions - actualSessions.length,
+    );
     const weekPlan =
       activeAssignment?.currentWeek && activeWeekIndex >= 0
         ? {
@@ -453,18 +473,19 @@ export class TrainingService {
             prescribedSessions,
             trainingDates,
             revision: storedPlan?.revision ?? 0,
+            actualSessions,
+            remainingSessions,
             recommendedDates: recommendTrainingDates(
               activeAssignment.currentWeek.availableFrom,
               activeAssignment.currentWeek.weekEnd,
-              prescribedSessions,
+              remainingSessions,
               today,
+              actualDates,
             ),
             assessment: assessTrainingWeek(
-              trainingDates,
+              [...actualDates, ...plannedDates],
               prescribedSessions,
-              recentWorkoutHistory
-                .filter((log) => log.performedAt instanceof Date)
-                .map((log) => todayDate(log.performedAt)),
+              actualSessions.length + plannedDates.length,
             ),
           }
         : null;
@@ -510,7 +531,8 @@ export class TrainingService {
           'Solo puedes organizar la semana que está activa.',
         );
       const weeks = assignment.program.blocks.flatMap((block) => block.weeks);
-      const prescribedSessions = weeks[currentWeekIndex]?.sessions.length ?? 0;
+      const currentWeek = weeks[currentWeekIndex];
+      const prescribedSessions = currentWeek?.sessions.length ?? 0;
       const trainingDates = [...new Set(dto.trainingDates)].sort();
       if (trainingDates.length !== dto.trainingDates.length)
         throw new BadRequestException('No repitas días de entrenamiento.');
@@ -559,22 +581,90 @@ export class TrainingService {
       } else if (current) {
         await tx.trainingWeekPlan.delete({ where: { id: current.id } });
       }
-      const recentLogs = await tx.workoutLog.findMany({
+      const actualLogs = await tx.workoutLog.findMany({
         where: {
           studentId: user.id,
-          OR: [
-            { finishedAt: { not: null } },
-            { durationMinutes: { not: null } },
-          ],
+          programAssignmentId: assignment.id,
+          sessionId: {
+            in: currentWeek?.sessions.map((session) => session.id) ?? [],
+          },
         },
-        select: { performedAt: true },
+        select: {
+          sessionId: true,
+          performedAt: true,
+          completionStatus: true,
+          structuredExecution: true,
+          finishedAt: true,
+          durationMinutes: true,
+          omittedSets: true,
+          _count: { select: { setLogs: true } },
+        },
         orderBy: { performedAt: 'desc' },
-        take: 12,
       });
+      const latestLogs = [
+        ...new Set(actualLogs.map((log) => log.sessionId)),
+      ].map((sessionId) => {
+        const ownLogs = actualLogs.filter((log) => log.sessionId === sessionId);
+        return ownLogs.find(isWorkoutFinished) ?? ownLogs[0]!;
+      });
+      const actualSessions = latestLogs.flatMap((log) => {
+        const session = currentWeek?.sessions.find(
+          (candidate) => candidate.id === log.sessionId,
+        );
+        if (!session) return [];
+        const totalSets = session.sessionExercises.reduce(
+          (total, exercise) => total + plannedSets(exercise).length,
+          0,
+        );
+        const recordedSets = log._count.setLogs;
+        const finished = isWorkoutFinished(log);
+        const omittedSets = Array.isArray(log.omittedSets)
+          ? log.omittedSets.length
+          : 0;
+        return [
+          {
+            sessionId: session.id,
+            name: session.name,
+            actualDate: todayDate(log.performedAt),
+            status: finished
+              ? log.completionStatus
+              : trainingStatus(
+                  totalSets,
+                  recordedSets,
+                  recordedSets + omittedSets,
+                  false,
+                ),
+            finished,
+            recordedSets,
+            totalSets,
+            muscleGroups: [
+              ...new Set(
+                session.sessionExercises.flatMap(
+                  (exercise) => exerciseInfo(exercise).muscleGroups,
+                ),
+              ),
+            ],
+          },
+        ];
+      });
+      const actualDates = [
+        ...new Set(actualSessions.map((session) => session.actualDate)),
+      ];
+      const plannedDates = trainingDates.filter(
+        (date) => !actualDates.includes(date),
+      );
+      const remainingSessions = Math.max(
+        0,
+        prescribedSessions - actualSessions.length,
+      );
+      if (plannedDates.length > remainingSessions)
+        throw new BadRequestException(
+          'Hay más días planificados que sesiones pendientes.',
+        );
       const assessment = assessTrainingWeek(
-        trainingDates,
+        [...actualDates, ...plannedDates],
         prescribedSessions,
-        recentLogs.map((log) => todayDate(log.performedAt)),
+        actualSessions.length + plannedDates.length,
       );
       const student = await tx.user.findUnique({
         where: { id: user.id },
@@ -623,11 +713,14 @@ export class TrainingService {
         prescribedSessions,
         trainingDates,
         revision: saved?.revision ?? 0,
+        actualSessions,
+        remainingSessions,
         recommendedDates: recommendTrainingDates(
           bounds.availableFrom,
           bounds.weekEnd,
-          prescribedSessions,
+          remainingSessions,
           today,
+          actualDates,
         ),
         assessment,
       };

@@ -36,16 +36,21 @@ describe('weekly training plan', () => {
   it('recommends evenly spaced dates in a partial active week', () => {
     expect(
       recommendTrainingDates('2026-11-10', '2026-11-15', 3, '2026-11-10'),
-    ).toEqual(['2026-11-10', '2026-11-12', '2026-11-14']);
+    ).toEqual(['2026-11-10', '2026-11-12', '2026-11-15']);
   });
 
-  it('reports the average complete rest days between recent workouts', () => {
+  it('excludes real workout dates and spaces only the remaining sessions', () => {
     expect(
-      assessTrainingWeek(['2026-11-10'], 1, [
-        '2026-11-01',
-        '2026-11-03',
-        '2026-11-06',
-      ]).historicalAverageRestDays,
-    ).toBe(1.5);
+      recommendTrainingDates('2026-11-09', '2026-11-15', 2, '2026-11-10', [
+        '2026-11-10',
+      ]),
+    ).toEqual(['2026-11-12', '2026-11-15']);
+  });
+
+  it('counts real sessions even when legacy data shares one calendar date', () => {
+    expect(assessTrainingWeek(['2026-11-10'], 3, 2)).toMatchObject({
+      plannedSessions: 2,
+      missingSessions: 1,
+    });
   });
 });

@@ -15,12 +15,15 @@ export interface CalendarSession {
   canStart?: boolean;
   finished?: boolean;
   status?: 'NOT_STARTED' | 'PARTIAL' | 'COMPLETED' | 'SKIPPED'; rescheduled?: boolean; originalDate?: string | null;
+  workoutLogId?: string | null; recordedSets?: number; totalSets?: number;
+  muscleGroups?: string[];
   programName: string; blockId: string; blockName: string; weekNumber: number; blockIndex: number; completed: boolean;
 }
 export interface CalendarData {
   competitions: Competition[]; competitionsTruncated: boolean;
   today: string; nextSession: CalendarSession | null; pendingSession: CalendarSession | null;
-  nextCompetition: Competition | null; sessions: CalendarSession[];
+  nextCompetition: Competition | null; sessions: CalendarSession[]; workouts?: CalendarSession[];
+  weekPlan?: { trainingDates: string[] } | null;
   assignments: { adherence?: { insufficientReason?: 'legacy-history'; scheduledSessions: number; completedSessions: number; adherenceRate: number | null; fullyCompletedSessions?: number; skippedSessions?: number; expiredPartialSessions?: number; actionableSessions?: number }; id: string; programId: string; name: string; startDate: string | null; currentWeek?: { blockName: string; weekNumber: number } | null }[];
 }
 export interface ProfileData {

@@ -264,6 +264,11 @@ describe("jerarquía semanal del Inicio", () => {
         status: "NOT_STARTED",
         recordedSets: 0,
         totalSets: 5,
+        availability: "BLOCKED",
+        canStart: false,
+        readOnly: true,
+        startBlockedReason:
+          "Ya registraste un entrenamiento hoy. Descansa y continúa otro día.",
       }),
     ];
     setupOverview({
@@ -284,6 +289,39 @@ describe("jerarquía semanal del Inicio", () => {
     expect(
       within(week).getByRole("link", { name: /Parcial real/ }),
     ).toHaveAttribute("href", "/training/sessions/partial?assignmentId=a");
+    const omittedCard = within(week).getByRole("link", {
+      name: /Omitida.*Omitido.*0\/3 series/,
+    });
+    expect(omittedCard).toHaveAttribute(
+      "href",
+      "/training/sessions/skipped?assignmentId=a",
+    );
+    expect(
+      within(omittedCard).queryByText("Consultar"),
+    ).not.toBeInTheDocument();
+    expect(omittedCard.querySelector("details")).toBeNull();
+    expect(within(omittedCard).getByText("Omitido").closest("a")).toBe(
+      omittedCard,
+    );
+
+    const pendingCard = within(week).getByRole("link", {
+      name: /Pendiente real.*Pendiente.*0\/5 series/,
+    });
+    expect(pendingCard).toHaveTextContent("Pendiente0/5 series");
+    expect(pendingCard).not.toHaveTextContent(
+      "Ya registraste un entrenamiento hoy",
+    );
+    expect(pendingCard).not.toHaveTextContent("Omitido");
+    expect(pendingCard).toHaveAttribute(
+      "href",
+      "/training/sessions/pending?assignmentId=a",
+    );
+    expect(
+      within(pendingCard).queryByText("Consultar"),
+    ).not.toBeInTheDocument();
+    expect(within(pendingCard).getByText("0/5 series").closest("a")).toBe(
+      pendingCard,
+    );
   });
 });
 

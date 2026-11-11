@@ -21,7 +21,26 @@ const session = {
   programName: 'Fuerza', blockId: 'b1', blockName: 'Base', weekNumber: 2, blockIndex: 0, completed: false, finished: false,
   muscleGroups: [], status: 'NOT_STARTED', dayNumber: 1, totalSets: 4, recordedSets: 0, exerciseCount: 1,
 };
-const calendar = { today: '2026-10-07', nextSession: session, pendingSession: null, nextCompetition: competition, sessions: [session], assignments: [], competitions: [competition] };
+const realSession = {
+  ...session,
+  id: "a1:ss1:workout:log-1",
+  actualDate: "2026-10-07",
+  status: "PARTIAL",
+  finished: true,
+  completed: false,
+  workoutLogId: "log-1",
+  recordedSets: 2,
+};
+const calendar = {
+  today: "2026-10-07",
+  nextSession: session,
+  pendingSession: null,
+  nextCompetition: competition,
+  sessions: [session],
+  workouts: [realSession],
+  assignments: [],
+  competitions: [competition],
+};
 function renderUser(children: ReactNode) {
   return renderWithProviders(<AuthContext.Provider value={{ status: 'authenticated', user: { id: 's1', name: 'Atleta', email: 's@example.com', role: 'STUDENT', coachId: 'coach1', isActive: true, createdAt: '' }, login: vi.fn(), logout: vi.fn() }}>{children}</AuthContext.Provider>);
 }
@@ -73,26 +92,131 @@ describe('Evolución coaching', () => {
     await waitFor(() => expect(post).toHaveBeenCalledWith('/competitions', expect.objectContaining({ name: 'Torneo local', eventDate: '2026-11-20', category: 'Open' })));
     expect(post.mock.calls[0][1]).not.toHaveProperty('studentId');
   });
-  it('calendario mensual compacto: marca días, muestra el detalle del día elegido y cambia de mes', async () => {
+  it("calendario mensual compacto: marca días, muestra el detalle del día elegido y cambia de mes", async () => {
     // Fecha fija: el calendario abre en el mes actual y los datos son de octubre.
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-07T15:00:00Z'));
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-07T15:00:00Z"));
     try {
       renderUser(<Calendar />);
-      // La sesión aparece tanto en el resumen semanal como en el detalle del día; ambos enlaces deben ser correctos.
-      const sessionLinks = await screen.findAllByRole('link', { name: /Fuerza de hoy/ });
-      expect(sessionLinks.every((link) => link.getAttribute('href') === '/training/sessions/ss1?assignmentId=a1')).toBe(true);
-      expect(screen.getByRole('button', { name: /1 entrenamiento/ })).toHaveAttribute('aria-pressed', 'true');
-      expect(screen.getAllByText(/^(LUN|MAR|MIÉ|JUE|VIE|SÁB|DOM)$/)).toHaveLength(7);
+      // La prescripción flexible sigue en el resumen semanal, mientras el día
+      // contiene exclusivamente el registro real y enlaza al log exacto.
+      const sessionLinks = await screen.findAllByRole("link", {
+        name: /Fuerza de hoy/,
+      });
+      expect(
+        sessionLinks.map((link) => link.getAttribute("href")).sort(),
+      ).toEqual(
+        [
+          "/training/sessions/ss1?assignmentId=a1",
+          "/workout-logs/log-1",
+        ].sort(),
+      );
+      expect(
+        new Set(
+          sessionLinks.map((link) =>
+            link.style.getPropertyValue("--calendar-block-hue"),
+          ),
+        ).size,
+      ).toBe(1);
+      expect(
+        screen.getByRole("button", { name: /1 entrenamiento registrado/ }),
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(
+        screen.getByRole("link", {
+          name: /Parcial.*2\/4 series.*Fecha real de ejecución/,
+        }),
+      ).toHaveAttribute("href", "/workout-logs/log-1");
+      expect(
+        screen.getAllByText(/^(LUN|MAR|MIÉ|JUE|VIE|SÁB|DOM)$/),
+      ).toHaveLength(7);
       // El hito del 20 no aparece hasta elegir ese día.
-      expect(screen.queryByText('Open Santiago')).toBeNull();
-      await userEvent.click(screen.getByRole('button', { name: /1 hito/ }));
-      expect(screen.getByText('Open Santiago')).toBeInTheDocument();
-      const weeklyLinks = screen.getAllByRole('link', { name: /Fuerza de hoy/ });
+      expect(screen.queryByText("Open Santiago")).toBeNull();
+      await userEvent.click(screen.getByRole("button", { name: /1 hito/ }));
+      expect(screen.getByText("Open Santiago")).toBeInTheDocument();
+      const weeklyLinks = screen.getAllByRole("link", {
+        name: /Fuerza de hoy/,
+      });
       expect(weeklyLinks).toHaveLength(1);
-      expect(weeklyLinks[0]).toHaveAttribute('href', '/training/sessions/ss1?assignmentId=a1');
-      await userEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
-      await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringMatching(/\/calendar\/me\?month=2026-11/)));
+      expect(weeklyLinks[0]).toHaveAttribute(
+        "href",
+        "/training/sessions/ss1?assignmentId=a1",
+      );
+      await userEvent.click(
+        screen.getByRole("button", { name: "Mes siguiente" }),
+      );
+      await waitFor(() =>
+        expect(apiClient.get).toHaveBeenCalledWith(
+          expect.stringMatching(/\/calendar\/me\?month=2026-11/),
+        ),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("no inventa una fecha real para una sesión flexible pendiente", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-07T15:00:00Z"));
+    try {
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: { ...calendar, workouts: [], competitions: [] },
+        error: null,
+        meta: {},
+      });
+      renderUser(<Calendar />);
+      expect(
+        await screen.findByRole("region", {
+          name: "Entrenamientos disponibles esta semana",
+        }),
+      ).toHaveTextContent("Fuerza de hoy");
+      expect(
+        screen.queryByRole("button", { name: /entrenamiento registrado/i }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Fecha real de ejecución"),
+      ).not.toBeInTheDocument();
+      expect(screen.getByText(/sólo cuando los inicies/i)).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("muestra todos los registros de un día y conserva el color de cada bloque", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-07T15:00:00Z"));
+    try {
+      const second = {
+        ...realSession,
+        id: "a1:ss2:workout:log-2",
+        sessionId: "ss2",
+        workoutLogId: "log-2",
+        name: "Torso real",
+        blockId: "b2",
+        blockName: "Fuerza superior",
+        status: "SKIPPED",
+        recordedSets: 0,
+        totalSets: 5,
+      };
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: { ...calendar, workouts: [realSession, second] },
+        error: null,
+        meta: {},
+      });
+      renderUser(<Calendar />);
+      expect(
+        await screen.findByRole("button", {
+          name: /2 entrenamientos registrados/,
+        }),
+      ).toBeInTheDocument();
+      const legs = screen.getByRole("link", {
+        name: /Fuerza de hoy.*Base.*2\/4 series/,
+      });
+      const torso = screen.getByRole("link", {
+        name: /Torso real.*Omitido.*0\/5 series/,
+      });
+      const legsHue = legs.style.getPropertyValue("--calendar-block-hue");
+      const torsoHue = torso.style.getPropertyValue("--calendar-block-hue");
+      expect(legsHue).not.toBe("");
+      expect(torsoHue).not.toBe("");
+      expect(legsHue).not.toBe(torsoHue);
     } finally {
       vi.useRealTimers();
     }

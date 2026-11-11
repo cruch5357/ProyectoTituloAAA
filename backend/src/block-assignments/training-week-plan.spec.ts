@@ -22,7 +22,11 @@ function setup() {
         {
           weeks: [
             {
-              sessions: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+              sessions: [
+                { id: 'a', name: 'A', sessionExercises: [] },
+                { id: 'b', name: 'B', sessionExercises: [] },
+                { id: 'c', name: 'C', sessionExercises: [] },
+              ],
             },
           ],
         },
@@ -100,5 +104,30 @@ describe('TrainingService weekly plan', () => {
       }),
     ).rejects.toThrow('Los días deben pertenecer a la semana activa.');
     expect(tx.trainingWeekPlan.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects more planned dates than sessions remaining after real workouts', async () => {
+    const { service, tx } = setup();
+    tx.workoutLog.findMany.mockResolvedValue([
+      {
+        sessionId: 'a',
+        performedAt: new Date('2026-11-10T15:00:00.000Z'),
+        completionStatus: 'COMPLETED',
+        structuredExecution: true,
+        finishedAt: new Date('2026-11-10T16:00:00.000Z'),
+        durationMinutes: null,
+        omittedSets: [],
+        _count: { setLogs: 0 },
+      },
+    ]);
+
+    await expect(
+      service.saveWeekPlan(student, {
+        assignmentId: 'assignment',
+        weekIndex: 0,
+        revision: 0,
+        trainingDates: ['2026-11-11', '2026-11-12', '2026-11-13'],
+      }),
+    ).rejects.toThrow('más días planificados que sesiones pendientes');
   });
 });

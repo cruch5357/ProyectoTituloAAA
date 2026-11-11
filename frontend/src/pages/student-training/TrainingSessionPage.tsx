@@ -566,13 +566,17 @@ function SessionRecorder({
                           .length
                       }
                       /{exercise.sets.length} series ·{" "}
-                      {exerciseState === "PENDING"
-                        ? "Pendiente"
-                        : exerciseState === "COMPLETED"
-                          ? "Completado"
-                          : exerciseState === "SKIPPED"
-                            ? "Omitido"
-                            : "Parcial"}
+                      <span
+                        className={`training-exercise-status training-status--${exerciseState}`}
+                      >
+                        {exerciseState === "PENDING"
+                          ? "Pendiente"
+                          : exerciseState === "COMPLETED"
+                            ? "Completado"
+                            : exerciseState === "SKIPPED"
+                              ? "Omitido"
+                              : "Parcial"}
+                      </span>
                     </span>
                   </span>
                   <span aria-hidden="true" className="training-chevron">

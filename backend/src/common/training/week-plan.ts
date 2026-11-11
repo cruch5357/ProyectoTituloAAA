@@ -16,8 +16,6 @@ export type TrainingWeekAssessment = {
   prescribedSessions: number;
   missingSessions: number;
   maxConsecutiveDays: number;
-  restDays: number;
-  historicalAverageRestDays: number | null;
 };
 
 const DAY_MS = 86_400_000;
@@ -41,34 +39,22 @@ function maxConsecutive(values: string[]) {
   return maximum;
 }
 
-function averageRestDays(values: string[]) {
-  const days = sortedUnique(values).map(dayNumber);
-  if (days.length < 2) return null;
-  const rests = days
-    .slice(1)
-    .map((day, index) => Math.max(0, day - days[index] - 1));
-  return (
-    Math.round(
-      (rests.reduce((total, rest) => total + rest, 0) / rests.length) * 10,
-    ) / 10
-  );
-}
-
 export function assessTrainingWeek(
   trainingDates: string[],
   prescribedSessions: number,
-  recentWorkoutDates: string[] = [],
+  organizedSessions = sortedUnique(trainingDates).length,
 ): TrainingWeekAssessment {
-  const plannedSessions = sortedUnique(trainingDates).length;
-  const missingSessions = Math.max(0, prescribedSessions - plannedSessions);
+  const plannedSessions = Math.min(
+    prescribedSessions,
+    Math.max(0, organizedSessions),
+  );
+  const missingSessions = Math.max(0, prescribedSessions - organizedSessions);
   const consecutive = maxConsecutive(trainingDates);
   const base = {
     plannedSessions,
     prescribedSessions,
     missingSessions,
     maxConsecutiveDays: consecutive,
-    restDays: Math.max(0, 7 - plannedSessions),
-    historicalAverageRestDays: averageRestDays(recentWorkoutDates),
   };
 
   if (prescribedSessions >= 5) {
@@ -77,7 +63,7 @@ export function assessTrainingWeek(
       level: 'HIGH',
       code: 'HIGH_FREQUENCY',
       message:
-        'La prescripción concentra 5 o más entrenamientos esta semana. El coach debe revisar la carga y asegurar recuperación suficiente.',
+        'Esta semana incluye 5 o más sesiones. Distribúyelas según las indicaciones de tu coach y tu recuperación.',
     };
   }
   if (!plannedSessions) {
@@ -95,7 +81,7 @@ export function assessTrainingWeek(
       level: 'HIGH',
       code: 'FOUR_CONSECUTIVE',
       message:
-        'Hay 4 o más días de entrenamiento seguidos. Reorganiza la semana y descansa al menos un día.',
+        'Planificaste 4 o más días seguidos. Considera dejar un día de recuperación, especialmente si se repiten grupos musculares o cargas altas.',
     };
   }
   if (consecutive >= 3) {
@@ -104,7 +90,7 @@ export function assessTrainingWeek(
       level: 'CAUTION',
       code: 'THREE_CONSECUTIVE',
       message:
-        'Planificaste 3 días de entrenamiento seguidos. Descansa al menos un día antes de volver a entrenar.',
+        'Planificaste 3 días seguidos. Considera dejar un día de recuperación antes de volver a entrenar.',
     };
   }
   if (missingSessions) {
@@ -112,7 +98,8 @@ export function assessTrainingWeek(
       ...base,
       level: 'CAUTION',
       code: 'INCOMPLETE',
-      message: `Aún faltan ${missingSessions} día${missingSessions === 1 ? '' : 's'} por organizar esta semana.`,
+      message:
+        'Todavía tienes sesiones por organizar. Puedes distribuirlas entre los días disponibles.',
     };
   }
   if (consecutive === 2) {
@@ -121,7 +108,7 @@ export function assessTrainingWeek(
       level: 'BALANCED',
       code: 'TWO_CONSECUTIVE',
       message:
-        'Dos días seguidos son razonables. Procura dejar un día de descanso antes del siguiente entrenamiento.',
+        'Planificaste dos días seguidos. Puede ser adecuado si cambia el grupo muscular o la carga; revisa las indicaciones de tu coach.',
     };
   }
   return {
@@ -129,26 +116,64 @@ export function assessTrainingWeek(
     level: 'BALANCED',
     code: 'BALANCED',
     message:
-      'La distribución alterna entrenamiento y descanso de forma equilibrada.',
+      'Buena distribución: dejaste días de recuperación entre tus entrenamientos.',
   };
 }
 
 export function recommendTrainingDates(
   availableFrom: string,
   weekEnd: string,
-  prescribedSessions: number,
+  sessionsToPlan: number,
   today: string,
+  occupiedDates: string[] = [],
 ) {
   const first = Math.max(dayNumber(availableFrom), dayNumber(today));
   const last = dayNumber(weekEnd);
+  const occupied = new Set(occupiedDates.map(dayNumber));
   const available = Array.from(
     { length: Math.max(0, last - first + 1) },
     (_, index) => first + index,
-  );
-  const count = Math.min(Math.max(0, prescribedSessions), available.length);
+  ).filter((day) => !occupied.has(day));
+  const count = Math.min(Math.max(0, sessionsToPlan), available.length);
   if (!count) return [];
-  return Array.from({ length: count }, (_, index) => {
-    const position = Math.floor((index * available.length) / count);
-    return new Date(available[position] * DAY_MS).toISOString().slice(0, 10);
+
+  // At most seven days are considered. Trying every valid combination keeps
+  // the recommendation deterministic and lets real workouts participate in
+  // the spacing without assigning a fictitious date to any pending session.
+  const combinations: number[][] = [];
+  const visit = (start: number, current: number[]) => {
+    if (current.length === count) {
+      combinations.push(current);
+      return;
+    }
+    for (
+      let index = start;
+      index <= available.length - (count - current.length);
+      index += 1
+    ) {
+      visit(index + 1, [...current, available[index]]);
+    }
+  };
+  visit(0, []);
+  const score = (candidate: number[]) => {
+    const all = [...new Set([...occupied, ...candidate])].sort((a, b) => a - b);
+    const gaps = all.slice(1).map((day, index) => day - all[index]);
+    const minimumGap = gaps.length ? Math.min(...gaps) : 7;
+    const consecutivePairs = gaps.filter((gap) => gap === 1).length;
+    const spread = all.length > 1 ? all.at(-1)! - all[0] : 0;
+    return [minimumGap, -consecutivePairs, spread] as const;
+  };
+  combinations.sort((left, right) => {
+    const a = score(left);
+    const b = score(right);
+    return (
+      b[0] - a[0] ||
+      b[1] - a[1] ||
+      b[2] - a[2] ||
+      left.join(',').localeCompare(right.join(','))
+    );
   });
+  return combinations[0].map((day) =>
+    new Date(day * DAY_MS).toISOString().slice(0, 10),
+  );
 }

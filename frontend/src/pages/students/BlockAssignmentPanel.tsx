@@ -125,13 +125,19 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           }
         >
           <strong>
-            Organización semanal: {query.data.weekPlan.trainingDates.length} de{" "}
-            {query.data.weekPlan.prescribedSessions} días
+            Organización semanal:{" "}
+            {query.data.weekPlan.assessment.plannedSessions} de{" "}
+            {query.data.weekPlan.prescribedSessions} sesiones
           </strong>
           <span>{query.data.weekPlan.assessment.message}</span>
+          {query.data.weekPlan.actualSessions.length > 0 && (
+            <small>
+              Registros reales: {query.data.weekPlan.actualSessions.length}
+            </small>
+          )}
           {query.data.weekPlan.trainingDates.length > 0 && (
             <small>
-              Días elegidos: {query.data.weekPlan.trainingDates.join(", ")}
+              Días guardados: {query.data.weekPlan.trainingDates.join(", ")}
             </small>
           )}
         </aside>
