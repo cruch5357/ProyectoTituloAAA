@@ -6,7 +6,11 @@ import { AuthenticatedUser } from '../auth/guards/jwt-auth.guard';
 import { SaveTrainingDto } from './block-assignment.dto';
 import { dateOnly, todayDate } from '../common/training/calendar-date';
 
-const user = { id: 'student', role: Role.STUDENT } as AuthenticatedUser;
+const user = {
+  id: 'student',
+  name: 'Atleta Ejemplo',
+  role: Role.STUDENT,
+} as AuthenticatedUser;
 const session = {
   id: 's',
   name: 'Día',
@@ -615,6 +619,12 @@ describe('TrainingService: registro seguro', () => {
     });
     expect(tx.setLog.upsert).not.toHaveBeenCalled();
     expect(tx.workoutLog.update).not.toHaveBeenCalled();
+    expect(tx.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        title: 'Solicitud de corrección de entrenamiento',
+        body: 'Atleta Ejemplo solicitó corregir Día',
+      }),
+    });
   });
   it('aplica una aprobación una sola vez y registra auditoría', async () => {
     const { tx, service, assignment } = setup();

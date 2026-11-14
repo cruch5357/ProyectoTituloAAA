@@ -98,4 +98,17 @@ describe('popover de notificaciones', () => {
     await waitFor(() => expect(apiClient.patch).toHaveBeenCalledWith('/notifications/n1/read', undefined));
     expect(screen.queryByRole('region', { name: 'Notificaciones' })).not.toBeInTheDocument();
   });
+
+  it('destaca una alerta de planificación y abre el chat correspondiente', async () => {
+    vi.mocked(apiClient.get).mockImplementation(async (path) => ({
+      data: path === '/notifications/unread-count' ? { count: 1 } : [{ ...notice, type: 'TRAINING_PLAN_WARNING', title: 'Alerta de planificación semanal', body: 'Tu coach recomienda revisar la distribución.', resourceType: 'message', resourceId: 'coach1' }],
+      error: null,
+      meta: {},
+    }));
+    renderBell();
+    const panel = await openPanel();
+    const link = within(panel).getByRole('link', { name: 'Alerta de planificación semanal' });
+    expect(link.closest('li')).toHaveClass('notice-plan-warning');
+    expect(link).toHaveAttribute('href', '/messages?peer=coach1');
+  });
 });

@@ -110,7 +110,11 @@ export function WeeklyTrainingPlanner({
   };
 
   return (
-    <section className="training-week-plan" aria-labelledby="weekly-plan-title">
+    <section
+      id="weekly-planner"
+      className="training-week-plan"
+      aria-labelledby="weekly-plan-title"
+    >
       <header className="training-week-plan__header">
         <div>
           <p className="eyebrow">Planificación flexible</p>
@@ -247,6 +251,7 @@ export function WeeklyTrainingPlanner({
       </aside>
       <div className="training-week-plan__actions">
         <button
+          id="weekly-plan-recommendation"
           type="button"
           className="button button--neutral"
           disabled={!plan.recommendedDates.length || save.isPending}

@@ -221,6 +221,7 @@ describe("asignación semanal flexible", () => {
       ),
     );
     const sentData = postFile.mock.calls[0]![1] as FormData;
+    expect(sentData.get("body")).toContain("[TRAINING_PLAN_ALERT]");
     expect(sentData.get("body")).toContain("Distribución sugerida");
     expect(
       await screen.findByText("Advertencia enviada en el chat."),

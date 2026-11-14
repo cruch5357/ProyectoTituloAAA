@@ -1,5 +1,5 @@
 import { NotificationBell } from '../components/coaching/Notifications';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { useStudents } from '../api/students';
@@ -82,9 +82,28 @@ export function MainLayout() {
   const { status, user, logout } = useAuth();
   const [collapsed, setCollapsed] = useState(false);
   const [more, setMore] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
+  const morePanelRef = useRef<HTMLDivElement>(null);
   const authenticated = status === 'authenticated' && !!user;
   const baseLinks = user?.role === 'COACH' ? coachLinks : studentLinks;
   const links = [...baseLinks, { to: '/messages', label: 'Mensajes', icon: 'users' as const }, { to: '/profile', label: 'Mi perfil', icon: 'users' as const }];
+  useEffect(() => {
+    if (!more) return;
+    const closeOnOutsideInteraction = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (!moreButtonRef.current?.contains(target) && !morePanelRef.current?.contains(target))
+        setMore(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMore(false);
+    };
+    document.addEventListener('pointerdown', closeOnOutsideInteraction);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [more]);
   const navigation = (mobile = false) =>
     (mobile ? links.slice(0, 4) : links).map((item) => (
       <NavLink
@@ -182,6 +201,7 @@ export function MainLayout() {
             {navigation(true)}
             {links.length > 4 && (
               <button
+                ref={moreButtonRef}
                 type="button"
                 aria-expanded={more}
                 aria-controls="mobile-more"
@@ -193,7 +213,7 @@ export function MainLayout() {
             )}
           </nav>
           {more && (
-            <div id="mobile-more" className="mobile-more">
+            <div id="mobile-more" className="mobile-more" ref={morePanelRef}>
               {links.slice(4).map((item) => <Link key={item.to} to={item.to} onClick={() => setMore(false)}><Icon name={item.icon} />{item.label}</Link>)}
               <button type="button" onClick={() => setMore(false)}>
                 Cerrar menú

@@ -246,6 +246,17 @@ describe('Evolución coaching', () => {
     expect(vi.mocked(apiClient.get).mock.calls.some(([path]) => String(path).startsWith('/messages/s1'))).toBe(false);
     expect(screen.queryByRole('alert', { name: 'Aviso privado sobre planificación semanal' })).toBeNull();
   });
+  it('destaca la alerta de planificación y ofrece volver al editor y a la recomendación', async () => {
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path.startsWith('/messages/coach1') ? { data: [{ id: 'plan-alert', senderId: 'coach1', body: '[TRAINING_PLAN_ALERT]\nConviene separar el trabajo de piernas.', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [], correctionRequest: null }], error: null, meta: {} } : defaultGet(path, options));
+    renderUser(<MessagesPage />);
+    const alert = await screen.findByRole('region', { name: 'Alerta de planificación semanal' });
+    expect(alert.closest('article')).toHaveClass('chat-message--plan-alert');
+    expect(alert).not.toHaveTextContent('[TRAINING_PLAN_ALERT]');
+    expect(within(alert).getByRole('link', { name: 'Editar mi planificación' })).toHaveAttribute('href', '/training#weekly-planner');
+    expect(within(alert).getByRole('link', { name: 'Ver distribución recomendada' })).toHaveAttribute('href', '/training#weekly-plan-recommendation');
+  });
   it('Novedades muestra solo las 4 más recientes', async () => {
     const notices = Array.from({ length: 6 }, (_, i) => ({ id: `n${i}`, title: `Novedad ${i + 1}`, resourceType: 'program', resourceId: 'p1', createdAt: `2026-10-0${i + 1}T12:00:00Z`, readAt: null }));
     const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;

@@ -6,6 +6,7 @@ import { readableDate } from "../../lib/readableDate";
 import "../student-training/training.css";
 
 const DAY_MS = 86_400_000;
+const TRAINING_PLAN_ALERT_PREFIX = "[TRAINING_PLAN_ALERT]";
 
 function datesBetween(first: string, last: string) {
   const start = Date.parse(`${first}T00:00:00.000Z`);
@@ -56,7 +57,10 @@ export function CoachWeekPlanPreview({
   const send = useMutation({
     mutationFn: async () => {
       const data = new FormData();
-      data.append("body", message.trim() || defaultMessage);
+      data.append(
+        "body",
+        `${TRAINING_PLAN_ALERT_PREFIX}\n${message.trim() || defaultMessage}`,
+      );
       return apiClient.postFile(`/messages/${studentId}`, data);
     },
     onSuccess: () => {
@@ -180,7 +184,7 @@ export function CoachWeekPlanPreview({
           <label className="field">
             Advertencia para el alumno
             <textarea
-              maxLength={4000}
+              maxLength={3950}
               value={message}
               onChange={(event) => setMessage(event.target.value)}
             />

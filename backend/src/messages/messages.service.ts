@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { validateMedia } from './media-validation';
+const TRAINING_PLAN_ALERT_PREFIX = '[TRAINING_PLAN_ALERT]';
 const attachments = {
   select: {
     id: true,
@@ -85,6 +86,9 @@ export class MessagesService {
     await this.peer(user, peerId);
     if (!body.trim() && !file)
       throw new BadRequestException('Agrega texto, imagen o video');
+    const trainingPlanAlert =
+      user.role === 'COACH' &&
+      body.trimStart().startsWith(TRAINING_PLAN_ALERT_PREFIX);
     const media = file ? validateMedia(file) : undefined;
     const key = file ? await this.storage.save(file.buffer) : undefined;
     let result;
@@ -114,8 +118,16 @@ export class MessagesService {
         await this.notifications.create(
           tx,
           peerId,
-          file ? 'NEW_MESSAGE_ATTACHMENT' : 'NEW_MESSAGE',
-          file ? 'Recibiste un archivo en el chat' : 'Recibiste un mensaje',
+          trainingPlanAlert
+            ? 'TRAINING_PLAN_WARNING'
+            : file
+              ? 'NEW_MESSAGE_ATTACHMENT'
+              : 'NEW_MESSAGE',
+          trainingPlanAlert
+            ? 'Alerta de planificación semanal'
+            : file
+              ? 'Recibiste un archivo en el chat'
+              : 'Recibiste un mensaje',
           'message',
           user.id,
         );

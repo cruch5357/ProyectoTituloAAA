@@ -43,7 +43,7 @@ function NotificationPopover() {
         <button type="button" className="notice-panel__read-all button--secondary" disabled={mutation.isPending} onClick={() => mutation.mutate({ path: '/notifications/read-all' })}>Marcar todas como leídas</button>
         {query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}{mutation.isError && <ErrorState message={mutation.error.message} />}
         {query.data?.length === 0 && <p className="notice-panel__empty">Sin notificaciones.</p>}
-        <ul className="notice-list">{query.data?.map((n) => <li key={n.id} className={!n.readAt ? 'notice-unread' : 'notice-read'}>
+        <ul className="notice-list">{query.data?.map((n) => <li key={n.id} className={`${!n.readAt ? 'notice-unread' : 'notice-read'} ${n.type === 'TRAINING_PLAN_WARNING' ? 'notice-plan-warning' : ''}`}>
           <NoticeLink notice={n} onRead={() => { mutation.mutate({ path: `/notifications/${n.id}/read` }); setOpen(false); }} />
           {n.body !== n.title && <p>{n.body}</p>}<small><time dateTime={n.createdAt} title={new Date(n.createdAt).toISOString()}>{readableDate(n.createdAt)}</time> · {n.readAt ? 'Leída' : 'Sin leer'}</small>
         </li>)}</ul>

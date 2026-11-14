@@ -10,6 +10,15 @@ import { useBackdropClose } from '../../lib/useBackdropClose';
 import { Card, ErrorState, Skeleton } from '../../components/ui/Primitives';
 import { CoachWeekPlanPreview } from '../students/CoachWeekPlanPreview';
 
+const TRAINING_PLAN_ALERT_PREFIX = '[TRAINING_PLAN_ALERT]';
+const LEGACY_TRAINING_PLAN_ALERT = 'Quiero que reconsideremos tu planificación semanal.';
+function trainingPlanAlertBody(body: string) {
+  const trimmed = body.trimStart();
+  if (trimmed.startsWith(TRAINING_PLAN_ALERT_PREFIX))
+    return trimmed.slice(TRAINING_PLAN_ALERT_PREFIX.length).trimStart();
+  return trimmed.startsWith(LEGACY_TRAINING_PLAN_ALERT) ? trimmed : null;
+}
+
 interface Attachment { id: string; type: 'IMAGE' | 'VIDEO'; originalFilename: string; }
 interface CorrectionRequest {
   id: string; status: 'PENDING' | 'APPROVED' | 'REJECTED'; sessionName: string;
@@ -145,11 +154,11 @@ function Conversation({ peer }: { peer: string }) {
     return apiClient.postFile(`/messages/${peer}`, data);
   }, onSuccess: () => { stickToBottom.current = true; setBody(''); chooseFile(undefined); setPage(1); void client.invalidateQueries({ queryKey: ['coaching'] }); } });
   return <Card><h2>Chat Coach ↔ Alumno</h2>{user?.role === 'COACH' && <CoachWeekPlanPreview studentId={peer} mode="chat-alert" />}{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
-    <div ref={threadRef} onScroll={trackScroll} onLoadCapture={scrollToBottom} onLoadedMetadataCapture={scrollToBottom} className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
-      <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small><p>{m.body}</p>
+    <div ref={threadRef} onScroll={trackScroll} onLoadCapture={scrollToBottom} onLoadedMetadataCapture={scrollToBottom} className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => { const planAlert = trainingPlanAlertBody(m.body); return <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''} ${planAlert ? 'chat-message--plan-alert' : ''}`} key={m.id}>
+      <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small>{planAlert ? <section className="chat-plan-alert" aria-label="Alerta de planificación semanal"><span className="chat-plan-alert__label">Alerta de la app</span><strong>Revisa tu planificación semanal</strong><p>{planAlert}</p>{user?.role === 'STUDENT' && m.senderId !== user.id && <><div className="chat-plan-alert__actions"><Link className="button" to="/training#weekly-planner">Editar mi planificación</Link><Link className="button button--neutral" to="/training#weekly-plan-recommendation">Ver distribución recomendada</Link></div><small>Puedes cambiar los días libremente. La recomendación no se guardará hasta que confirmes tu organización.</small></>}</section> : <p>{m.body}</p>}
       {m.correctionRequest && <CorrectionMessage correction={m.correctionRequest} />}
       {m.attachments.map((a) => <PrivateAttachment key={a.id} attachment={a} />)}<small>{m.senderId === user?.id ? m.readAt ? 'Leído' : 'Enviado' : ''}</small>
-    </article>)}</div>
+    </article>; })}</div>
     {query.isSuccess && query.data.length === 0 && <p>Comienza la conversación.</p>}
     <div className="pagination"><button disabled={page === 1} onClick={() => setPage(page - 1)}>Más recientes</button><button disabled={(query.data?.length ?? 0) < 30} onClick={() => setPage(page + 1)}>Más antiguos</button></div>
     <form onSubmit={(e) => { e.preventDefault(); send.mutate(); }}><label className="field">Mensaje<textarea maxLength={4000} value={body} onChange={(e) => setBody(e.target.value)} /></label>

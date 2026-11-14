@@ -1893,7 +1893,7 @@ export class TrainingService {
           userId: assignment.program.coachId,
           type: 'NEW_MESSAGE',
           title: 'Solicitud de corrección de entrenamiento',
-          body: `${user.id} solicitó corregir ${session.name}`,
+          body: `${user.name} solicitó corregir ${session.name}`,
           resourceType: 'message',
           resourceId: user.id,
           dedupeKey: `workout-correction:${request.id}:requested`,

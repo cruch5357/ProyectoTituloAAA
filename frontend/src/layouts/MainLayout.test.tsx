@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { AuthContext } from '../auth/authContextObject';
@@ -65,6 +65,11 @@ describe('Navegación por rol', () => {
     expect(
       screen.getByRole('button', { name: 'Cerrar menú' }),
     ).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Colapsar barra lateral' }));
+    expect(screen.queryByRole('button', { name: 'Cerrar menú' })).not.toBeInTheDocument();
+    await userEvent.click(within(mobile).getByRole('button', { name: 'Más' }));
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('button', { name: 'Cerrar menú' })).not.toBeInTheDocument();
   });
   it('alumno solo ve sus herramientas y no consulta alumnos', () => {
     renderRole('STUDENT');

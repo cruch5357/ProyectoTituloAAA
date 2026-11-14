@@ -34,7 +34,7 @@ export interface ProfileData {
 }
 export interface Notice {
   id: string; title: string; body: string; readAt: string | null; createdAt: string;
-  resourceType: string | null; resourceId: string | null;
+  type?: string; resourceType: string | null; resourceId: string | null;
 }
 export function useCoachingQuery<T>(path: string, enabled = true, interval?: number) {
   return useQuery({ queryKey: ['coaching', path], queryFn: async () => (await apiClient.get<T>(path)).data,
