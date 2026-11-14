@@ -72,6 +72,44 @@ export interface TrainingAssignment {
 }
 export type TrainingWeekPlanLevel =
   "UNPLANNED" | "BALANCED" | "CAUTION" | "HIGH";
+export type TrainingWeekAssessmentBasis =
+  "CONFIRMED" | "POTENTIAL" | "INSUFFICIENT" | "GENERAL";
+export interface TrainingWeekActualSession {
+  sessionId: string;
+  name: string;
+  actualDate: string;
+  status: TrainingStatus;
+  finished: boolean;
+  recordedSets: number;
+  totalSets: number;
+  omittedSets?: number;
+  muscleGroups: string[];
+  prescribedMuscleGroups?: string[];
+  averageRpe?: number | null;
+  averageRir?: number | null;
+  overallRpe?: number | null;
+}
+export interface TrainingWeekPendingSession {
+  sessionId: string;
+  name: string;
+  totalSets: number;
+  muscleGroups: string[];
+}
+export interface TrainingWeekAssessment {
+  level: TrainingWeekPlanLevel;
+  code: string;
+  basis?: TrainingWeekAssessmentBasis;
+  title?: string;
+  message: string;
+  recommendation?: string | null;
+  showRecoveryContext?: boolean;
+  notifyCoach?: boolean;
+  plannedSessions: number;
+  prescribedSessions: number;
+  missingSessions: number;
+  maxConsecutiveDays: number;
+  affectedMuscleGroups?: string[];
+}
 export interface TrainingWeekPlan {
   assignmentId: string;
   weekIndex: number;
@@ -81,27 +119,17 @@ export interface TrainingWeekPlan {
   prescribedSessions: number;
   trainingDates: string[];
   revision: number;
-  actualSessions: Array<{
-    sessionId: string;
-    name: string;
-    actualDate: string;
-    status: TrainingStatus;
-    finished: boolean;
-    recordedSets: number;
-    totalSets: number;
-    muscleGroups: string[];
-  }>;
+  actualSessions: TrainingWeekActualSession[];
+  adjacentSessions?: TrainingWeekActualSession[];
+  pendingSessions?: TrainingWeekPendingSession[];
   remainingSessions: number;
   recommendedDates: string[];
-  assessment: {
-    level: TrainingWeekPlanLevel;
-    code: string;
-    message: string;
-    plannedSessions: number;
-    prescribedSessions: number;
-    missingSessions: number;
-    maxConsecutiveDays: number;
-  };
+  recommendation?: {
+    dates: string[];
+    quality: "IMPROVED" | "EQUIVALENT" | "LIMITED";
+    reason: string;
+  } | null;
+  assessment: TrainingWeekAssessment;
 }
 export interface TrainingOverview {
   today: string;

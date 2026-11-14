@@ -8,6 +8,7 @@ import { useCoachingQuery, useProfile } from '../../api/coaching';
 import { apiClient } from '../../lib/apiClient';
 import { useBackdropClose } from '../../lib/useBackdropClose';
 import { Card, ErrorState, Skeleton } from '../../components/ui/Primitives';
+import { CoachWeekPlanPreview } from '../students/CoachWeekPlanPreview';
 
 interface Attachment { id: string; type: 'IMAGE' | 'VIDEO'; originalFilename: string; }
 interface CorrectionRequest {
@@ -143,7 +144,7 @@ function Conversation({ peer }: { peer: string }) {
     const data = new FormData(); data.append('body', body); if (file) data.append('file', file);
     return apiClient.postFile(`/messages/${peer}`, data);
   }, onSuccess: () => { stickToBottom.current = true; setBody(''); chooseFile(undefined); setPage(1); void client.invalidateQueries({ queryKey: ['coaching'] }); } });
-  return <Card><h2>Chat Coach ↔ Alumno</h2>{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
+  return <Card><h2>Chat Coach ↔ Alumno</h2>{user?.role === 'COACH' && <CoachWeekPlanPreview studentId={peer} mode="chat-alert" />}{query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
     <div ref={threadRef} onScroll={trackScroll} onLoadCapture={scrollToBottom} onLoadedMetadataCapture={scrollToBottom} className="chat-thread" aria-label="Mensajes de la conversación">{[...(query.data ?? [])].reverse().map((m) => <article className={`chat-message ${m.senderId === user?.id ? 'chat-message--own' : ''}`} key={m.id}>
       <small>{m.senderId === user?.id ? 'Tú' : 'Contacto'} · {readableDate(m.createdAt)}</small><p>{m.body}</p>
       {m.correctionRequest && <CorrectionMessage correction={m.correctionRequest} />}

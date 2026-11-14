@@ -90,7 +90,7 @@ function setup() {
       update: jest.fn().mockResolvedValue({ id: 'correction' }),
     },
     message: { create: jest.fn().mockResolvedValue({ id: 'message' }) },
-    notification: { create: jest.fn() },
+    notification: { create: jest.fn(), upsert: jest.fn() },
     auditLog: { create: jest.fn() },
   };
   const prisma = {
@@ -376,6 +376,71 @@ describe('TrainingService: registro seguro', () => {
       }),
     });
     expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+  it('informa a coach y alumno cuando el registro confirma músculos repetidos en días seguidos', async () => {
+    const { tx, service } = setup();
+    const groups = session.sessionExercises[0].exercise
+      .muscleGroups as string[];
+    groups.push('Piernas');
+    const currentFind = tx.workoutLog.findFirst.getMockImplementation()!;
+    const previousExercise = {
+      ...session.sessionExercises[0],
+      id: 'previous-exercise',
+      exercise: {
+        ...session.sessionExercises[0].exercise,
+        muscleGroups: ['Piernas'],
+      },
+    };
+    tx.workoutLog.findFirst.mockImplementation((args) =>
+      args?.where?.NOT
+        ? Promise.resolve({
+            id: 'previous-log',
+            sessionId: 'previous-session',
+            performedAt: new Date('2026-11-08T15:00:00.000Z'),
+            completionStatus: 'COMPLETED',
+            overallRpe: 9,
+            setLogs: [
+              {
+                sessionExerciseId: 'previous-exercise',
+                actualRpe: 9,
+                actualRir: 1,
+              },
+            ],
+            session: {
+              id: 'previous-session',
+              name: 'Piernas anterior',
+              sessionExercises: [previousExercise],
+            },
+          })
+        : currentFind(args),
+    );
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    try {
+      await service.save(user, 's', { ...dto, finish: true });
+    } finally {
+      groups.pop();
+    }
+
+    expect(tx.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          userId: 'coach',
+          title: 'Revisar recuperación del alumno',
+          resourceType: 'message',
+          resourceId: 'student',
+        }),
+      }),
+    );
+    expect(tx.notification.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          userId: 'student',
+          title: 'Tu coach fue informado sobre tu recuperación',
+        }),
+      }),
+    );
   });
   it('permite iniciar una sesión sugerida para después dentro de la misma semana', async () => {
     const { tx, service, assignment } = setup();

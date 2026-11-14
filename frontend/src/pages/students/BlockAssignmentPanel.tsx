@@ -12,6 +12,7 @@ import {
   Skeleton,
 } from "../../components/ui/Primitives";
 import "../student-training/training.css";
+import { CoachWeekPlanPreview } from "./CoachWeekPlanPreview";
 
 export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
   const query = useTraining(studentId);
@@ -114,34 +115,7 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           </div>
         </article>
       ))}
-      {query.data?.weekPlan && (
-        <aside
-          className={`training-week-plan__advice training-week-plan__advice--${query.data.weekPlan.assessment.level.toLowerCase()}`}
-          role={
-            query.data.weekPlan.assessment.level === "CAUTION" ||
-            query.data.weekPlan.assessment.level === "HIGH"
-              ? "alert"
-              : "status"
-          }
-        >
-          <strong>
-            Organización semanal:{" "}
-            {query.data.weekPlan.assessment.plannedSessions} de{" "}
-            {query.data.weekPlan.prescribedSessions} sesiones
-          </strong>
-          <span>{query.data.weekPlan.assessment.message}</span>
-          {query.data.weekPlan.actualSessions.length > 0 && (
-            <small>
-              Registros reales: {query.data.weekPlan.actualSessions.length}
-            </small>
-          )}
-          {query.data.weekPlan.trainingDates.length > 0 && (
-            <small>
-              Días guardados: {query.data.weekPlan.trainingDates.join(", ")}
-            </small>
-          )}
-        </aside>
-      )}
+      {query.data?.weekPlan && <CoachWeekPlanPreview studentId={studentId} />}
       <dialog
         ref={dialog}
         className="assign-block-dialog"

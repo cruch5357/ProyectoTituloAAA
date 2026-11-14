@@ -19,7 +19,7 @@ import {
 import { computeAdherence } from '../common/training/adherence';
 import {
   assessTrainingWeek,
-  recommendTrainingDates,
+  recommendTrainingPlan,
 } from '../common/training/week-plan';
 import { capturePrescription } from '../common/training/workout-prescription';
 import {
@@ -159,6 +159,14 @@ export class TrainingService {
         durationMinutes: true,
         performedAt: true,
         omittedSets: true,
+        overallRpe: true,
+        setLogs: {
+          select: {
+            sessionExerciseId: true,
+            actualRpe: true,
+            actualRir: true,
+          },
+        },
         _count: { select: { setLogs: true } },
       },
       orderBy: { performedAt: 'desc' },
@@ -197,6 +205,25 @@ export class TrainingService {
                 0,
               );
               const recorded = log?._count.setLogs ?? 0;
+              const performedSets = log?.setLogs ?? [];
+              const performedExerciseIds = new Set(
+                performedSets.map((set) => set.sessionExerciseId),
+              );
+              const actualMuscleGroups = [
+                ...new Set(
+                  s.sessionExercises
+                    .filter((exercise) => performedExerciseIds.has(exercise.id))
+                    .flatMap((exercise) => exerciseInfo(exercise).muscleGroups),
+                ),
+              ];
+              const rpeValues = performedSets
+                .map((set) =>
+                  set.actualRpe === null ? null : Number(set.actualRpe),
+                )
+                .filter((value): value is number => value !== null);
+              const rirValues = performedSets
+                .map((set) => set.actualRir)
+                .filter((value): value is number => value !== null);
               const override = a.scheduleOverrides.find(
                 (o) => o.sessionId === s.id,
               );
@@ -290,6 +317,22 @@ export class TrainingService {
                     ),
                   ),
                 ],
+                actualMuscleGroups,
+                omittedSets: Array.isArray(log?.omittedSets)
+                  ? log.omittedSets.length
+                  : 0,
+                averageRpe: rpeValues.length
+                  ? rpeValues.reduce((sum, value) => sum + value, 0) /
+                    rpeValues.length
+                  : null,
+                averageRir: rirValues.length
+                  ? rirValues.reduce((sum, value) => sum + value, 0) /
+                    rirValues.length
+                  : null,
+                overallRpe:
+                  log?.overallRpe === null || log?.overallRpe === undefined
+                    ? null
+                    : Number(log.overallRpe),
                 exerciseCount: s.sessionExercises.length,
                 legacy: !a.snapshotBlockId,
                 cycleStatus: a.status,
@@ -450,7 +493,12 @@ export class TrainingService {
         finished: session.finished,
         recordedSets: session.recordedSets,
         totalSets: session.totalSets,
-        muscleGroups: session.muscleGroups,
+        omittedSets: session.omittedSets,
+        muscleGroups: session.actualMuscleGroups,
+        prescribedMuscleGroups: session.muscleGroups,
+        averageRpe: session.averageRpe,
+        averageRir: session.averageRir,
+        overallRpe: session.overallRpe,
       }));
     const actualDates = [
       ...new Set(actualSessions.map((item) => item.actualDate)),
@@ -462,6 +510,68 @@ export class TrainingService {
       0,
       prescribedSessions - actualSessions.length,
     );
+    const actualSessionIds = new Set(
+      actualSessions.map((session) => session.sessionId),
+    );
+    const pendingSessions = currentWeekSessions
+      .filter((session) => !actualSessionIds.has(session.sessionId))
+      .map((session) => ({
+        sessionId: session.sessionId,
+        name: session.name,
+        totalSets: session.totalSets,
+        muscleGroups: session.muscleGroups,
+      }));
+    const adjacentSessions = activeAssignment?.currentWeek
+      ? sessions
+          .filter(
+            (session) =>
+              session.assignmentId === activeAssignment.id &&
+              session.actualDate &&
+              (session.actualDate < activeAssignment.currentWeek!.weekStart ||
+                session.actualDate > activeAssignment.currentWeek!.weekEnd) &&
+              Math.min(
+                Math.abs(
+                  dateOnly(session.actualDate).getTime() -
+                    dateOnly(activeAssignment.currentWeek!.weekStart).getTime(),
+                ),
+                Math.abs(
+                  dateOnly(session.actualDate).getTime() -
+                    dateOnly(activeAssignment.currentWeek!.weekEnd).getTime(),
+                ),
+              ) <= 86_400_000,
+          )
+          .map((session) => ({
+            sessionId: session.sessionId,
+            name: session.name,
+            actualDate: session.actualDate!,
+            status: session.status,
+            finished: session.finished,
+            recordedSets: session.recordedSets,
+            totalSets: session.totalSets,
+            omittedSets: session.omittedSets,
+            muscleGroups: session.actualMuscleGroups,
+            averageRpe: session.averageRpe,
+            averageRir: session.averageRir,
+            overallRpe: session.overallRpe,
+          }))
+      : [];
+    const recoveryContext = {
+      actualSessions,
+      adjacentSessions,
+      pendingSessions,
+      weekStart: activeAssignment?.currentWeek?.weekStart,
+      weekEnd: activeAssignment?.currentWeek?.weekEnd,
+    };
+    const recommendation = activeAssignment?.currentWeek
+      ? recommendTrainingPlan(
+          activeAssignment.currentWeek.availableFrom,
+          activeAssignment.currentWeek.weekEnd,
+          remainingSessions,
+          today,
+          actualDates,
+          recoveryContext,
+        )
+      : null;
     const weekPlan =
       activeAssignment?.currentWeek && activeWeekIndex >= 0
         ? {
@@ -474,18 +584,16 @@ export class TrainingService {
             trainingDates,
             revision: storedPlan?.revision ?? 0,
             actualSessions,
+            adjacentSessions,
+            pendingSessions,
             remainingSessions,
-            recommendedDates: recommendTrainingDates(
-              activeAssignment.currentWeek.availableFrom,
-              activeAssignment.currentWeek.weekEnd,
-              remainingSessions,
-              today,
-              actualDates,
-            ),
+            recommendedDates: recommendation?.dates ?? [],
+            recommendation,
             assessment: assessTrainingWeek(
               [...actualDates, ...plannedDates],
               prescribedSessions,
               actualSessions.length + plannedDates.length,
+              recoveryContext,
             ),
           }
         : null;
@@ -586,7 +694,9 @@ export class TrainingService {
           studentId: user.id,
           programAssignmentId: assignment.id,
           sessionId: {
-            in: currentWeek?.sessions.map((session) => session.id) ?? [],
+            in: weeks.flatMap((week) =>
+              week.sessions.map((session) => session.id),
+            ),
           },
         },
         select: {
@@ -597,6 +707,14 @@ export class TrainingService {
           finishedAt: true,
           durationMinutes: true,
           omittedSets: true,
+          overallRpe: true,
+          setLogs: {
+            select: {
+              sessionExerciseId: true,
+              actualRpe: true,
+              actualRir: true,
+            },
+          },
           _count: { select: { setLogs: true } },
         },
         orderBy: { performedAt: 'desc' },
@@ -607,11 +725,15 @@ export class TrainingService {
         const ownLogs = actualLogs.filter((log) => log.sessionId === sessionId);
         return ownLogs.find(isWorkoutFinished) ?? ownLogs[0]!;
       });
-      const actualSessions = latestLogs.flatMap((log) => {
-        const session = currentWeek?.sessions.find(
-          (candidate) => candidate.id === log.sessionId,
+      const indexedSessions = weeks.flatMap((week, weekIndex) =>
+        week.sessions.map((session) => ({ session, weekIndex })),
+      );
+      const actualSessionHistory = latestLogs.flatMap((log) => {
+        const indexed = indexedSessions.find(
+          (candidate) => candidate.session.id === log.sessionId,
         );
-        if (!session) return [];
+        if (!indexed) return [];
+        const { session, weekIndex } = indexed;
         const totalSets = session.sessionExercises.reduce(
           (total, exercise) => total + plannedSets(exercise).length,
           0,
@@ -621,8 +743,26 @@ export class TrainingService {
         const omittedSets = Array.isArray(log.omittedSets)
           ? log.omittedSets.length
           : 0;
+        const performedSets = log.setLogs ?? [];
+        const performedExerciseIds = new Set(
+          performedSets.map((set) => set.sessionExerciseId),
+        );
+        const muscleGroups = [
+          ...new Set(
+            session.sessionExercises
+              .filter((exercise) => performedExerciseIds.has(exercise.id))
+              .flatMap((exercise) => exerciseInfo(exercise).muscleGroups),
+          ),
+        ];
+        const rpeValues = performedSets
+          .map((set) => (set.actualRpe === null ? null : Number(set.actualRpe)))
+          .filter((value): value is number => value !== null);
+        const rirValues = performedSets
+          .map((set) => set.actualRir)
+          .filter((value): value is number => value !== null);
         return [
           {
+            weekIndex,
             sessionId: session.id,
             name: session.name,
             actualDate: todayDate(log.performedAt),
@@ -637,16 +777,36 @@ export class TrainingService {
             finished,
             recordedSets,
             totalSets,
-            muscleGroups: [
+            omittedSets,
+            muscleGroups,
+            prescribedMuscleGroups: [
               ...new Set(
                 session.sessionExercises.flatMap(
                   (exercise) => exerciseInfo(exercise).muscleGroups,
                 ),
               ),
             ],
+            averageRpe: rpeValues.length
+              ? rpeValues.reduce((sum, value) => sum + value, 0) /
+                rpeValues.length
+              : null,
+            averageRir: rirValues.length
+              ? rirValues.reduce((sum, value) => sum + value, 0) /
+                rirValues.length
+              : null,
+            overallRpe:
+              log.overallRpe === null || log.overallRpe === undefined
+                ? null
+                : Number(log.overallRpe),
           },
         ];
       });
+      const actualSessions = actualSessionHistory
+        .filter((session) => session.weekIndex === currentWeekIndex)
+        .map(({ weekIndex, ...session }) => {
+          void weekIndex;
+          return session;
+        });
       const actualDates = [
         ...new Set(actualSessions.map((session) => session.actualDate)),
       ];
@@ -657,6 +817,52 @@ export class TrainingService {
         0,
         prescribedSessions - actualSessions.length,
       );
+      const actualSessionIds = new Set(
+        actualSessions.map((session) => session.sessionId),
+      );
+      const pendingSessions = (currentWeek?.sessions ?? [])
+        .filter((session) => !actualSessionIds.has(session.id))
+        .map((session) => ({
+          sessionId: session.id,
+          name: session.name,
+          totalSets: session.sessionExercises.reduce(
+            (total, exercise) => total + plannedSets(exercise).length,
+            0,
+          ),
+          muscleGroups: [
+            ...new Set(
+              session.sessionExercises.flatMap(
+                (exercise) => exerciseInfo(exercise).muscleGroups,
+              ),
+            ),
+          ],
+        }));
+      const adjacentSessions = actualSessionHistory
+        .filter(
+          (session) =>
+            session.weekIndex !== currentWeekIndex &&
+            Math.min(
+              Math.abs(
+                dateOnly(session.actualDate).getTime() -
+                  dateOnly(bounds.weekStart).getTime(),
+              ),
+              Math.abs(
+                dateOnly(session.actualDate).getTime() -
+                  dateOnly(bounds.weekEnd).getTime(),
+              ),
+            ) <= 86_400_000,
+        )
+        .map(({ weekIndex, ...session }) => {
+          void weekIndex;
+          return session;
+        });
+      const recoveryContext = {
+        actualSessions,
+        adjacentSessions,
+        pendingSessions,
+        weekStart: bounds.weekStart,
+        weekEnd: bounds.weekEnd,
+      };
       if (plannedDates.length > remainingSessions)
         throw new BadRequestException(
           'Hay más días planificados que sesiones pendientes.',
@@ -665,30 +871,53 @@ export class TrainingService {
         [...actualDates, ...plannedDates],
         prescribedSessions,
         actualSessions.length + plannedDates.length,
+        recoveryContext,
       );
       const student = await tx.user.findUnique({
         where: { id: user.id },
         select: { coachId: true, name: true },
       });
-      if (
-        student?.coachId &&
-        (assessment.level === 'CAUTION' || assessment.level === 'HIGH')
-      ) {
+      if (student?.coachId && assessment.notifyCoach) {
         const dedupeKey = `training-plan:${assignment.id}:${currentWeekIndex}:${assessment.code}`;
         await tx.notification.upsert({
           where: { dedupeKey },
           create: {
             userId: student.coachId,
             type: 'TRAINING_PLAN_WARNING',
-            title: `Revisar organización de ${student.name}`,
+            title:
+              assessment.basis === 'CONFIRMED'
+                ? `Revisar recuperación de ${student.name}`
+                : `Revisar organización de ${student.name}`,
             body: assessment.message,
-            resourceType: 'training-week-plan',
-            resourceId: assignment.id,
+            resourceType: 'message',
+            resourceId: user.id,
             dedupeKey,
           },
-          update: { body: assessment.message, readAt: null },
+          update: { body: assessment.message },
+        });
+        const studentDedupeKey = `training-plan-informed:${assignment.id}:${currentWeekIndex}:${assessment.code}`;
+        await tx.notification.upsert({
+          where: { dedupeKey: studentDedupeKey },
+          create: {
+            userId: user.id,
+            type: 'TRAINING_PLAN_WARNING',
+            title: 'Tu coach fue informado de esta planificación',
+            body: 'Tu coach recibió el contexto de recuperación y decidirá si necesita recomendarte un cambio por el chat.',
+            resourceType: 'training-week-plan',
+            resourceId: assignment.id,
+            dedupeKey: studentDedupeKey,
+          },
+          update: {},
         });
       }
+      const recommendation = recommendTrainingPlan(
+        bounds.availableFrom,
+        bounds.weekEnd,
+        remainingSessions,
+        today,
+        actualDates,
+        recoveryContext,
+      );
       await tx.auditLog.create({
         data: {
           actorId: user.id,
@@ -714,14 +943,11 @@ export class TrainingService {
         trainingDates,
         revision: saved?.revision ?? 0,
         actualSessions,
+        adjacentSessions,
+        pendingSessions,
         remainingSessions,
-        recommendedDates: recommendTrainingDates(
-          bounds.availableFrom,
-          bounds.weekEnd,
-          remainingSessions,
-          today,
-          actualDates,
-        ),
+        recommendedDates: recommendation.dates,
+        recommendation,
         assessment,
       };
     });
@@ -1401,6 +1627,156 @@ export class TrainingService {
             finishedAt: finishing ? (existing?.finishedAt ?? new Date()) : null,
           },
         });
+        if (finishing && performed.length && assignment.program.coachId) {
+          const previous = await tx.workoutLog.findFirst({
+            where: {
+              studentId: user.id,
+              programAssignmentId: assignment.id,
+              completionStatus: { not: 'SKIPPED' },
+              NOT: { id: log.id },
+              OR: [
+                { structuredExecution: true, finishedAt: { not: null } },
+                {
+                  structuredExecution: false,
+                  durationMinutes: { not: null },
+                },
+              ],
+            },
+            orderBy: { performedAt: 'desc' },
+            include: {
+              setLogs: {
+                select: {
+                  sessionExerciseId: true,
+                  actualRpe: true,
+                  actualRir: true,
+                },
+              },
+              session: {
+                include: {
+                  sessionExercises: {
+                    include: {
+                      exercise: true,
+                      programmedSets: true,
+                    },
+                  },
+                },
+              },
+            },
+          });
+          if (previous?.session) {
+            const previousExerciseIds = new Set(
+              previous.setLogs.map((set) => set.sessionExerciseId),
+            );
+            const previousGroups = [
+              ...new Set(
+                previous.session.sessionExercises
+                  .filter((exercise) => previousExerciseIds.has(exercise.id))
+                  .flatMap((exercise) => exerciseInfo(exercise).muscleGroups),
+              ),
+            ];
+            const currentExerciseIds = new Set(
+              performed.map((set) => set.sessionExerciseId),
+            );
+            const currentGroups = [
+              ...new Set(
+                session.sessionExercises
+                  .filter((exercise) => currentExerciseIds.has(exercise.id))
+                  .flatMap((exercise) => exerciseInfo(exercise).muscleGroups),
+              ),
+            ];
+            const previousRpe = previous.setLogs
+              .map((set) =>
+                set.actualRpe === null ? null : Number(set.actualRpe),
+              )
+              .filter((value): value is number => value !== null);
+            const previousRir = previous.setLogs
+              .map((set) => set.actualRir)
+              .filter((value): value is number => value !== null);
+            const currentRpe = performed
+              .map((set) => set.rpe)
+              .filter((value): value is number => value != null);
+            const previousDate = todayDate(previous.performedAt);
+            const recoveryAssessment = assessTrainingWeek(
+              [previousDate, today],
+              2,
+              2,
+              {
+                actualSessions: [
+                  {
+                    sessionId: previous.sessionId,
+                    name: previous.session.name,
+                    actualDate: previousDate,
+                    status: previous.completionStatus,
+                    finished: true,
+                    recordedSets: previous.setLogs.length,
+                    totalSets: previous.session.sessionExercises.reduce(
+                      (sum, exercise) => sum + plannedSets(exercise).length,
+                      0,
+                    ),
+                    muscleGroups: previousGroups,
+                    averageRpe: previousRpe.length
+                      ? previousRpe.reduce((sum, value) => sum + value, 0) /
+                        previousRpe.length
+                      : null,
+                    averageRir: previousRir.length
+                      ? previousRir.reduce((sum, value) => sum + value, 0) /
+                        previousRir.length
+                      : null,
+                    overallRpe:
+                      previous.overallRpe === null
+                        ? null
+                        : Number(previous.overallRpe),
+                  },
+                  {
+                    sessionId: session.id,
+                    name: session.name,
+                    actualDate: today,
+                    status,
+                    finished: true,
+                    recordedSets: performed.length,
+                    totalSets: total,
+                    muscleGroups: currentGroups,
+                    averageRpe: currentRpe.length
+                      ? currentRpe.reduce((sum, value) => sum + value, 0) /
+                        currentRpe.length
+                      : null,
+                  },
+                ],
+              },
+            );
+            if (recoveryAssessment.notifyCoach) {
+              const weekIndex = timing?.weekIndex ?? 0;
+              const coachDedupeKey = `training-recovery:${assignment.id}:${weekIndex}:${recoveryAssessment.code}`;
+              await tx.notification.upsert({
+                where: { dedupeKey: coachDedupeKey },
+                create: {
+                  userId: assignment.program.coachId,
+                  type: 'TRAINING_PLAN_WARNING',
+                  title: 'Revisar recuperación del alumno',
+                  body: recoveryAssessment.message,
+                  resourceType: 'message',
+                  resourceId: user.id,
+                  dedupeKey: coachDedupeKey,
+                },
+                update: { body: recoveryAssessment.message },
+              });
+              const studentDedupeKey = `training-recovery-informed:${assignment.id}:${weekIndex}:${recoveryAssessment.code}`;
+              await tx.notification.upsert({
+                where: { dedupeKey: studentDedupeKey },
+                create: {
+                  userId: user.id,
+                  type: 'TRAINING_PLAN_WARNING',
+                  title: 'Tu coach fue informado sobre tu recuperación',
+                  body: 'Detectamos trabajo cercano sobre los mismos músculos. Tu coach recibió el contexto y decidirá si necesita escribirte.',
+                  resourceType: 'training-week-plan',
+                  resourceId: assignment.id,
+                  dedupeKey: studentDedupeKey,
+                },
+                update: {},
+              });
+            }
+          }
+        }
       },
       { timeout: 30000 },
     );

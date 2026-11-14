@@ -216,9 +216,17 @@
   border-radius: 50%;
   content: "";
 }
-.training-week-plan__key--trained::before {
+.training-week-plan__key--completed::before {
   border-color: var(--color-success);
   background: var(--color-success);
+}
+.training-week-plan__key--partial::before {
+  border-color: var(--color-warning);
+  background: color-mix(in srgb, var(--color-warning) 42%, transparent);
+}
+.training-week-plan__key--skipped::before {
+  border-color: var(--color-text-muted);
+  background: transparent;
 }
 .training-week-plan__key--planned::before {
   border-color: var(--color-primary);
@@ -270,6 +278,24 @@
 .training-week-plan__days button[data-state="trained"]:disabled {
   opacity: 1;
 }
+.training-week-plan__days button[data-result="partial"] {
+  border-color: var(--color-warning);
+  background: color-mix(
+    in srgb,
+    var(--color-warning) 12%,
+    var(--color-surface)
+  );
+  box-shadow: inset 0 -3px 0 var(--color-warning);
+}
+.training-week-plan__days button[data-result="skipped"] {
+  border-color: var(--color-border-strong);
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted) 7%,
+    var(--color-surface)
+  );
+  box-shadow: inset 0 -3px 0 var(--color-text-muted);
+}
 .training-week-plan__days button[data-state="unavailable"] {
   background: transparent;
   color: var(--color-text-muted);
@@ -288,6 +314,17 @@
   color: var(--color-text-muted);
   line-height: 1.45;
 }
+.training-week-plan__advice-level {
+  margin: 0 !important;
+  color: var(--color-text-secondary) !important;
+  font-size: 0.7rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.training-week-plan__practical {
+  font-weight: 650;
+}
 .training-week-plan__advice--unplanned {
   border-left-color: var(--color-info);
 }
@@ -305,6 +342,103 @@
 }
 .training-week-plan__actions .button {
   width: auto;
+}
+.training-week-plan__recommendation {
+  max-width: 760px;
+  margin: 9px 0 0;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+}
+.coach-week-plan {
+  gap: 10px;
+  margin: 18px 0;
+}
+.coach-week-plan__header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.coach-week-plan__header > div {
+  display: grid;
+  gap: 4px;
+}
+.coach-week-plan__header > span {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.coach-week-plan > p {
+  margin: 0;
+}
+.coach-week-plan__suggestion {
+  font-weight: 650;
+}
+.coach-week-plan__days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.coach-week-plan__days > div {
+  display: grid;
+  gap: 2px;
+  min-height: 70px;
+  padding: 8px 4px;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface);
+  text-align: center;
+}
+.coach-week-plan__days span {
+  font-size: 1rem;
+  font-weight: 750;
+}
+.coach-week-plan__days small {
+  align-self: end;
+  color: var(--color-text-muted);
+  font-size: 0.62rem;
+}
+.coach-week-plan__days [data-state="planned"] {
+  border-color: var(--color-primary);
+  background: color-mix(
+    in srgb,
+    var(--color-primary) 10%,
+    var(--color-surface)
+  );
+}
+.coach-week-plan__days [data-state="completo"] {
+  border-color: var(--color-success);
+}
+.coach-week-plan__days [data-state="parcial"] {
+  border-color: var(--color-warning);
+}
+.coach-week-plan__days [data-state="omitido"] {
+  border-color: var(--color-text-muted);
+  border-style: dashed;
+}
+.coach-week-plan__default {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface);
+}
+.coach-week-plan__default p {
+  margin: 4px 0;
+}
+.coach-week-plan__default small {
+  color: var(--color-text-muted);
+}
+.coach-week-plan__composer {
+  display: grid;
+  gap: 8px;
+}
+.coach-week-plan__composer textarea {
+  min-height: 180px;
+}
+.coach-week-plan--chat-alert {
+  margin: 8px 0 14px;
+  background: color-mix(in srgb, var(--color-warning) 8%, var(--color-surface));
 }
 .training-week-plan__confirmation {
   display: grid;
@@ -826,6 +960,9 @@
     text-align: left;
   }
   .training-week-plan__days {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .coach-week-plan__days {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
   .training-today-card {

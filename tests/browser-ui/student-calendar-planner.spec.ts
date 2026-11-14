@@ -182,9 +182,14 @@ for (const width of [390, 1440]) {
     ).toBeVisible();
     await expect(
       page.getByRole("button", {
-        name: /Entrenado.*Piernas real.*4\/6 series/,
+        name: /Parcial.*Piernas real.*4\/6 series/,
       }),
     ).toBeDisabled();
+    await expect(
+      page.getByRole("button", {
+        name: /Parcial.*Piernas real.*4\/6 series/,
+      }),
+    ).toHaveAttribute("data-result", "partial");
     const flexibleCard = page.getByRole("link", {
       name: /Sesión flexible.*Pendiente.*0\/6 series/,
     });

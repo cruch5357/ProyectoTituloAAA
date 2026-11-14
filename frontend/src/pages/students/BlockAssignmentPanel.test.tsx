@@ -14,6 +14,63 @@ const trainingOverview = {
   pendingSession: null,
 };
 
+const riskyTrainingOverview = {
+  ...trainingOverview,
+  weekPlan: {
+    assignmentId: "assignment-1",
+    weekIndex: 0,
+    weekStart: "2026-11-09",
+    availableFrom: "2026-11-09",
+    weekEnd: "2026-11-15",
+    prescribedSessions: 3,
+    trainingDates: ["2026-11-09", "2026-11-10", "2026-11-14"],
+    revision: 1,
+    actualSessions: [
+      {
+        sessionId: "legs",
+        name: "Piernas",
+        actualDate: "2026-11-09",
+        status: "COMPLETED" as const,
+        finished: true,
+        recordedSets: 6,
+        totalSets: 6,
+        muscleGroups: ["Piernas"],
+      },
+    ],
+    pendingSessions: [
+      {
+        sessionId: "legs-2",
+        name: "Piernas 2",
+        totalSets: 5,
+        muscleGroups: ["Piernas"],
+      },
+    ],
+    adjacentSessions: [],
+    remainingSessions: 2,
+    recommendedDates: ["2026-11-11", "2026-11-14"],
+    recommendation: {
+      dates: ["2026-11-11", "2026-11-14"],
+      quality: "IMPROVED" as const,
+      reason: "Se priorizó la recuperación de piernas.",
+    },
+    assessment: {
+      level: "CAUTION" as const,
+      code: "POTENTIAL_MUSCLE_CONFLICT",
+      basis: "POTENTIAL" as const,
+      title: "Revisa qué sesión realizarás",
+      message: "Si repites piernas, el descanso podría ser insuficiente.",
+      recommendation: "Prioriza otra sesión o cambia la fecha.",
+      showRecoveryContext: true,
+      notifyCoach: true,
+      plannedSessions: 3,
+      prescribedSessions: 3,
+      missingSessions: 0,
+      maxConsecutiveDays: 2,
+      affectedMuscleGroups: ["Piernas"],
+    },
+  },
+};
+
 function blockWithSessions(days = 2): LibraryBlock {
   return {
     id: "block-1",
@@ -34,14 +91,18 @@ function blockWithSessions(days = 2): LibraryBlock {
   };
 }
 
-function mockApi(block: LibraryBlock) {
+function mockApi(
+  block: LibraryBlock,
+  overview:
+    typeof trainingOverview | typeof riskyTrainingOverview = trainingOverview,
+) {
   vi.spyOn(apiClient, "get").mockImplementation(async (path) => ({
     data:
       path === "/block-library"
         ? [block]
         : path === `/block-library/${block.id}`
           ? block
-          : trainingOverview,
+          : overview,
     error: null,
     meta: {},
   }));
@@ -117,5 +178,52 @@ describe("asignación semanal flexible", () => {
     expect(
       screen.getByRole("button", { name: "Confirmar asignación" }),
     ).toBeDisabled();
+  });
+
+  it("previsualiza siete días y permite al coach enviar una advertencia justificada al chat", async () => {
+    mockApi(blockWithSessions(), riskyTrainingOverview);
+    const postFile = vi.spyOn(apiClient, "postFile").mockResolvedValue({
+      data: { id: "message-1" },
+      error: null,
+      meta: {},
+    });
+    renderWithProviders(<BlockAssignmentPanel studentId="student-1" />);
+
+    const preview = await screen.findByRole("alert", {
+      name: "Previsualización de la planificación semanal",
+    });
+    expect(preview).toHaveTextContent("Solo visible para el coach");
+    expect(preview).toHaveTextContent("Se priorizó la recuperación de piernas");
+    expect(
+      screen.getByLabelText("Distribución de lunes a domingo").children,
+    ).toHaveLength(7);
+
+    await userEvent.click(
+      screen.getByRole("button", {
+        name: "Preparar advertencia para el chat",
+      }),
+    );
+    expect(
+      (
+        screen.getByLabelText(
+          "Advertencia para el alumno",
+        ) as HTMLTextAreaElement
+      ).value,
+    ).toContain("Justificación");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Enviar advertencia" }),
+    );
+
+    await waitFor(() =>
+      expect(postFile).toHaveBeenCalledWith(
+        "/messages/student-1",
+        expect.any(FormData),
+      ),
+    );
+    const sentData = postFile.mock.calls[0]![1] as FormData;
+    expect(sentData.get("body")).toContain("Distribución sugerida");
+    expect(
+      await screen.findByText("Advertencia enviada en el chat."),
+    ).toBeVisible();
   });
 });

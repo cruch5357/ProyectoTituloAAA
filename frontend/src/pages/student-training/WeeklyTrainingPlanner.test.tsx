@@ -44,7 +44,7 @@ describe("WeeklyTrainingPlanner", () => {
     await user.click(dayButtons[1]);
     await user.click(dayButtons[2]);
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Considera dejar un día de recuperación",
+      "las fechas por sí solas no confirman un problema",
     );
     expect(screen.getByText(/un entrenamiento por día/i)).toBeVisible();
   });
@@ -109,7 +109,7 @@ describe("WeeklyTrainingPlanner", () => {
     );
 
     const trained = screen.getByRole("button", {
-      name: /Entrenado.*Piernas real.*4\/6 series/i,
+      name: /Parcial.*Piernas real.*4\/6 series/i,
     });
     expect(trained).toBeDisabled();
     expect(trained).toHaveAttribute("data-state", "trained");
@@ -185,8 +185,141 @@ describe("WeeklyTrainingPlanner", () => {
       />,
     );
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "grupos musculares similares",
+      "Atención a la recuperación de Espalda",
     );
-    expect(screen.getByText(/48–72 horas/)).toBeVisible();
+    expect(screen.getByText(/alrededor de 48 horas/)).toBeVisible();
+  });
+
+  it("updates a potential muscle conflict immediately without assigning a session", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <WeeklyTrainingPlanner
+        plan={{
+          ...plan,
+          prescribedSessions: 2,
+          remainingSessions: 1,
+          actualSessions: [
+            {
+              sessionId: "legs-done",
+              name: "Piernas realizadas",
+              actualDate: "2026-11-10",
+              status: "COMPLETED",
+              finished: true,
+              recordedSets: 6,
+              totalSets: 6,
+              muscleGroups: ["Piernas"],
+              averageRpe: 8,
+            },
+          ],
+          pendingSessions: [
+            {
+              sessionId: "legs",
+              name: "Piernas",
+              totalSets: 6,
+              muscleGroups: ["Piernas"],
+            },
+            {
+              sessionId: "back",
+              name: "Espalda",
+              totalSets: 5,
+              muscleGroups: ["Espalda"],
+            },
+          ],
+          recommendedDates: ["2026-11-12"],
+        }}
+        today="2026-11-10"
+      />,
+    );
+
+    const nextAvailable = screen
+      .getAllByRole("button")
+      .find((button) => button.getAttribute("data-state") === "available");
+    expect(nextAvailable).toBeDefined();
+    await user.click(nextAvailable!);
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Revisa qué sesión realizarás",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Puedes priorizar Espalda",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("riesgo potencial");
+  });
+
+  it("shows the real registered-week breakdown and distinct day states", () => {
+    renderWithProviders(
+      <WeeklyTrainingPlanner
+        plan={{
+          ...plan,
+          prescribedSessions: 3,
+          remainingSessions: 0,
+          actualSessions: [
+            {
+              sessionId: "complete",
+              name: "Completa",
+              actualDate: "2026-11-10",
+              status: "COMPLETED",
+              finished: true,
+              recordedSets: 5,
+              totalSets: 5,
+              muscleGroups: ["Piernas"],
+            },
+            {
+              sessionId: "partial",
+              name: "Parcial",
+              actualDate: "2026-11-12",
+              status: "PARTIAL",
+              finished: true,
+              recordedSets: 2,
+              totalSets: 5,
+              muscleGroups: ["Espalda"],
+            },
+            {
+              sessionId: "skipped",
+              name: "Omitida",
+              actualDate: "2026-11-14",
+              status: "SKIPPED",
+              finished: true,
+              recordedSets: 0,
+              totalSets: 4,
+              muscleGroups: [],
+            },
+          ],
+          pendingSessions: [],
+          recommendedDates: [],
+        }}
+        today="2026-11-14"
+      />,
+    );
+
+    expect(screen.getByText("Semana registrada")).toBeVisible();
+    expect(
+      screen.getByText(/1 completada, 1 parcial, 1 omitida/),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: /Completa: Completado/ }),
+    ).toHaveAttribute("data-result", "completed");
+    expect(
+      screen.getByRole("button", { name: /Omitida: Omitido/ }),
+    ).toHaveAttribute("data-result", "skipped");
+  });
+
+  it("explains when the automatic recommendation is not clearly better", () => {
+    renderWithProviders(
+      <WeeklyTrainingPlanner
+        plan={{
+          ...plan,
+          recommendation: {
+            dates: plan.recommendedDates,
+            quality: "EQUIVALENT",
+            reason:
+              "No existe una distribución claramente mejor con los días disponibles.",
+          },
+        }}
+        today="2026-11-10"
+      />,
+    );
+    expect(
+      screen.getByText(/No existe una distribución claramente mejor/),
+    ).toBeVisible();
   });
 });

@@ -244,6 +244,7 @@ describe('Evolución coaching', () => {
     );
     await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(expect.stringContaining('/messages/coach1?page=1')));
     expect(vi.mocked(apiClient.get).mock.calls.some(([path]) => String(path).startsWith('/messages/s1'))).toBe(false);
+    expect(screen.queryByRole('alert', { name: 'Aviso privado sobre planificación semanal' })).toBeNull();
   });
   it('Novedades muestra solo las 4 más recientes', async () => {
     const notices = Array.from({ length: 6 }, (_, i) => ({ id: `n${i}`, title: `Novedad ${i + 1}`, resourceType: 'program', resourceId: 'p1', createdAt: `2026-10-0${i + 1}T12:00:00Z`, readAt: null }));
