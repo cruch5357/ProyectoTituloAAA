@@ -24,8 +24,6 @@ const workoutLogsKeys = {
 // PROMPT 07): ningún filtro se resuelve en el frontend, todos viajan como
 // query params y el backend hace el scoping por alumno autenticado.
 export interface ListWorkoutLogsHistoryParams {
-  page: number;
-  limit: number;
   dateFrom?: string;
   dateTo?: string;
   completionStatus?: WorkoutCompletionStatus;
@@ -45,6 +43,8 @@ export interface WorkoutLogsHistoryMeta {
   total: number;
   totalPages: number;
 }
+
+const WORKOUT_LOGS_HISTORY_BATCH_SIZE = 100;
 
 export interface WorkoutEvolutionParams {
   dateFrom?: string;
@@ -67,17 +67,52 @@ function buildQueryString(
   return asString ? `?${asString}` : '';
 }
 
-// GET /workout-logs — historial paginado y filtrable del alumno autenticado
-// (RF-25). Mismo patrón exacto que useExercises: `placeholderData` evita el
-// parpadeo de "cargando" al cambiar de página/filtros.
+async function getWorkoutLogsHistoryPage(
+  params: ListWorkoutLogsHistoryParams,
+  page: number,
+) {
+  const res = await apiClient.get<WorkoutLog[], WorkoutLogsHistoryMeta>(
+    `/workout-logs${buildQueryString({
+      page,
+      limit: WORKOUT_LOGS_HISTORY_BATCH_SIZE,
+      ...params,
+    })}`,
+  );
+  return { items: res.data, meta: res.meta };
+}
+
+// GET /workout-logs — reúne el historial filtrado usando la paginación ya
+// existente de la API. Los períodos temporales se forman después en la vista,
+// de modo que un límite de filas del transporte nunca corte un período ni
+// oculte ciclos antiguos.
 export function useWorkoutLogsHistory(params: ListWorkoutLogsHistoryParams) {
   return useQuery({
     queryKey: workoutLogsKeys.history(params),
     queryFn: async () => {
-      const res = await apiClient.get<WorkoutLog[], WorkoutLogsHistoryMeta>(
-        `/workout-logs${buildQueryString(params)}`,
+      const firstPage = await getWorkoutLogsHistoryPage(params, 1);
+      const remainingPages = await Promise.all(
+        Array.from(
+          { length: Math.max(0, firstPage.meta.totalPages - 1) },
+          (_, index) => getWorkoutLogsHistoryPage(params, index + 2),
+        ),
       );
-      return { items: res.data, meta: res.meta };
+      const seen = new Set<string>();
+      const items = [firstPage, ...remainingPages]
+        .flatMap((result) => result.items)
+        .filter((item) => {
+          if (seen.has(item.id)) return false;
+          seen.add(item.id);
+          return true;
+        });
+      return {
+        items,
+        meta: {
+          ...firstPage.meta,
+          page: 1,
+          limit: WORKOUT_LOGS_HISTORY_BATCH_SIZE,
+          totalPages: 1,
+        },
+      };
     },
     placeholderData: (previousData) => previousData,
   });

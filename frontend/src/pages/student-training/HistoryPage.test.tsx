@@ -72,6 +72,162 @@ beforeEach(() => {
 // PROMPT 11 (RF-25) — "Mi historial": lista de entrenamientos realmente
 // registrados + evolución básica descriptiva.
 describe('HistoryPage', () => {
+  it('navega por períodos de dos semanas sin crear páginas para intervalos vacíos', async () => {
+    const recent = buildWorkoutLog({
+      id: 'recent-log',
+      performedAt: '2026-11-13T15:00:00.000Z',
+      session: {
+        id: 'recent-session',
+        name: 'Sesión del ciclo reciente',
+        week: {
+          id: 'recent-week',
+          number: 1,
+          block: {
+            id: 'recent-block',
+            name: 'Bloque reciente',
+            program: { id: 'recent-program', name: 'Ciclo reciente' },
+          },
+        },
+      },
+    });
+    const old = buildWorkoutLog({
+      id: 'old-log',
+      performedAt: '2026-10-05T15:00:00.000Z',
+      session: {
+        id: 'old-session',
+        name: 'Sesión de un ciclo anterior',
+        week: {
+          id: 'old-week',
+          number: 1,
+          block: {
+            id: 'old-block',
+            name: 'Bloque anterior',
+            program: { id: 'old-program', name: 'Ciclo anterior' },
+          },
+        },
+      },
+    });
+    vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
+      if (path.startsWith('/workout-logs/evolution')) {
+        return {
+          data: { summary: buildSummary(), exerciseEvolution: null },
+          error: null,
+          meta: {},
+        };
+      }
+      if (path === '/program-assignments/me') {
+        return { data: [], error: null, meta: {} };
+      }
+      if (path.startsWith('/workout-logs?')) {
+        const secondPage = path.includes('page=2');
+        return {
+          data: secondPage ? [old] : [recent],
+          error: null,
+          meta: { page: secondPage ? 2 : 1, limit: 100, total: 2, totalPages: 2 },
+        };
+      }
+      throw new Error(`Ruta no mockeada: ${path}`);
+    });
+
+    renderWithProviders(<HistoryPage />);
+
+    const navigator = await screen.findByRole('navigation', {
+      name: 'Navegación por períodos del historial',
+    });
+    expect(navigator).toHaveTextContent('9–22 de noviembre de 2026');
+    expect(screen.getByText('Sesión del ciclo reciente')).toBeVisible();
+    expect(screen.queryByText('Sesión de un ciclo anterior')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+
+    expect(screen.getByText('Sesión de un ciclo anterior')).toBeVisible();
+    expect(screen.getByText('Ciclo anterior')).toBeVisible();
+    expect(screen.queryByText('Sesión del ciclo reciente')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeEnabled();
+  });
+
+  it('selecciona un período válido cuando un cambio de filtros elimina el período visible', async () => {
+    const partial = buildWorkoutLog({
+      id: 'partial-log',
+      performedAt: '2026-11-13T15:00:00.000Z',
+      completionStatus: 'PARTIAL',
+      session: {
+        id: 'partial-session',
+        name: 'Parcial reciente',
+        week: {
+          id: 'partial-week',
+          number: 1,
+          block: {
+            id: 'partial-block',
+            name: 'Bloque parcial',
+            program: { id: 'program-1', name: 'Ciclo actual' },
+          },
+        },
+      },
+    });
+    const completed = buildWorkoutLog({
+      id: 'completed-log',
+      performedAt: '2026-10-05T15:00:00.000Z',
+      completionStatus: 'COMPLETED',
+      session: {
+        id: 'completed-session',
+        name: 'Completado antiguo',
+        week: {
+          id: 'completed-week',
+          number: 1,
+          block: {
+            id: 'completed-block',
+            name: 'Bloque completado',
+            program: { id: 'program-2', name: 'Ciclo anterior' },
+          },
+        },
+      },
+    });
+    vi.spyOn(apiClient, 'get').mockImplementation(async (path: string) => {
+      if (path.startsWith('/workout-logs/evolution')) {
+        return {
+          data: { summary: buildSummary(), exerciseEvolution: null },
+          error: null,
+          meta: {},
+        };
+      }
+      if (path === '/program-assignments/me') {
+        return { data: [], error: null, meta: {} };
+      }
+      if (path.startsWith('/workout-logs?')) {
+        const filtered = path.includes('completionStatus=PARTIAL');
+        return {
+          data: filtered ? [partial] : [partial, completed],
+          error: null,
+          meta: {
+            page: 1,
+            limit: 100,
+            total: filtered ? 1 : 2,
+            totalPages: 1,
+          },
+        };
+      }
+      throw new Error(`Ruta no mockeada: ${path}`);
+    });
+
+    renderWithProviders(<HistoryPage />);
+    await screen.findByText('Parcial reciente');
+    await userEvent.click(screen.getByRole('button', { name: 'Anterior' }));
+    expect(screen.getByText('Completado antiguo')).toBeVisible();
+
+    await userEvent.selectOptions(screen.getByLabelText('Estado'), 'PARTIAL');
+    await userEvent.click(screen.getByRole('button', { name: 'Filtrar' }));
+
+    expect(await screen.findByText('Parcial reciente')).toBeVisible();
+    await waitFor(() => {
+      expect(screen.queryByText('Completado antiguo')).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+    });
+  });
+
   it('muestra la evolución básica y el historial de entrenamientos', async () => {
     mockGetByPath({
       '/workout-logs/evolution': { summary: buildSummary(), exerciseEvolution: null },

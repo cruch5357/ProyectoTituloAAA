@@ -170,6 +170,47 @@
   justify-content: center;
   color: var(--color-text-muted);
 }
+.period-pagination {
+  justify-content: space-between;
+  padding: 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+.period-pagination button {
+  min-width: 96px;
+}
+.period-pagination__label {
+  display: grid;
+  flex: 1;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: center;
+}
+.period-pagination__label strong {
+  color: var(--color-text);
+}
+.period-pagination__label small {
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+.history-period-pagination {
+  margin-bottom: 1rem;
+}
+@media (max-width: 600px) {
+  .period-pagination {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .period-pagination__label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .period-pagination button {
+    width: 100%;
+    min-width: 0;
+  }
+}
 .detail-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

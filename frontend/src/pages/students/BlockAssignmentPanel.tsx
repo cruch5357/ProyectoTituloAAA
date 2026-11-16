@@ -1,18 +1,168 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLibrary, useLibraryBlock } from "../../api/blockLibrary";
-import { trainingLabels, useTraining } from "../../api/training";
+import {
+  trainingLabels,
+  useTraining,
+  type TrainingAssignment,
+  type TrainingSessionSummary,
+} from "../../api/training";
 import { apiClient } from "../../lib/apiClient";
 import { todayDate } from "../../lib/calendarDate";
 import { readableDate } from "../../lib/readableDate";
 import {
   EmptyState,
   ErrorState,
+  PeriodNavigator,
   Skeleton,
 } from "../../components/ui/Primitives";
 import "../student-training/training.css";
 import { CoachWeekPlanPreview } from "./CoachWeekPlanPreview";
+
+function initialCycleWeek(
+  assignment: TrainingAssignment,
+  sessions: TrainingSessionSummary[],
+  totalWeeks: number,
+  today: string,
+): number {
+  const currentWeek = assignment.currentWeek?.weekNumber;
+  if (currentWeek && currentWeek >= 1 && currentWeek <= totalWeeks) {
+    return currentWeek;
+  }
+  if (totalWeeks === 0) return 0;
+  if (assignment.startDate && assignment.startDate.slice(0, 10) > today) {
+    return 1;
+  }
+  if (
+    assignment.status === "FINISHED" ||
+    (assignment.startDate && assignment.startDate.slice(0, 10) <= today)
+  ) {
+    return totalWeeks;
+  }
+  const firstSessionWeek = Math.min(
+    ...sessions
+      .map((session) => session.weekNumber)
+      .filter((weekNumber) => weekNumber >= 1 && weekNumber <= totalWeeks),
+  );
+  return Number.isFinite(firstSessionWeek) ? firstSessionWeek : 1;
+}
+
+function TrainingCycle({
+  assignment,
+  sessions,
+  today,
+}: {
+  assignment: TrainingAssignment;
+  sessions: TrainingSessionSummary[];
+  today: string;
+}) {
+  const totalWeeks = Math.max(
+    assignment.weekCount,
+    0,
+    ...sessions.map((session) => session.weekNumber),
+  );
+  const initialWeek = initialCycleWeek(
+    assignment,
+    sessions,
+    totalWeeks,
+    today,
+  );
+  const [selectedWeek, setSelectedWeek] = useState<number | null>(null);
+  const visibleWeek =
+    selectedWeek !== null && selectedWeek >= 1 && selectedWeek <= totalWeeks
+      ? selectedWeek
+      : initialWeek;
+
+  const visibleSessions = useMemo(
+    () =>
+      sessions
+        .filter((session) => session.weekNumber === visibleWeek)
+        .slice()
+        .sort((a, b) => a.dayNumber - b.dayNumber),
+    [sessions, visibleWeek],
+  );
+
+  return (
+    <article className="training-cycle">
+      <p className="eyebrow">
+        {assignment.legacy ? "Plan anterior conservado" : "Ciclo activo"}
+      </p>
+      <h3>{assignment.name}</h3>
+      <p>
+        Inicio:{" "}
+        {assignment.startDate
+          ? readableDate(assignment.startDate, false)
+          : "Sin fecha configurada"}{" "}
+        ·{" "}
+        {assignment.currentWeek
+          ? `Semana ${assignment.currentWeek.weekNumber} de ${totalWeeks}`
+          : "Fuera del período del ciclo"}
+      </p>
+      <progress
+        aria-label={`${assignment.finishedSessions} de ${assignment.totalSessions} sesiones finalizadas`}
+        max={assignment.totalSessions || 1}
+        value={assignment.finishedSessions}
+      />
+      <p>
+        {assignment.finishedSessions} / {assignment.totalSessions} sesiones
+        finalizadas · {assignment.adherence.completedSessions} completadas de{" "}
+        {assignment.adherence.scheduledSessions} programadas hasta hoy
+      </p>
+
+      {totalWeeks > 0 ? (
+        <>
+          <PeriodNavigator
+            className="training-cycle__pagination"
+            ariaLabel={`Navegación por semanas de ${assignment.name}`}
+            label={`Semana ${visibleWeek} de ${totalWeeks}`}
+            onPrevious={() =>
+              setSelectedWeek(Math.max(1, visibleWeek - 1))
+            }
+            onNext={() =>
+              setSelectedWeek(Math.min(totalWeeks, visibleWeek + 1))
+            }
+            previousDisabled={visibleWeek <= 1}
+            nextDisabled={visibleWeek >= totalWeeks}
+          />
+          <section
+            className="training-week"
+            aria-label={`Sesiones de la semana ${visibleWeek}`}
+          >
+            {visibleSessions.length > 0 ? (
+              <div className="training-session-list">
+                {visibleSessions.map((session) => (
+                  <Link
+                    key={session.id}
+                    to={`/training/sessions/${session.sessionId}?assignmentId=${session.assignmentId}`}
+                  >
+                    <span>
+                      Semana {session.weekNumber} · {session.name}
+                    </span>
+                    <small>
+                      {session.date
+                        ? readableDate(session.date, false)
+                        : "Sin fecha"}{" "}
+                      · {trainingLabels[session.status]}
+                    </small>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="training-week__empty muted">
+                Esta semana no contiene sesiones.
+              </p>
+            )}
+          </section>
+        </>
+      ) : (
+        <p className="training-week__empty muted">
+          Este ciclo no contiene sesiones.
+        </p>
+      )}
+    </article>
+  );
+}
 
 export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
   const query = useTraining(studentId);
@@ -73,47 +223,15 @@ export function BlockAssignmentPanel({ studentId }: { studentId: string }) {
           description="Selecciona un bloque de tu biblioteca para iniciar el ciclo."
         />
       )}
-      {query.data?.assignments.map((a) => (
-        <article className="training-cycle" key={a.id}>
-          <p className="eyebrow">
-            {a.legacy ? "Plan anterior conservado" : "Ciclo activo"}
-          </p>
-          <h3>{a.name}</h3>
-          <p>
-            Inicio:{" "}
-            {a.startDate
-              ? readableDate(a.startDate, false)
-              : "Sin fecha configurada"}{" "}
-            ·{" "}
-            {a.currentWeek
-              ? `Semana ${a.currentWeek.weekNumber} de ${a.weekCount}`
-              : "Fuera del período del ciclo"}
-          </p>
-          <progress max={a.totalSessions || 1} value={a.finishedSessions} />
-          <p>
-            {a.finishedSessions} / {a.totalSessions} sesiones finalizadas ·{" "}
-            {a.adherence.completedSessions} completadas de{" "}
-            {a.adherence.scheduledSessions} programadas hasta hoy
-          </p>
-          <div className="training-session-list">
-            {query.data?.sessions
-              .filter((s) => s.assignmentId === a.id)
-              .map((s) => (
-                <Link
-                  key={s.id}
-                  to={`/training/sessions/${s.sessionId}?assignmentId=${s.assignmentId}`}
-                >
-                  <span>
-                    Semana {s.weekNumber} · {s.name}
-                  </span>
-                  <small>
-                    {s.date ? readableDate(s.date, false) : "Sin fecha"} ·{" "}
-                    {trainingLabels[s.status]}
-                  </small>
-                </Link>
-              ))}
-          </div>
-        </article>
+      {query.data?.assignments.map((assignment) => (
+        <TrainingCycle
+          key={assignment.id}
+          assignment={assignment}
+          sessions={query.data.sessions.filter(
+            (session) => session.assignmentId === assignment.id,
+          )}
+          today={query.data.today}
+        />
       ))}
       {query.data?.weekPlan && <CoachWeekPlanPreview studentId={studentId} />}
       <dialog

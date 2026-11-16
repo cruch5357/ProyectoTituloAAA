@@ -611,6 +611,9 @@
   color: var(--color-text-muted);
   font-size: 0.85rem;
 }
+.training-cycle__pagination {
+  margin-top: 16px;
+}
 .training-week-picker {
   display: flex;
   align-items: center;

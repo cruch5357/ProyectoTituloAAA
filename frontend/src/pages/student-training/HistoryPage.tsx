@@ -1,6 +1,9 @@
 import { readableDate } from "../../lib/readableDate";
 import { PersonalPerformance } from "../../components/ui/PersonalPerformance";
-import { Skeleton } from "../../components/ui/Primitives";
+import {
+  PeriodNavigator,
+  Skeleton,
+} from "../../components/ui/Primitives";
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
@@ -16,8 +19,10 @@ import {
 } from "../../types/workoutLog";
 import { WorkoutCompletionStatusBadge } from "./WorkoutCompletionStatusBadge";
 import { EvolutionChart } from "../../components/ui/EvolutionChart";
-
-const PAGE_SIZE = 20;
+import {
+  formatWorkoutHistoryPeriod,
+  groupWorkoutLogsByPeriod,
+} from "./historyPeriods";
 
 const STATUS_OPTIONS: { value: WorkoutCompletionStatus; label: string }[] = [
   { value: "COMPLETED", label: "Completado" },
@@ -39,7 +44,6 @@ function formatNumber(value: number | null, digits = 1): string {
 // docs/api.md, "Estado de implementación (PROMPT 11)").
 export function HistoryPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [page, setPage] = useState(1);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [completionStatus, setCompletionStatus] = useState<
@@ -68,11 +72,22 @@ export function HistoryPage() {
   };
 
   const historyQuery = useWorkoutLogsHistory({
-    page,
-    limit: PAGE_SIZE,
     ...commonFilters,
     completionStatus: completionStatus || undefined,
   });
+
+  const historyPeriods = useMemo(
+    () => groupWorkoutLogsByPeriod(historyQuery.data?.items ?? []),
+    [historyQuery.data?.items],
+  );
+  const [selectedPeriodKey, setSelectedPeriodKey] = useState<string | null>(
+    null,
+  );
+  const selectedPeriodIndex = Math.max(
+    0,
+    historyPeriods.findIndex((period) => period.key === selectedPeriodKey),
+  );
+  const selectedPeriod = historyPeriods[selectedPeriodIndex];
 
   const evolutionQuery = useWorkoutEvolution({
     ...commonFilters,
@@ -81,7 +96,6 @@ export function HistoryPage() {
 
   function handleFiltersSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPage(1);
   }
 
   function clearExerciseFilter() {
@@ -120,11 +134,11 @@ export function HistoryPage() {
           <span>Estado</span>
           <select
             value={completionStatus}
-            onChange={(event) =>
+            onChange={(event) => {
               setCompletionStatus(
                 event.target.value as WorkoutCompletionStatus | "",
-              )
-            }
+              );
+            }}
           >
             <option value="">Todos</option>
             {STATUS_OPTIONS.map((option) => (
@@ -249,12 +263,41 @@ export function HistoryPage() {
         </p>
       )}
 
-      {historyQuery.isSuccess && historyQuery.data.items.length === 0 && (
+      {historyQuery.isSuccess && historyPeriods.length === 0 && (
         <p>Todavía no tienes entrenamientos registrados con estos filtros.</p>
       )}
 
-      {historyQuery.isSuccess && historyQuery.data.items.length > 0 && (
+      {historyQuery.isSuccess && selectedPeriod && (
         <>
+          <PeriodNavigator
+            className="history-period-pagination"
+            ariaLabel="Navegación por períodos del historial"
+            label={
+              <>
+                <strong>{formatWorkoutHistoryPeriod(selectedPeriod)}</strong>
+                <small>
+                  {selectedPeriod.items.length} de {historyQuery.data.meta.total}{" "}
+                  entrenamientos
+                </small>
+              </>
+            }
+            onPrevious={() =>
+              setSelectedPeriodKey(
+                historyPeriods[selectedPeriodIndex + 1]?.key ??
+                  selectedPeriod.key,
+              )
+            }
+            onNext={() =>
+              setSelectedPeriodKey(
+                historyPeriods[selectedPeriodIndex - 1]?.key ??
+                  selectedPeriod.key,
+              )
+            }
+            previousDisabled={
+              selectedPeriodIndex >= historyPeriods.length - 1
+            }
+            nextDisabled={selectedPeriodIndex <= 0}
+          />
           <div
             className="table-scroll"
             role="region"
@@ -273,7 +316,7 @@ export function HistoryPage() {
                 </tr>
               </thead>
               <tbody>
-                {historyQuery.data.items.map((workoutLog) => (
+                {selectedPeriod.items.map((workoutLog) => (
                   <tr key={workoutLog.id}>
                     <td>
                       <Link to={`/workout-logs/${workoutLog.id}`}>
@@ -303,36 +346,6 @@ export function HistoryPage() {
               </tbody>
             </table>
           </div>
-
-          <nav className="pagination" aria-label="Paginación del historial">
-            <button
-              type="button"
-              aria-label="Página anterior"
-              title="Página anterior"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={page <= 1}
-            >
-              ←
-            </button>
-            <span>
-              Página {historyQuery.data.meta.page} de{" "}
-              {historyQuery.data.meta.totalPages} (
-              {historyQuery.data.meta.total} entrenamientos)
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                setPage((current) =>
-                  Math.min(historyQuery.data.meta.totalPages, current + 1),
-                )
-              }
-              aria-label="Página siguiente"
-              title="Página siguiente"
-              disabled={page >= historyQuery.data.meta.totalPages}
-            >
-              →
-            </button>
-          </nav>
         </>
       )}
     </section>

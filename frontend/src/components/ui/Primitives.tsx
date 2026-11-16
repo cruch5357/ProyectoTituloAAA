@@ -98,3 +98,48 @@ export function ErrorState({
     </div>
   );
 }
+
+export function PeriodNavigator({
+  ariaLabel,
+  label,
+  onPrevious,
+  onNext,
+  previousDisabled,
+  nextDisabled,
+  className = '',
+}: {
+  ariaLabel: string;
+  label: ReactNode;
+  onPrevious: () => void;
+  onNext: () => void;
+  previousDisabled: boolean;
+  nextDisabled: boolean;
+  className?: string;
+}) {
+  return (
+    <nav
+      className={`pagination period-pagination ${className}`.trim()}
+      aria-label={ariaLabel}
+    >
+      <button
+        type="button"
+        className="button--secondary"
+        onClick={onPrevious}
+        disabled={previousDisabled}
+      >
+        Anterior
+      </button>
+      <span className="period-pagination__label" aria-live="polite">
+        {label}
+      </span>
+      <button
+        type="button"
+        className="button--secondary"
+        onClick={onNext}
+        disabled={nextDisabled}
+      >
+        Siguiente
+      </button>
+    </nav>
+  );
+}
