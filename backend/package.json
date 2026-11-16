@@ -30,7 +30,9 @@
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:migrate:status": "prisma migrate status",
     "email:verify": "node ../scripts/email-verify.cjs",
-    "storage:check": "node ../scripts/storage-check.cjs"
+    "storage:check": "node ../scripts/storage-check.cjs",
+    "demo:flexible": "node --env-file=.env -r ts-node/register prisma/setup-flexible-demo.ts",
+    "demo:ml-history": "node --env-file=.env -r ts-node/register prisma/setup-ml-history-demo.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

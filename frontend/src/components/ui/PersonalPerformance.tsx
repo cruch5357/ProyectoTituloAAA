@@ -16,7 +16,9 @@ export function PersonalPerformance({
   registered?: number;
 }) {
   const format = (value: number | null | undefined, unit: string) =>
-    value == null ? 'Sin datos suficientes' : `${value.toFixed(1)} ${unit}`;
+    value == null
+      ? 'Sin datos suficientes'
+      : `${value.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} ${unit}`;
   return (
     <section aria-label="Rendimiento reciente">
       <h2>Rendimiento reciente</h2>

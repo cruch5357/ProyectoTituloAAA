@@ -94,6 +94,22 @@ export class DashboardController {
     return { data, error: null, meta: {} };
   }
 
+  @Get('students/:studentId/suggested-loads')
+  @ApiOperation({
+    summary:
+      'Cargas sugeridas de los ejercicios más entrenados del alumno, con su tendencia de fuerza',
+  })
+  async suggestedLoadHighlights(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param() params: StudentIdRouteParamDto,
+  ) {
+    const data = await this.suggestedLoadService.getHighlights(
+      currentUser.id,
+      params.studentId,
+    );
+    return { data, error: null, meta: {} };
+  }
+
   @Get('students/:studentId/exercises/:exerciseId/suggested-load')
   @ApiOperation({
     summary:

@@ -90,6 +90,96 @@ describe('TrainingService weekly plan', () => {
     expect(tx.notification.upsert).not.toHaveBeenCalled();
   });
 
+  const save = (
+    service: TrainingService,
+    trainingDates: string[],
+    revision = 0,
+  ) =>
+    service.saveWeekPlan(student, {
+      assignmentId: 'assignment',
+      weekIndex: 0,
+      revision,
+      trainingDates,
+    });
+
+  it('accepts alternating rest days without alerting the coach', async () => {
+    const { service, tx } = setup();
+    const result = await save(service, [
+      '2026-11-10',
+      '2026-11-12',
+      '2026-11-14',
+    ]);
+    expect(result.assessment).toMatchObject({
+      level: 'BALANCED',
+      code: 'BALANCED',
+    });
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('treats two consecutive days as balanced and silent for the coach', async () => {
+    const { service, tx } = setup();
+    const result = await save(service, [
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-13',
+    ]);
+    expect(result.assessment.code).toBe('TWO_CONSECUTIVE');
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('does not alert the coach for an incomplete selection', async () => {
+    const { service, tx } = setup();
+    const result = await save(service, ['2026-11-12']);
+    expect(result.assessment).toMatchObject({
+      code: 'INCOMPLETE',
+      missingSessions: 2,
+    });
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects repeated days and more days than prescribed sessions', async () => {
+    const { service, tx } = setup();
+    await expect(save(service, ['2026-11-12', '2026-11-12'])).rejects.toThrow(
+      'No repitas días',
+    );
+    await expect(
+      save(service, ['2026-11-10', '2026-11-12', '2026-11-14', '2026-11-15']),
+    ).rejects.toThrow('más días que sesiones');
+    expect(tx.trainingWeekPlan.create).not.toHaveBeenCalled();
+  });
+
+  // The 5+ sessions alert is sent when the block is assigned, not again
+  // every time the student saves the week.
+  it('saves a five-session week without a second coach alert', async () => {
+    const { service, tx } = setup();
+    const five = await tx.programAssignment.findFirst();
+    five.program.blocks[0].weeks[0].sessions = ['a', 'b', 'c', 'd', 'e'].map(
+      (id) => ({ id, name: id.toUpperCase(), sessionExercises: [] }),
+    );
+    const result = await save(service, [
+      '2026-11-10',
+      '2026-11-11',
+      '2026-11-13',
+      '2026-11-14',
+      '2026-11-15',
+    ]);
+    expect(result.assessment).toMatchObject({ prescribedSessions: 5 });
+    expect(tx.trainingWeekPlan.create).toHaveBeenCalled();
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a stale revision instead of overwriting another tab', async () => {
+    const { service, tx } = setup();
+    tx.trainingWeekPlan.findUnique.mockResolvedValue({
+      id: 'plan',
+      revision: 2,
+    });
+    await expect(
+      save(service, ['2026-11-10', '2026-11-12', '2026-11-14'], 1),
+    ).rejects.toThrow('El plan semanal cambió');
+    expect(tx.trainingWeekPlan.update).not.toHaveBeenCalled();
+  });
+
   it('rejects dates outside the active assignment week', async () => {
     const { service, tx } = setup();
     await expect(

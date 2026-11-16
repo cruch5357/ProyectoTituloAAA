@@ -19,6 +19,7 @@ import { Icon } from "../../components/ui/Icon";
 import { apiClient } from "../../lib/apiClient";
 import "./training.css";
 import { WeeklyTrainingPlanner } from "./WeeklyTrainingPlanner";
+import { StrengthProgress } from "./StrengthProgress";
 
 function TrainingSummaryCard({ session }: { session: TrainingSessionSummary }) {
   const label =
@@ -336,6 +337,7 @@ export function StudentHomePage({ training = false }: { training?: boolean }) {
           <p>Revisa el ciclo o el calendario para consultar otras semanas.</p>
         </article>
       )}
+      {!training && <StrengthProgress />}
       {training && focus ? (
         <article className="training-hero">
           <p className="eyebrow">

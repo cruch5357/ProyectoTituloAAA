@@ -94,6 +94,17 @@ function setup() {
       update: jest.fn().mockResolvedValue({ id: 'correction' }),
     },
     message: { create: jest.fn().mockResolvedValue({ id: 'message' }) },
+    user: {
+      findUnique: jest
+        .fn()
+        .mockImplementation((args) =>
+          Promise.resolve(
+            args?.where?.id === 'coach'
+              ? { isActive: true }
+              : { coachId: 'coach', name: 'Alumna' },
+          ),
+        ),
+    },
     notification: { create: jest.fn(), upsert: jest.fn() },
     auditLog: { create: jest.fn() },
   };
@@ -380,7 +391,12 @@ describe('TrainingService: registro seguro', () => {
       }),
     });
     expect(tx.setLog.upsert).toHaveBeenCalledTimes(1);
-    expect(tx.notification.upsert).not.toHaveBeenCalled();
+    // Only the workout-finished notice; no recovery alert without a prior workout.
+    expect(tx.notification.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ type: 'TRAINING_PLAN_WARNING' }),
+      }),
+    );
   });
   it('informa a coach y alumno cuando el registro confirma músculos repetidos en días seguidos', async () => {
     const { tx, service } = setup();
@@ -565,6 +581,96 @@ describe('TrainingService: registro seguro', () => {
     );
     expect(monday.tx.workoutLog.create).not.toHaveBeenCalled();
     jest.setSystemTime(new Date('2026-11-09T15:00:00.000Z'));
+  });
+  it('aplica el límite diario aunque el entrenamiento de hoy sea de otro ciclo', async () => {
+    const { tx, service } = setup();
+    tx.workoutLog.findFirst.mockImplementation((args) =>
+      Promise.resolve(
+        args?.where?.NOT
+          ? {
+              id: 'replaced-cycle-today',
+              performedAt: new Date('2026-11-09T12:00:00.000Z'),
+            }
+          : null,
+      ),
+    );
+
+    await expect(service.start(user, 's', 'a')).rejects.toThrow(
+      'un entrenamiento por día',
+    );
+    const dailyQuery = tx.workoutLog.findFirst.mock.calls.find(
+      ([args]) => args?.where?.NOT,
+    )?.[0];
+    // Student-wide: only this same execution is excluded.
+    expect(dailyQuery.where).toMatchObject({
+      studentId: 'student',
+      NOT: { programAssignmentId: 'a', sessionId: 's' },
+    });
+    expect(dailyQuery.where).not.toHaveProperty('programAssignmentId');
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('permite continuar el entrenamiento ya iniciado aunque haya otro registro hoy', async () => {
+    const { tx, service } = setup();
+    tx.workoutLog.findFirst.mockImplementation((args) =>
+      Promise.resolve(
+        args?.where?.NOT
+          ? { id: 'other-today', performedAt: new Date() }
+          : {
+              id: 'log',
+              revision: 1,
+              structuredExecution: true,
+              finishedAt: null,
+              durationMinutes: null,
+              performedAt: new Date(),
+            },
+      ),
+    );
+    jest.spyOn(service, 'detail').mockResolvedValue({ id: 's' } as never);
+
+    await expect(service.start(user, 's', 'a')).resolves.toEqual({ id: 's' });
+    expect(tx.workoutLog.create).not.toHaveBeenCalled();
+  });
+  it('avisa al coach una sola vez cuando el alumno finaliza', async () => {
+    const { tx, service } = setup();
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', { ...dto, finish: true });
+
+    expect(tx.notification.upsert).toHaveBeenCalledTimes(1);
+    expect(tx.notification.upsert).toHaveBeenCalledWith({
+      where: { dedupeKey: 'workout:log' },
+      create: expect.objectContaining({
+        userId: 'coach',
+        type: 'WORKOUT_COMPLETED',
+        title: 'Alumna finalizó un entrenamiento',
+        resourceType: 'student',
+        resourceId: 'student',
+      }),
+      update: {},
+    });
+  });
+  it('no avisa al coach mientras el entrenamiento sigue abierto', async () => {
+    const { tx, service } = setup();
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', dto);
+
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
+  });
+  it('no avisa a un coach desactivado', async () => {
+    const { tx, service } = setup();
+    tx.user.findUnique.mockImplementation((args) =>
+      Promise.resolve(
+        args?.where?.id === 'coach'
+          ? { isActive: false }
+          : { coachId: 'coach', name: 'Alumna' },
+      ),
+    );
+    jest.spyOn(service, 'detail').mockResolvedValue({} as never);
+
+    await service.save(user, 's', { ...dto, finish: true });
+
+    expect(tx.notification.upsert).not.toHaveBeenCalled();
   });
   it('trata el inicio repetido de la misma ejecución como idempotente', async () => {
     const { tx, service } = setup();

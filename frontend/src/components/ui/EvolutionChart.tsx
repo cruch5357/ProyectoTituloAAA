@@ -69,7 +69,10 @@ export function EvolutionChart({
               y2={y(value)}
             />
             <text x="5" y={y(value) + 4}>
-              {value.toFixed(1)}
+              {value.toLocaleString('es-CL', {
+                minimumFractionDigits: 1,
+                maximumFractionDigits: 1,
+              })}
             </text>
           </g>
         ))}

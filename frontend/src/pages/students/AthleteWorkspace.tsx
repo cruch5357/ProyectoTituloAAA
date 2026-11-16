@@ -8,6 +8,7 @@ import { StudentDetailPage } from './StudentDetailPage';
 import { StudentDashboardPage } from '../coach-dashboard/StudentDashboardPage';
 import { StudentStatusBadge } from './StudentStatusBadge';
 import { BlockAssignmentPanel } from './BlockAssignmentPanel';
+import { AthleteOverview } from './AthleteOverview';
 import {
   Card,
   EmptyState,
@@ -82,7 +83,9 @@ export function AthleteWorkspace({
         </Card>
       ) : (
         <>
-          <BlockAssignmentPanel studentId={id!} /><AthleteSummary id={id!} />
+          <AthleteOverview studentId={id!} />
+          <AthleteSummary id={id!} />
+          <BlockAssignmentPanel studentId={id!} />
           <Card>
             <StudentDetailPage embedded />
           </Card>

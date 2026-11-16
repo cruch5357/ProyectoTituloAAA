@@ -40,11 +40,73 @@ interface ServiceResponse {
   model_version?: string;
 }
 
+export interface SuggestedLoadHighlight {
+  exerciseId: string;
+  exerciseName: string;
+  sessions: number;
+  /** Mejor 1RM estimado de cada sesión, de la más antigua a la más reciente. */
+  trend: { date: string; e1rmKg: number }[];
+  suggestion: SuggestedLoadResult;
+}
+
+export interface SuggestedLoadHighlights {
+  enabled: boolean;
+  items: SuggestedLoadHighlight[];
+}
+
+export interface StudentProgressItem {
+  exerciseId: string;
+  exerciseName: string;
+  sessions: number;
+  /** Primera sesión considerada para el cambio de fuerza. */
+  since: string;
+  firstE1rmKg: number;
+  lastE1rmKg: number;
+  changePct: number;
+  trend: { date: string; e1rmKg: number }[];
+  forecast: { predictedE1rmKg: number; expectedChangePct: number } | null;
+}
+
+export interface StudentProgress {
+  items: StudentProgressItem[];
+}
+
+const HIGHLIGHT_LIMIT = 3;
+// Con una sola sesión no hay progreso que mostrar.
+const MIN_PROGRESS_SESSIONS = 2;
+// Series recientes suficientes para ordenar los ejercicios habituales.
+const HIGHLIGHT_MAX_SETS = 3000;
+const TREND_POINTS = 12;
+
+type HistorySet = { date: string; load_kg: number; reps: number };
+
+function toHistorySet(set: {
+  actualLoad: unknown;
+  actualReps: number | null;
+  workoutLog: { performedAt: Date };
+}): HistorySet {
+  return {
+    date: set.workoutLog.performedAt.toISOString().slice(0, 10),
+    load_kg: Number(set.actualLoad),
+    reps: set.actualReps ?? 0,
+  };
+}
+
+const epley = (set: HistorySet) => set.load_kg * (1 + set.reps / 30);
+
+// Mismo criterio de sesión que el modelo: un punto por día, su mejor serie.
+function sessionTrend(history: HistorySet[]) {
+  const best = new Map<string, number>();
+  for (const set of history)
+    best.set(set.date, Math.max(best.get(set.date) ?? 0, epley(set)));
+  return [...best.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, e1rm]) => ({ date, e1rmKg: Math.round(e1rm * 10) / 10 }));
+}
+
 // Repeticiones de la mejor serie (mayor 1RM estimado, Epley) de la sesión
 // más reciente: es la referencia por defecto si el coach no indica otras.
-function lastTopSetReps(
-  history: { date: string; load_kg: number; reps: number }[],
-): number | undefined {
+function lastTopSetReps(history: HistorySet[]): number | undefined {
   const lastDate = history[0]?.date;
   let best: { e1rm: number; reps: number } | undefined;
   for (const set of history) {
@@ -104,12 +166,124 @@ export class SuggestedLoadService {
       orderBy: { workoutLog: { performedAt: 'desc' } },
       take: MAX_SETS,
     });
+    return this.requestSuggestion(baseUrl, sets.map(toHistorySet), targetReps);
+  }
 
-    const history = sets.map((set) => ({
-      date: set.workoutLog.performedAt.toISOString().slice(0, 10),
-      load_kg: Number(set.actualLoad),
-      reps: set.actualReps,
-    }));
+  // Resumen para la portada del alumno: los ejercicios que más entrena, con
+  // su tendencia de fuerza y la sugerencia del modelo, sin elegir nada.
+  async getHighlights(
+    coachId: string,
+    studentId: string,
+  ): Promise<SuggestedLoadHighlights> {
+    await this.studentsService.getOwnedByCoach(coachId, studentId);
+    const baseUrl = this.config.get<string>('DATA_SCIENCE_URL');
+    if (!baseUrl) return { enabled: false, items: [] };
+
+    const ranked = await this.topExercises(studentId, { coachId });
+    const items = await Promise.all(
+      ranked.map(async (item) => ({
+        exerciseId: item.exerciseId,
+        exerciseName: item.exerciseName,
+        sessions: item.trend.length,
+        trend: item.trend.slice(-TREND_POINTS),
+        suggestion: await this.requestSuggestion(baseUrl, item.history),
+      })),
+    );
+    return { enabled: true, items };
+  }
+
+  // Progreso para el propio alumno: su fuerza estimada y la previsión del
+  // modelo, nunca la carga sugerida (la prescripción es decisión del coach).
+  // El progreso no depende del modelo: sin servicio, `forecast` es null.
+  async getStudentProgress(studentId: string): Promise<StudentProgress> {
+    const baseUrl = this.config.get<string>('DATA_SCIENCE_URL');
+    const ranked = (await this.topExercises(studentId, {})).filter(
+      (item) => item.trend.length >= MIN_PROGRESS_SESSIONS,
+    );
+    const items = await Promise.all(
+      ranked.map(async (item) => {
+        const first = item.trend[0];
+        const last = item.trend[item.trend.length - 1];
+        const suggestion = baseUrl
+          ? await this.requestSuggestion(baseUrl, item.history)
+          : null;
+        return {
+          exerciseId: item.exerciseId,
+          exerciseName: item.exerciseName,
+          sessions: item.trend.length,
+          since: first.date,
+          firstE1rmKg: first.e1rmKg,
+          lastE1rmKg: last.e1rmKg,
+          changePct: Math.round((last.e1rmKg / first.e1rmKg - 1) * 1000) / 10,
+          trend: item.trend.slice(-TREND_POINTS),
+          forecast:
+            suggestion?.available && suggestion.predictedE1rmKg !== undefined
+              ? {
+                  predictedE1rmKg: suggestion.predictedE1rmKg,
+                  expectedChangePct: suggestion.expectedChangePct ?? 0,
+                }
+              : null,
+        };
+      }),
+    );
+    return { items };
+  }
+
+  // Ejercicios activos que el alumno más ha entrenado, con su historial.
+  private async topExercises(
+    studentId: string,
+    exercise: { coachId?: string },
+  ) {
+    const sets = await this.prisma.setLog.findMany({
+      where: {
+        workoutLog: { studentId },
+        sessionExercise: { exercise: { ...exercise, isActive: true } },
+        actualLoad: { gt: 0 },
+        actualReps: { gt: 0 },
+      },
+      select: {
+        actualLoad: true,
+        actualReps: true,
+        workoutLog: { select: { performedAt: true } },
+        sessionExercise: {
+          select: { exercise: { select: { id: true, name: true } } },
+        },
+      },
+      orderBy: { workoutLog: { performedAt: 'desc' } },
+      take: HIGHLIGHT_MAX_SETS,
+    });
+
+    const byExercise = new Map<
+      string,
+      { name: string; history: HistorySet[] }
+    >();
+    for (const set of sets) {
+      const { id, name } = set.sessionExercise.exercise;
+      const entry = byExercise.get(id) ?? { name, history: [] };
+      entry.history.push(toHistorySet(set));
+      byExercise.set(id, entry);
+    }
+    // Primero los más entrenados; si empatan, el entrenado más recientemente.
+    return [...byExercise.entries()]
+      .map(([exerciseId, entry]) => ({
+        exerciseId,
+        exerciseName: entry.name,
+        history: entry.history.slice(0, MAX_SETS),
+        trend: sessionTrend(entry.history),
+      }))
+      .sort(
+        (a, b) =>
+          b.trend.length - a.trend.length ||
+          b.history[0].date.localeCompare(a.history[0].date),
+      )
+      .slice(0, HIGHLIGHT_LIMIT);
+  }
+
+  private async requestSuggestion(
+    baseUrl: string,
+    history: HistorySet[],
+    targetReps?: number,
+  ): Promise<SuggestedLoadResult> {
     const reps = Math.min(
       15,
       Math.max(1, targetReps ?? lastTopSetReps(history) ?? DEFAULT_TARGET_REPS),

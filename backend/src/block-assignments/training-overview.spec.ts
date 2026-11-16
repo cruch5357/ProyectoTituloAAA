@@ -98,7 +98,8 @@ describe('Training overview: adherencia e historia por ciclo', () => {
       skippedSessions: 1,
       expiredPartialSessions: 0,
     });
-    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(1);
+    // Cycle logs and the student-wide daily limit; none creates logs.
+    expect(prisma.workoutLog.findMany).toHaveBeenCalledTimes(2);
   });
   it('conserva como parcial una sesión vencida con series reales', async () => {
     const { service } = setup([log('current', null, 'PARTIAL', 1)]);
@@ -279,6 +280,47 @@ describe('Training overview: adherencia e historia por ciclo', () => {
     expect(result.weekPlan?.assessment).not.toHaveProperty(
       'historicalAverageRestDays',
     );
+  });
+  it('bloquea el ciclo nuevo si hoy ya entrenó en el ciclo reemplazado', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    const replacedToday = {
+      ...log('replaced', 45, 'COMPLETED', 3),
+      structuredExecution: true,
+      finishedAt: new Date('2026-11-09T13:00:00.000Z'),
+      performedAt: new Date('2026-11-09T12:00:00.000Z'),
+    };
+
+    const result = await setup([replacedToday], [current]).service.overview(
+      student,
+      student.id,
+    );
+
+    expect(result.sessions[0]).toMatchObject({
+      availability: 'BLOCKED',
+      canStart: false,
+      startBlockedReason: expect.stringContaining('entrenamiento hoy'),
+    });
+  });
+  it('no consume el día con una sesión vencida cerrada como omitida', async () => {
+    const current = assignment();
+    current.startDate = new Date('2026-11-09T00:00:00Z');
+    const closedOmission = {
+      ...log('old', null, 'SKIPPED'),
+      structuredExecution: true,
+      finishedAt: new Date('2026-11-09T12:00:00.000Z'),
+      performedAt: new Date('2026-11-09T12:00:00.000Z'),
+    };
+
+    const result = await setup([closedOmission], [current]).service.overview(
+      student,
+      student.id,
+    );
+
+    expect(result.sessions[0]).toMatchObject({
+      availability: 'AVAILABLE',
+      canStart: true,
+    });
   });
   it.each(['COMPLETED', 'PARTIAL', 'SKIPPED'] as const)(
     'cuenta una sesión finalizada %s sin recalcular su estado histórico contra la plantilla',

@@ -11,6 +11,7 @@ import type {
   RecentActivityMeta,
   StudentDashboardResult,
   SuggestedLoad,
+  SuggestedLoadHighlights,
 } from '../types/dashboard';
 
 export interface RecentActivityParams {
@@ -48,6 +49,8 @@ const dashboardKeys = {
       exerciseId,
       targetReps ?? null,
     ] as const,
+  suggestedLoads: (studentId: string) =>
+    [...dashboardKeys.all, 'suggested-loads', studentId] as const,
 };
 
 function buildQueryString(
@@ -132,5 +135,19 @@ export function useSuggestedLoad(
     },
     enabled: Boolean(studentId && exerciseId),
     placeholderData: (previousData) => previousData,
+  });
+}
+
+// Portada del alumno: cargas sugeridas de sus ejercicios más entrenados.
+export function useSuggestedLoadHighlights(studentId: string | undefined) {
+  return useQuery({
+    queryKey: dashboardKeys.suggestedLoads(studentId ?? ''),
+    queryFn: async () => {
+      const res = await apiClient.get<SuggestedLoadHighlights>(
+        `/dashboard/students/${studentId}/suggested-loads`,
+      );
+      return res.data;
+    },
+    enabled: Boolean(studentId),
   });
 }

@@ -49,6 +49,38 @@ describe("WeeklyTrainingPlanner", () => {
     expect(screen.getByText(/un entrenamiento por día/i)).toBeVisible();
   });
 
+  it("names every weekday from Monday to Sunday and caps the selection", async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <WeeklyTrainingPlanner plan={plan} today="2026-11-10" />,
+    );
+    const dayButtons = screen
+      .getAllByRole("button")
+      .filter((button) => button.hasAttribute("data-state"));
+    expect(
+      dayButtons.map((button) => button.querySelector("strong")?.textContent),
+    ).toEqual(["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]);
+    // Monday is before the assignment start; today is named for orientation.
+    expect(
+      screen.getByRole("button", {
+        name: /^lunes, 9 de noviembre, ayer\. No disponible/,
+      }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: /^martes, 10 de noviembre, hoy\./ }),
+    ).toBeEnabled();
+    const available = dayButtons.filter(
+      (button) => !button.hasAttribute("disabled"),
+    );
+    for (const button of available.slice(0, 4)) await user.click(button);
+    // Only as many days as pending sessions; the fourth click is ignored.
+    expect(
+      dayButtons.filter(
+        (button) => button.getAttribute("aria-pressed") === "true",
+      ),
+    ).toHaveLength(3);
+  });
+
   it("applies the spaced recommendation and saves it", async () => {
     const user = userEvent.setup();
     vi.spyOn(apiClient, "patch").mockResolvedValue({

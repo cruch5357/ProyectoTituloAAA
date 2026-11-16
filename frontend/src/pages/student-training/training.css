@@ -1029,3 +1029,78 @@
     animation: none;
   }
 }
+
+/* Inicio: progreso de fuerza propio y previsión del modelo. */
+.strength-progress {
+  padding: clamp(1.1rem, 3vw, 1.8rem);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)),
+    var(--color-surface) 60%
+  );
+}
+.strength-progress h2 {
+  margin: 0.2rem 0 0;
+}
+.strength-progress__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
+  padding: 0;
+  list-style: none;
+}
+.strength-progress__note {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.strength-card {
+  display: grid;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.strength-card__header {
+  display: grid;
+  gap: 0.15rem;
+}
+.strength-card__header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.strength-card__header span,
+.strength-card__range {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.strength-card__change,
+.strength-card__range,
+.strength-card__forecast {
+  margin: 0;
+}
+.strength-card__change {
+  color: var(--color-text-secondary);
+}
+.strength-card__change strong {
+  font-size: 2rem;
+  line-height: 1.1;
+}
+.strength-card__change--up strong {
+  color: var(--color-success);
+}
+.strength-card__change--flat strong {
+  color: var(--color-primary);
+}
+.strength-card__change--down strong {
+  color: var(--color-warning);
+}
+.strength-card__forecast {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DashboardController } from './dashboard.controller';
+import { StudentProgressController } from './student-progress.controller';
 import { DashboardSummaryService } from './dashboard-summary.service';
 import { DashboardStudentService } from './dashboard-student.service';
 import { SuggestedLoadService } from './suggested-load.service';
@@ -13,7 +14,7 @@ import { StudentsModule } from '../students/students.module';
 // propiedad coach->alumno).
 @Module({
   imports: [AuthModule, StudentsModule],
-  controllers: [DashboardController],
+  controllers: [DashboardController, StudentProgressController],
   providers: [
     DashboardSummaryService,
     DashboardStudentService,

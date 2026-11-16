@@ -85,6 +85,15 @@ type WorkoutClosure = {
   durationMinutes: number | null;
 };
 
+// Covers "today" in any timezone; the exact date is compared afterwards.
+const RECENT_WORKOUT_WINDOW_MS = 36 * 60 * 60 * 1000;
+// Workouts that use up the day: started or finished structured executions
+// (not omissions) and finished legacy logs.
+const dailyWorkoutWhere: Prisma.WorkoutLogWhereInput[] = [
+  { structuredExecution: true, completionStatus: { not: 'SKIPPED' } },
+  { structuredExecution: false, durationMinutes: { not: null } },
+];
+
 function isWorkoutFinished(log: WorkoutClosure | null | undefined) {
   if (!log) return false;
   return log.structuredExecution
@@ -354,23 +363,41 @@ export class TrainingService {
         .filter((session) => session.availability === 'IN_PROGRESS')
         .map((session) => session.assignmentId),
     );
-    const assignmentsTrainedToday = new Set(
-      baseSessions
+    // Same student-wide daily limit that start() enforces.
+    const recentDailyWorkouts = await this.prisma.workoutLog.findMany({
+      where: {
+        studentId,
+        performedAt: { gte: new Date(Date.now() - RECENT_WORKOUT_WINDOW_MS) },
+        OR: dailyWorkoutWhere,
+      },
+      select: {
+        programAssignmentId: true,
+        sessionId: true,
+        performedAt: true,
+        structuredExecution: true,
+        completionStatus: true,
+        durationMinutes: true,
+      },
+    });
+    const workoutsToday = new Set(
+      recentDailyWorkouts
         .filter(
-          (session) =>
-            session.actualDate === today &&
-            session.status !== 'SKIPPED' &&
-            (session.finished || session.availability === 'IN_PROGRESS'),
+          (log) =>
+            log.performedAt instanceof Date &&
+            todayDate(log.performedAt) === today &&
+            (log.structuredExecution
+              ? log.completionStatus !== 'SKIPPED'
+              : log.durationMinutes != null),
         )
-        .map((session) => session.assignmentId),
+        .map((log) => `${log.programAssignmentId}:${log.sessionId}`),
     );
     const sessions = baseSessions.map((session) => {
       if (session.availability !== 'AVAILABLE') return session;
       const hasOpenWorkout = assignmentsWithOpenWorkout.has(
         session.assignmentId,
       );
-      const alreadyTrainedToday = assignmentsTrainedToday.has(
-        session.assignmentId,
+      const alreadyTrainedToday = [...workoutsToday].some(
+        (key) => key !== session.id,
       );
       if (!hasOpenWorkout && !alreadyTrainedToday) return session;
       return {
@@ -1051,24 +1078,14 @@ export class TrainingService {
     sessionId: string,
     today: string,
   ) {
-    const activeSessionIds = this.schedule(assignment)
-      .filter(
-        (item) =>
-          item.availableFrom &&
-          item.weekEnd &&
-          item.availableFrom <= today &&
-          item.weekEnd >= today &&
-          item.sessionId !== sessionId,
-      )
-      .map((item) => item.sessionId);
-    if (!activeSessionIds.length) return null;
+    // The daily limit belongs to the student, not to one cycle: a cycle
+    // replaced mid-day must not allow a second workout on the same date.
     const latest = await tx.workoutLog.findFirst({
       where: {
         studentId: assignment.studentId,
-        programAssignmentId: assignment.id,
-        sessionId: { in: activeSessionIds },
-        structuredExecution: true,
-        completionStatus: { not: 'SKIPPED' },
+        performedAt: { gte: new Date(Date.now() - RECENT_WORKOUT_WINDOW_MS) },
+        NOT: { programAssignmentId: assignment.id, sessionId },
+        OR: dailyWorkoutWhere,
       },
       orderBy: { performedAt: 'desc' },
       select: { id: true, performedAt: true },
@@ -1288,12 +1305,10 @@ export class TrainingService {
         throw new ConflictException(
           'Finaliza u omite el entrenamiento activo antes de iniciar otro',
         );
-      const otherToday = await this.otherWorkoutToday(
-        tx,
-        assignment,
-        id,
-        today,
-      );
+      // Continuing the same execution never consumes another day.
+      const otherToday = existing
+        ? null
+        : await this.otherWorkoutToday(tx, assignment, id, today);
       if (otherToday)
         throw new ConflictException(
           'Solo puedes realizar un entrenamiento por día. Continúa otro día.',
@@ -1627,6 +1642,36 @@ export class TrainingService {
             finishedAt: finishing ? (existing?.finishedAt ?? new Date()) : null,
           },
         });
+        // Same coach notice as the legacy log flow; the dedupe key keeps a
+        // single notice per workout even if the closing request is retried.
+        if (finishing && !existing.finishedAt) {
+          const student = await tx.user.findUnique({
+            where: { id: user.id },
+            select: { coachId: true, name: true },
+          });
+          const coach = student?.coachId
+            ? await tx.user.findUnique({
+                where: { id: student.coachId },
+                select: { isActive: true },
+              })
+            : null;
+          if (student?.coachId && coach?.isActive) {
+            const title = `${student.name} finalizó un entrenamiento`;
+            await tx.notification.upsert({
+              where: { dedupeKey: `workout:${log.id}` },
+              create: {
+                userId: student.coachId,
+                type: 'WORKOUT_COMPLETED',
+                title,
+                body: `${title}: ${session.name}.`,
+                resourceType: 'student',
+                resourceId: user.id,
+                dedupeKey: `workout:${log.id}`,
+              },
+              update: {},
+            });
+          }
+        }
         if (finishing && performed.length && assignment.program.coachId) {
           const previous = await tx.workoutLog.findFirst({
             where: {

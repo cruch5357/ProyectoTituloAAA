@@ -146,13 +146,28 @@ export class BlockAssignmentsService {
               type: 'TRAINING_PLAN_WARNING',
               title: `Revisar carga de ${student.name}`,
               body: `El bloque asignado prescribe hasta ${maxDays} entrenamientos por semana. Revisa la recuperación y la distribución de la carga.`,
-              resourceType: 'program-assignment',
-              resourceId: assignment.id,
+              resourceType: 'student',
+              resourceId: studentId,
               dedupeKey: `assignment-load:${assignment.id}`,
             },
             update: { readAt: null },
           });
         }
+        // The student learns about the new cycle; the program link opens
+        // their training page.
+        await tx.notification.upsert({
+          where: { dedupeKey: `block-assigned:${assignment.id}` },
+          create: {
+            userId: studentId,
+            type: 'PROGRAM_ASSIGNED',
+            title: 'Tu coach te asignó un nuevo ciclo',
+            body: `${block.name} comienza el ${new Intl.DateTimeFormat('es-CL', { dateStyle: 'long', timeZone: 'UTC' }).format(startDate)}.`,
+            resourceType: 'program',
+            resourceId: program.id,
+            dedupeKey: `block-assigned:${assignment.id}`,
+          },
+          update: {},
+        });
         await tx.auditLog.create({
           data: {
             actorId: coachId,

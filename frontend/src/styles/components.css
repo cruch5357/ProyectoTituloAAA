@@ -823,3 +823,151 @@ dialog.exercise-dialog {
   gap: 0.6rem;
   justify-items: start;
 }
+
+/* Portada del atleta: resumen del ciclo y cargas sugeridas por el modelo. */
+.athlete-overview,
+.ml-highlights {
+  margin-block: var(--space-6);
+}
+.athlete-overview h2 {
+  margin: 0 0 var(--space-3);
+}
+.athlete-overview__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr));
+  gap: var(--space-3);
+  margin: 0;
+}
+.athlete-overview__stat {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-raised);
+}
+.athlete-overview__stat dt {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.athlete-overview__stat dd {
+  display: grid;
+  gap: 0.2rem;
+  margin: var(--space-2) 0 0;
+}
+.athlete-overview__stat strong {
+  font-size: 1.35rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.athlete-overview__stat span {
+  color: var(--color-text-secondary);
+  font-size: 0.85rem;
+}
+.ml-highlights {
+  padding: clamp(1.1rem, 3vw, 1.8rem);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-border));
+  border-radius: var(--radius-xl);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--color-primary) 14%, var(--color-surface)),
+    var(--color-surface) 60%
+  );
+}
+.ml-highlights__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.ml-highlights__header h2 {
+  margin: 0.2rem 0 0.4rem;
+}
+.ml-highlights__header p.muted {
+  max-width: 62ch;
+  margin: 0;
+}
+.ml-highlights__grid {
+  display: grid;
+  /* auto-fill: una sola tarjeta conserva su ancho y no se estira. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr));
+  gap: var(--space-4);
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ml-card {
+  display: grid;
+  gap: var(--space-2);
+  height: 100%;
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+.ml-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.ml-card__header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.ml-card__header span,
+.ml-card__last {
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+.ml-card__value,
+.ml-card__change,
+.ml-card__last,
+.ml-card__pending {
+  margin: 0;
+}
+.ml-card__value strong {
+  color: var(--color-primary);
+  font-size: 2.1rem;
+  line-height: 1.1;
+}
+.ml-card__change {
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+}
+.ml-card__change--up {
+  color: var(--color-success);
+}
+.ml-card__change--down {
+  color: var(--color-warning);
+}
+.ml-card__pending {
+  color: var(--color-text-secondary);
+}
+.strength-sparkline {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.strength-sparkline__trend {
+  fill: none;
+  stroke: var(--color-primary);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.strength-sparkline__forecast {
+  stroke: var(--color-primary);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+.strength-sparkline__forecast-dot {
+  fill: var(--color-surface);
+  stroke: var(--color-primary);
+  stroke-width: 2;
+}
+.strength-sparkline__last-dot {
+  fill: var(--color-primary);
+}

@@ -31,7 +31,12 @@ const STATUS_OPTIONS: { value: WorkoutCompletionStatus; label: string }[] = [
 ];
 
 function formatNumber(value: number | null, digits = 1): string {
-  return value !== null ? value.toFixed(digits) : "—";
+  return value !== null
+    ? value.toLocaleString("es-CL", {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+      })
+    : "—";
 }
 
 // "Mi historial" (PROMPT 11, RF-25): historial de entrenamientos REALMENTE

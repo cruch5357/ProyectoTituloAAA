@@ -201,6 +201,29 @@ export const useTraining = (studentId?: string) =>
         )
       ).data,
   });
+// GET /training/me/progress — progreso de fuerza propio y previsión del
+// modelo; nunca incluye cargas sugeridas (las define el coach).
+export interface StrengthProgressItem {
+  exerciseId: string;
+  exerciseName: string;
+  sessions: number;
+  since: string;
+  firstE1rmKg: number;
+  lastE1rmKg: number;
+  changePct: number;
+  trend: { date: string; e1rmKg: number }[];
+  forecast: { predictedE1rmKg: number; expectedChangePct: number } | null;
+}
+export const useStrengthProgress = () =>
+  useQuery({
+    queryKey: ["training", "me", "progress"],
+    queryFn: async () =>
+      (
+        await apiClient.get<{ items: StrengthProgressItem[] }>(
+          "/training/me/progress",
+        )
+      ).data,
+  });
 export const useTrainingSession = (id: string, assignmentId = "") =>
   useQuery({
     queryKey: ["training-session", id, assignmentId],

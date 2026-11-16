@@ -130,8 +130,51 @@ describe('BlockAssignmentsService: días sugeridos opcionales', () => {
         create: expect.objectContaining({
           userId: 'coach',
           type: 'TRAINING_PLAN_WARNING',
+          // The notice opens the athlete, not the coach's home.
+          resourceType: 'student',
+          resourceId: 'student',
         }),
       }),
     );
+  });
+
+  it('no avisa al coach con tres o cuatro entrenamientos semanales', async () => {
+    const sessions = Array.from({ length: 4 }, (_, index) => ({
+      ...sourceBlock.weeks[0].sessions[0],
+      id: `session-${index}`,
+    }));
+    const { service, tx } = setup({ ...sourceBlock, weeks: [{ sessions }] });
+
+    await service.assign('coach', 'student', {
+      blockId: 'cm1234567890123456789012',
+      startDate: '2026-11-02',
+    });
+
+    expect(tx.notification.upsert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({ type: 'TRAINING_PLAN_WARNING' }),
+      }),
+    );
+  });
+
+  it('notifica al alumno el nuevo ciclo una sola vez', async () => {
+    const { service, tx } = setup();
+
+    await service.assign('coach', 'student', {
+      blockId: 'cm1234567890123456789012',
+      startDate: '2026-11-02',
+    });
+
+    expect(tx.notification.upsert).toHaveBeenCalledWith({
+      where: { dedupeKey: 'block-assigned:assignment' },
+      create: expect.objectContaining({
+        userId: 'student',
+        type: 'PROGRAM_ASSIGNED',
+        body: 'Fuerza comienza el 2 de noviembre de 2026.',
+        resourceType: 'program',
+        resourceId: 'program',
+      }),
+      update: {},
+    });
   });
 });

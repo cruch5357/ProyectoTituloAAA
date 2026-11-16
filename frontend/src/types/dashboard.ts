@@ -74,3 +74,16 @@ export interface SuggestedLoad {
   lastSession?: { date: string; loadKg: number; reps: number };
   modelVersion?: string;
 }
+
+// GET /dashboard/students/:id/suggested-loads — ejercicios más entrenados.
+export interface SuggestedLoadHighlight {
+  exerciseId: string;
+  exerciseName: string;
+  sessions: number;
+  trend: { date: string; e1rmKg: number }[];
+  suggestion: SuggestedLoad;
+}
+export interface SuggestedLoadHighlights {
+  enabled: boolean;
+  items: SuggestedLoadHighlight[];
+}

@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { TrainingWeekPlan } from "../../api/training";
 import { trainingLabels } from "../../api/training";
 import { apiClient } from "../../lib/apiClient";
-import { readableDate } from "../../lib/readableDate";
 import { assessPlanDraft } from "./weekPlanAdvice";
 
 const DAY_MS = 86_400_000;
@@ -16,6 +15,25 @@ function weekDates(first: string, last: string) {
     (_, index) => new Date(start + index * DAY_MS).toISOString().slice(0, 10),
   );
 }
+
+const WEEKDAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const weekdayShort = (date: string) =>
+  WEEKDAYS[new Date(`${date}T12:00:00Z`).getUTCDay()];
+const fullDay = (date: string) =>
+  new Date(`${date}T12:00:00Z`).toLocaleDateString("es-CL", {
+    timeZone: "UTC",
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+const RELATIVE_DAYS: Record<number, string> = {
+  [-1]: "Ayer",
+  0: "Hoy",
+  1: "Mañana",
+};
+// Relative to the planner's `today`, like the rest of its day states.
+const relativeDay = (date: string, today: string) =>
+  RELATIVE_DAYS[(Date.parse(date) - Date.parse(today)) / DAY_MS] ?? null;
 
 export function WeeklyTrainingPlanner({
   plan,
@@ -184,11 +202,13 @@ export function WeeklyTrainingPlanner({
                 `${session.name}: ${trainingLabels[session.status]}, ${session.recordedSets}/${session.totalSets} series`,
             )
             .join(". ");
+          // Weekday first, so rest days are easy to place in the week.
+          const relative = relativeDay(date, today);
           return (
             <button
               type="button"
               key={date}
-              aria-label={`${readableDate(date, false)}. ${state}${actualDetails ? `. ${actualDetails}` : ""}`}
+              aria-label={`${fullDay(date)}${relative ? `, ${relative.toLocaleLowerCase("es-CL")}` : ""}. ${state}${actualDetails ? `. ${actualDetails}` : ""}`}
               aria-pressed={trained || planned}
               disabled={trained || unavailable}
               data-state={
@@ -203,8 +223,8 @@ export function WeeklyTrainingPlanner({
               data-result={trainingResult ?? undefined}
               onClick={() => toggle(date)}
             >
-              <strong>{readableDate(date, false).split(",")[0]}</strong>
-              <span>{date.slice(8, 10)}</span>
+              <strong>{weekdayShort(date)}</strong>
+              <span>{Number(date.slice(8, 10))}</span>
               <small>{state}</small>
             </button>
           );
