@@ -2,8 +2,10 @@ import { displayDateOnly } from '../lib/calendarDate';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 
+export type CompetitionType = 'MEDICAL' | 'SPORTS';
 export interface Competition {
   id: string; studentId: string; name: string; eventDate: string; category: string;
+  type: CompetitionType | null;
   location: string | null; goal: string | null; coachGoal: string | null; notes: string | null;
   status: 'UPCOMING' | 'COMPLETED' | 'CANCELLED'; student?: { id: string; name: string };
 }

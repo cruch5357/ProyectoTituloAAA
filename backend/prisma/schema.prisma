@@ -694,6 +694,11 @@ enum CompetitionStatus {
   CANCELLED
 }
 
+enum CompetitionType {
+  MEDICAL
+  SPORTS
+}
+
 enum AttachmentType {
   IMAGE
   VIDEO
@@ -717,6 +722,7 @@ model Competition {
   student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
   name String
   eventDate DateTime @db.Date @map("event_date")
+  type CompetitionType?
   category String
   location String?
   goal String?

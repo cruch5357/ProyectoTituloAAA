@@ -358,11 +358,11 @@ async function main() {
               }
             }
           }
-          for (const [key, offset, status, name] of [
-            ['past', 35, 'COMPLETED', 'Torneo regional completado'],
-            ['today', 0, 'UPCOMING', 'Control técnico de hoy'],
-            ['future', -21, 'UPCOMING', 'Campeonato de fuerza'],
-            ['cancelled', -7, 'CANCELLED', 'Encuentro suspendido'],
+          for (const [key, offset, status, name, type] of [
+            ['past', 35, 'COMPLETED', 'Torneo regional completado', 'SPORTS'],
+            ['today', 0, 'UPCOMING', 'Control kinesiológico de hoy', 'MEDICAL'],
+            ['future', -21, 'UPCOMING', 'Campeonato de fuerza', 'SPORTS'],
+            ['cancelled', -7, 'CANCELLED', 'Encuentro suspendido', 'SPORTS'],
           ] as const) {
             await tx.competition.upsert({
               where: { id: id(`competition-${athlete}-${key}`) },
@@ -371,6 +371,7 @@ async function main() {
                 id: id(`competition-${athlete}-${key}`),
                 studentId,
                 name: `${name} (demo)`,
+                type,
                 category: 'Open',
                 eventDate: daysAgo(today, offset),
                 status,

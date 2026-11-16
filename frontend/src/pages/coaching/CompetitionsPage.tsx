@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useCoachingMutation, useCoachingQuery, displayDate, type Competition } from '../../api/coaching';
 import { Card, EmptyState, ErrorState, Skeleton } from '../../components/ui/Primitives';
+import { CompetitionTypeBadge } from '../../components/coaching/CompetitionTypeBadge';
 
 export function CompetitionsPage({ studentId }: { studentId?: string }) {
   const [page, setPage] = useState(1);
@@ -10,7 +11,7 @@ export function CompetitionsPage({ studentId }: { studentId?: string }) {
     {query.isLoading && <Skeleton />}{query.isError && <ErrorState retry={() => void query.refetch()} />}
     {query.data?.length === 0 && <EmptyState title="Sin hitos" />}
     {editing !== undefined && <CompetitionForm key={editing?.id ?? 'new'} competition={editing} close={() => setEditing(undefined)} />}
-    {query.data?.map((c) => <Card key={c.id}><h3>{c.name}</h3><p>{displayDate(c.eventDate)} · {c.category} · {({ UPCOMING: 'Próxima', COMPLETED: 'Completada', CANCELLED: 'Cancelada' })[c.status]}</p>
+    {query.data?.map((c) => <Card key={c.id}><h3>{c.name}</h3><CompetitionTypeBadge type={c.type} /><p>{displayDate(c.eventDate)} · {c.category} · {({ UPCOMING: 'Próxima', COMPLETED: 'Completada', CANCELLED: 'Cancelada' })[c.status]}</p>
       {c.location && <p>{c.location}</p>}{c.goal && <p><strong>Objetivo:</strong> {c.goal}</p>}{c.notes && <p>{c.notes}</p>}
       {studentId ? <CoachGoal competition={c} /> : <><p><strong>Indicaciones del coach:</strong> {c.coachGoal || 'Sin indicaciones todavía.'}</p><button onClick={() => setEditing(c)}>Editar hito</button></>}
     </Card>)}
@@ -27,6 +28,7 @@ function CompetitionForm({ competition: c, close }: { competition: Competition |
   return <Card><h3>{c ? 'Editar hito' : 'Nuevo hito'}</h3><form className="coaching-form" onSubmit={submit}>
     <label className="field">Nombre<input name="name" required minLength={2} maxLength={160} defaultValue={c?.name} /></label>
     <label className="field">Fecha<input name="eventDate" type="date" required defaultValue={c?.eventDate.slice(0, 10)} /></label>
+    <label className="field">Tipo de hito<select aria-label="Tipo de hito" name="type" required defaultValue={c?.type ?? ''}><option value="" disabled>Selecciona un tipo</option><option value="SPORTS">Deportivo</option><option value="MEDICAL">Médico</option></select><small>Deportivo: competiciones, pruebas o actividades coordinadas. Médico: salud, rehabilitación, mediciones o evaluaciones sanitarias.</small></label>
     <label className="field">Categoría<input name="category" required maxLength={100} defaultValue={c?.category} /></label>
     <label className="field">Ubicación<input name="location" maxLength={200} defaultValue={c?.location ?? ''} /></label>
     <label className="field">Objetivo del alumno<textarea name="goal" maxLength={2000} defaultValue={c?.goal ?? ''} /></label>

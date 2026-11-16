@@ -299,11 +299,23 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
       .send({
         name: 'Competición E2E',
         eventDate: todayDate(),
+        type: 'SPORTS',
         category: 'Open',
         goal: 'Objetivo atleta',
       })
       .expect(201);
     competitionId = created.body.data.id;
+    expect(created.body.data.type).toBe('SPORTS');
+    await api()
+      .post('/api/v1/competitions')
+      .auth(studentToken, { type: 'bearer' })
+      .send({
+        name: 'Tipo inválido',
+        eventDate: todayDate(),
+        type: 'OTHER',
+        category: 'Control',
+      })
+      .expect(400);
     for (const token of [otherCoachToken, otherStudentToken]) {
       await api()
         .get(`/api/v1/competitions/${competitionId}`)
@@ -333,8 +345,34 @@ suite('Coaching: flujo HTTP con PostgreSQL real', () => {
     await api()
       .patch(`/api/v1/competitions/${competitionId}`)
       .auth(studentToken, { type: 'bearer' })
-      .send({ location: 'Santiago' })
+      .send({ location: 'Santiago', type: 'MEDICAL' })
       .expect(200);
+    const reloaded = await api()
+      .get(`/api/v1/competitions/${competitionId}`)
+      .auth(studentToken, { type: 'bearer' })
+      .expect(200);
+    expect(reloaded.body.data).toMatchObject({
+      location: 'Santiago',
+      type: 'MEDICAL',
+      category: 'Open',
+    });
+    const legacyCompetition = await prisma.competition.create({
+      data: {
+        studentId,
+        name: 'Hito anterior sin clasificación',
+        eventDate: new Date(`${todayDate()}T12:00:00Z`),
+        category: 'Histórico',
+      },
+    });
+    const listed = await api()
+      .get('/api/v1/competitions/me')
+      .auth(studentToken, { type: 'bearer' })
+      .expect(200);
+    expect(listed.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: legacyCompetition.id, type: null }),
+      ]),
+    );
     const overview = await api()
       .get(`/api/v1/students/${studentId}/calendar`)
       .auth(coachToken, { type: 'bearer' })

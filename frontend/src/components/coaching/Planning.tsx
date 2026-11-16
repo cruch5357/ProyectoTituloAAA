@@ -9,8 +9,11 @@ import {
   useProfile,
   type CalendarSession,
   type Competition,
+  type CompetitionType,
 } from "../../api/coaching";
 import { Card, ErrorState, Skeleton } from "../ui/Primitives";
+import { CompetitionTypeBadge } from "./CompetitionTypeBadge";
+import { competitionTypeClass } from "./competitionType";
 import { RescheduleSession } from "./RescheduleSession";
 
 export function SessionContext({ session }: { session: CalendarSession }) {
@@ -53,6 +56,7 @@ export function NextCompetition({
       {competition ? (
         <>
           <h2>{competition.name}</h2>
+          <CompetitionTypeBadge type={competition.type} />
           <p>
             {displayDate(competition.eventDate)} · {competition.category}
           </p>
@@ -147,6 +151,32 @@ export function AssignmentDate({
 const WEEKDAYS = ["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"];
 const capitalize = (text: string) =>
   text.charAt(0).toLocaleUpperCase("es-CL") + text.slice(1);
+
+const COMPETITION_TYPE_ORDER: (CompetitionType | null)[] = [
+  "SPORTS",
+  "MEDICAL",
+  null,
+];
+
+function competitionTypeGroups(competitions: Competition[]) {
+  return COMPETITION_TYPE_ORDER.map((type) => ({
+    type,
+    count: competitions.filter(
+      (competition) => (competition.type ?? null) === type,
+    ).length,
+  })).filter((group) => group.count > 0);
+}
+
+function competitionCountLabel(
+  type: CompetitionType | null,
+  count: number,
+): string {
+  if (type === null) {
+    return `${count} hito${count === 1 ? "" : "s"} sin clasificar`;
+  }
+  const adjective = type === "SPORTS" ? "deportivo" : "médico";
+  return `${count} hito${count === 1 ? "" : "s"} ${adjective}${count === 1 ? "" : "s"}`;
+}
 
 function stableBlockHue(blockId: string) {
   let hash = 2166136261;
@@ -243,12 +273,17 @@ export function Calendar({ studentId }: { studentId?: string }) {
         )
       : [];
   const plannedDates = studentId ? [] : (data.weekPlan?.trainingDates ?? []);
+  const visibleMilestones = (data.competitions ?? []).filter(
+    (competition) => competition.status !== "CANCELLED",
+  );
   const milestonesOn = (date: string) =>
-    data.competitions?.filter(
+    visibleMilestones.filter(
       (competition) =>
-        competition.eventDate.slice(0, 10) === date &&
-        competition.status !== "CANCELLED",
-    ) ?? [];
+        competition.eventDate.slice(0, 10) === date,
+    );
+  const hasUnclassifiedMilestones = visibleMilestones.some(
+    (competition) => competition.type == null,
+  );
   const activeWeekSessions = data.sessions.filter(
     (session) =>
       session.availability === "AVAILABLE" ||
@@ -327,6 +362,7 @@ export function Calendar({ studentId }: { studentId?: string }) {
           const actual = workoutsOn(date);
           const suggestions = suggestedOn(date);
           const milestones = milestonesOn(date);
+          const milestoneGroups = competitionTypeGroups(milestones);
           const planned = plannedDates.includes(date) && !actual.length;
           const labels = [
             actual.length
@@ -336,9 +372,9 @@ export function Calendar({ studentId }: { studentId?: string }) {
             suggestions.length
               ? `${suggestions.length} sesión${suggestions.length === 1 ? " sugerida" : "es sugeridas"}`
               : null,
-            milestones.length
-              ? `${milestones.length} hito${milestones.length === 1 ? "" : "s"}`
-              : null,
+            ...milestoneGroups.map((group) =>
+              competitionCountLabel(group.type, group.count),
+            ),
           ].filter(Boolean);
           const label = `${displayDate(date)}${labels.length ? `, ${labels.join(", ")}` : ""}`;
           return (
@@ -370,9 +406,15 @@ export function Calendar({ studentId }: { studentId?: string }) {
                     style={calendarBlockStyle(session.blockId)}
                   />
                 ))}
-                {milestones.length > 0 && (
-                  <span className="month-grid__milestone">◆</span>
-                )}
+                {milestoneGroups.map((group) => (
+                  <span
+                    key={group.type ?? "unclassified"}
+                    className={`month-grid__milestone ${competitionTypeClass(group.type)}`}
+                  >
+                    ◆
+                    {group.count > 1 && <small>{group.count}</small>}
+                  </span>
+                ))}
               </span>
             </button>
           );
@@ -386,7 +428,20 @@ export function Calendar({ studentId }: { studentId?: string }) {
         {studentId && (
           <span className="legend-suggested">○ Fecha sugerida</span>
         )}
-        <span className="legend-competition">◆ Hito</span>
+        <span className={`legend-competition ${competitionTypeClass("SPORTS")}`}>
+          <span className="legend-competition__marker" aria-hidden="true">◆</span>{" "}
+          Hito deportivo
+        </span>
+        <span className={`legend-competition ${competitionTypeClass("MEDICAL")}`}>
+          <span className="legend-competition__marker" aria-hidden="true">◆</span>{" "}
+          Hito médico
+        </span>
+        {hasUnclassifiedMilestones && (
+          <span className={`legend-competition ${competitionTypeClass(null)}`}>
+            <span className="legend-competition__marker" aria-hidden="true">◆</span>{" "}
+            Sin clasificar
+          </span>
+        )}
       </div>
       {activeWeekSessions.length > 0 && (
         <section
@@ -469,11 +524,18 @@ export function Calendar({ studentId }: { studentId?: string }) {
           </div>
         ))}
         {dayMilestones.map((competition) => (
-          <p className="calendar-competition" key={competition.id}>
-            <span aria-hidden="true">◆ </span>
-            <strong>Hito</strong>
-            <span>{competition.name}</span>
-          </p>
+          <article
+            className={`calendar-competition ${competitionTypeClass(competition.type)}`}
+            key={competition.id}
+          >
+            <span className="calendar-competition__marker" aria-hidden="true">
+              ◆
+            </span>
+            <span className="calendar-competition__content">
+              <strong>{competition.name}</strong>
+              <CompetitionTypeBadge type={competition.type} />
+            </span>
+          </article>
         ))}
       </section>
       {data.assignments.some((assignment) => !assignment.startDate) && (

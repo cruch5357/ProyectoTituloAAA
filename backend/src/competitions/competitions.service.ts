@@ -54,6 +54,7 @@ export class CompetitionsService {
           studentId: user.id,
           name: dto.name,
           eventDate: dateOnly(dto.eventDate),
+          type: dto.type,
           category: dto.category,
           location: dto.location,
           goal: dto.goal,
@@ -90,6 +91,7 @@ export class CompetitionsService {
           name: dto.name,
           eventDate:
             dto.eventDate === undefined ? undefined : dateOnly(dto.eventDate),
+          type: dto.type,
           category: dto.category,
           location: dto.location,
           goal: dto.goal,

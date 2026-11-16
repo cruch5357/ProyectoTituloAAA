@@ -5,16 +5,17 @@ import type { ReactNode } from 'react';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { AuthContext } from '../../auth/authContextObject';
 import { apiClient } from '../../lib/apiClient';
+import type { Competition } from '../../api/coaching';
 import { CompetitionsPage } from './CompetitionsPage';
 import { ProfilePage } from './ProfilePage';
 import { MediaPreview, MessagesPage } from './MessagesPage';
-import { Calendar } from '../../components/coaching/Planning';
+import { Calendar, NextCompetition } from '../../components/coaching/Planning';
 import { NotificationBell } from '../../components/coaching/Notifications';
 import { StudentHomePage } from '../student-training/StudentHomePage';
 import { CoachOperations } from '../../components/coaching/CoachOperations';
 import { getHomePathForRole } from '../../auth/roleHome';
 
-const competition = { id: 'c1', name: 'Open Santiago', studentId: 's1', eventDate: '2026-10-20T00:00:00.000Z', category: 'Open', status: 'UPCOMING', goal: 'Técnica', coachGoal: null, notes: null, location: null };
+const competition: Competition = { id: 'c1', name: 'Open Santiago', studentId: 's1', eventDate: '2026-10-20T00:00:00.000Z', type: 'SPORTS', category: 'Open', status: 'UPCOMING', goal: 'Técnica', coachGoal: null, notes: null, location: null };
 const session = {
   id: 'a1:ss1', sessionId: 'ss1', assignmentId: 'a1', name: 'Fuerza de hoy', date: '2026-10-07', suggestedDate: '2026-10-07', actualDate: null,
   weekStart: '2026-10-05', availableFrom: '2026-10-05', weekEnd: '2026-10-11', availability: 'AVAILABLE', canStart: true,
@@ -81,16 +82,58 @@ describe('Evolución coaching', () => {
     expect(screen.queryByRole('link', { name: /Ver entrenamiento/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Iniciar entrenamiento/ })).not.toBeInTheDocument();
   });
+  it('NextCompetition muestra la clasificación del próximo hito', () => {
+    renderUser(
+      <NextCompetition
+        competition={{ ...competition, type: 'MEDICAL' }}
+        today="2026-10-07"
+      />,
+    );
+
+    expect(screen.getByText('Médico')).toBeVisible();
+  });
   it('crea competición usando datos del formulario y sin studentId arbitrario', async () => {
     const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: competition, error: null, meta: {} });
     renderUser(<CompetitionsPage />); const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: 'Agregar hito' }));
     await user.type(screen.getByLabelText('Nombre'), 'Torneo local');
     await user.type(screen.getByLabelText('Fecha'), '2026-11-20');
+    await user.selectOptions(screen.getByLabelText('Tipo de hito'), 'SPORTS');
     await user.type(screen.getByLabelText('Categoría'), 'Open');
     await user.click(screen.getByRole('button', { name: 'Guardar hito' }));
-    await waitFor(() => expect(post).toHaveBeenCalledWith('/competitions', expect.objectContaining({ name: 'Torneo local', eventDate: '2026-11-20', category: 'Open' })));
+    await waitFor(() => expect(post).toHaveBeenCalledWith('/competitions', expect.objectContaining({ name: 'Torneo local', eventDate: '2026-11-20', type: 'SPORTS', category: 'Open' })));
     expect(post.mock.calls[0][1]).not.toHaveProperty('studentId');
+  });
+  it('recupera y permite editar la clasificación de un hito', async () => {
+    renderUser(<CompetitionsPage />);
+    const user = userEvent.setup();
+
+    expect(await screen.findByText('Deportivo')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Editar hito' }));
+    expect(screen.getByLabelText('Tipo de hito')).toHaveValue('SPORTS');
+    await user.selectOptions(screen.getByLabelText('Tipo de hito'), 'MEDICAL');
+    await user.click(screen.getByRole('button', { name: 'Guardar hito' }));
+
+    await waitFor(() =>
+      expect(apiClient.patch).toHaveBeenCalledWith(
+        '/competitions/c1',
+        expect.objectContaining({ type: 'MEDICAL', category: 'Open' }),
+      ),
+    );
+  });
+  it('muestra hitos históricos sin clasificación y exige clasificarlos al editarlos', async () => {
+    const legacy = { ...competition, id: 'legacy', type: null, name: 'Control histórico' };
+    vi.mocked(apiClient.get).mockImplementation(async (path) => ({
+      data: path.startsWith('/competitions/me') ? [legacy] : [],
+      error: null,
+      meta: {},
+    }));
+    renderUser(<CompetitionsPage />);
+
+    expect(await screen.findByText('Sin clasificar')).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Editar hito' }));
+    expect(screen.getByLabelText('Tipo de hito')).toBeRequired();
+    expect(screen.getByLabelText('Tipo de hito')).toHaveValue('');
   });
   it("calendario mensual compacto: marca días, muestra el detalle del día elegido y cambia de mes", async () => {
     // Fecha fija: el calendario abre en el mes actual y los datos son de octubre.
@@ -175,6 +218,101 @@ describe('Evolución coaching', () => {
         screen.queryByText("Fecha real de ejecución"),
       ).not.toBeInTheDocument();
       expect(screen.getByText(/sólo cuando los inicies/i)).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("distingue hitos deportivos, médicos y sin clasificar en un mismo día", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-07T15:00:00Z"));
+    try {
+      const medical = {
+        ...competition,
+        id: "medical",
+        name: "Control kinesiológico",
+        type: "MEDICAL",
+      };
+      const legacy = {
+        ...competition,
+        id: "legacy",
+        name: "Evaluación histórica",
+        type: null,
+      };
+      const secondSports = {
+        ...competition,
+        id: "sports-2",
+        name: "Prueba física",
+      };
+      const cancelled = {
+        ...medical,
+        id: "cancelled",
+        name: "Control cancelado",
+        status: "CANCELLED",
+      };
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: {
+          ...calendar,
+          competitions: [competition, secondSports, medical, legacy, cancelled],
+        },
+        error: null,
+        meta: {},
+      });
+      renderUser(<Calendar />);
+
+      const day = await screen.findByRole("button", {
+        name: /2 hitos deportivos, 1 hito médico, 1 hito sin clasificar/,
+      });
+      expect(day.querySelector(".competition-type--sports")).toHaveTextContent("◆2");
+      expect(day.querySelector(".competition-type--medical")).toHaveTextContent("◆");
+      expect(day.querySelector(".competition-type--unclassified")).toHaveTextContent("◆");
+      expect(screen.getByText("Hito deportivo")).toBeVisible();
+      expect(screen.getByText("Hito médico")).toBeVisible();
+      expect(screen.getByText("Sin clasificar")).toBeVisible();
+
+      await userEvent.click(day);
+      const agenda = screen.getByRole("region", {
+        name: /Actividades del/,
+      });
+      expect(within(agenda).getByText("Open Santiago")).toBeVisible();
+      expect(within(agenda).getByText("Prueba física")).toBeVisible();
+      expect(within(agenda).getByText("Control kinesiológico")).toBeVisible();
+      expect(within(agenda).getByText("Evaluación histórica")).toBeVisible();
+      expect(within(agenda).queryByText("Control cancelado")).toBeNull();
+      expect(within(agenda).getAllByText("Deportivo")).toHaveLength(2);
+      expect(within(agenda).getByText("Médico")).toBeVisible();
+      expect(within(agenda).getByText("Sin clasificar")).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("muestra únicamente el rombo violeta cuando el día solo tiene un hito médico", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-10-07T15:00:00Z"));
+    try {
+      vi.mocked(apiClient.get).mockResolvedValue({
+        data: {
+          ...calendar,
+          competitions: [
+            {
+              ...competition,
+              id: "medical-only",
+              type: "MEDICAL",
+              name: "Control médico",
+            },
+          ],
+        },
+        error: null,
+        meta: {},
+      });
+      renderUser(<Calendar />);
+
+      const day = await screen.findByRole("button", {
+        name: /1 hito médico/,
+      });
+      expect(day.querySelector(".competition-type--medical")).toHaveTextContent(
+        "◆",
+      );
+      expect(day.querySelector(".competition-type--sports")).toBeNull();
     } finally {
       vi.useRealTimers();
     }

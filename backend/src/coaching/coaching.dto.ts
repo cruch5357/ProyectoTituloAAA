@@ -13,7 +13,7 @@ import {
   MinLength,
   ValidateIf,
 } from 'class-validator';
-import { CompetitionStatus } from '@prisma/client';
+import { CompetitionStatus, CompetitionType } from '@prisma/client';
 
 export class PageDto {
   @IsOptional() @Type(() => Number) @IsInt() @Min(1) @Max(100000) page = 1;
@@ -27,6 +27,7 @@ export class CalendarQueryDto {
 export class CompetitionDto {
   @IsString() @MinLength(2) @MaxLength(160) name: string;
   @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) eventDate: string;
+  @IsEnum(CompetitionType) type: CompetitionType;
   @IsString() @MinLength(1) @MaxLength(100) category: string;
   @IsOptional() @IsString() @MaxLength(200) location?: string;
   @IsOptional() @IsString() @MaxLength(2000) goal?: string;
