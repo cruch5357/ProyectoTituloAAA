@@ -6,6 +6,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../lib/apiClient';
 import type { ExcelImportBatch } from '../types/excelImport';
+import { libraryKey } from './blockLibrary';
 
 const excelImportsKeys = {
   all: ['excel-imports'] as const,
@@ -41,10 +42,8 @@ export function useExcelImportBatch(id: string | undefined) {
   });
 }
 
-// PROMPT 14: confirma un batch PENDING_REVIEW propio — normaliza sus filas
-// válidas hacia Program/Block/Week/Session/SessionExercise. El resultado
-// (incluido `createdPrograms`) reemplaza directamente la caché del detalle
-// de este batch, igual que hace `useUploadExcelImport` con la vista previa.
+// Confirma un batch PENDING_REVIEW propio: crea sus bloques en la biblioteca
+// de Bloques, así que también se refresca esa lista.
 export function useConfirmExcelImport(batchId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -56,6 +55,7 @@ export function useConfirmExcelImport(batchId: string) {
     },
     onSuccess: (batch) => {
       queryClient.setQueryData(excelImportsKeys.detail(batch.id), batch);
+      void queryClient.invalidateQueries({ queryKey: libraryKey });
     },
   });
 }

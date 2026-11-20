@@ -22,7 +22,7 @@ from pydantic import BaseModel, Field
 
 from .predictor import DEFAULT_MODEL_PATH, LoadPredictor, SetRecord
 
-app = FastAPI(title="Carga sugerida", version="1.0")
+app = FastAPI(title="Carga sugerida", version="2.0")
 
 
 @lru_cache(maxsize=1)
@@ -34,6 +34,8 @@ class SetIn(BaseModel):
     date: date
     load_kg: float = Field(gt=0, le=1000)
     reps: int = Field(ge=1, le=100)
+    # Esfuerzo percibido de la serie (opcional): activa la autorregulación.
+    rpe: float | None = Field(default=None, ge=0, le=10)
 
 
 class SuggestionRequest(BaseModel):
@@ -55,5 +57,5 @@ def health() -> dict:
 
 @app.post("/v1/suggested-load")
 def suggested_load(body: SuggestionRequest) -> dict:
-    sets = [SetRecord(s.date, s.load_kg, s.reps) for s in body.history]
+    sets = [SetRecord(s.date, s.load_kg, s.reps, s.rpe) for s in body.history]
     return predictor().suggest(sets, body.target_reps)

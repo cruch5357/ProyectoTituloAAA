@@ -1,38 +1,27 @@
 // Forma de una importación de Excel expuesta por el backend (ver
-// backend/src/imports/excel-import.mapper.ts, PROMPT 13/14). Refleja
-// exactamente lo que el backend devuelve: el frontend nunca inventa un
+// backend/src/imports/excel-import.mapper.ts). El frontend nunca inventa un
 // campo.
 export type ExcelImportRowStatus = 'VALID' | 'INVALID';
-export type ExcelImportBatchStatus = 'PENDING_REVIEW' | 'CONFIRMED' | 'REJECTED';
+export type ExcelImportBatchStatus =
+  'PENDING_REVIEW' | 'CONFIRMED' | 'REJECTED';
 
 export interface ExcelImportRowFieldError {
   field: string;
   message: string;
+  // Celda del archivo a corregir, ej. "D5".
+  cell?: string;
 }
 
-// Valores ya normalizados de una fila (ver
-// common/imports/excel-row-validation.ts en el backend) — solo los que
-// pudieron coercionarse a un tipo válido; un campo ausente/ilegible
-// simplemente no aparece.
+// Lo que se entendió de cada fila (solo los valores que se pudieron leer).
 export interface ExcelImportRowData {
-  programName?: string;
-  programDescription?: string;
-  durationWeeks?: number;
   blockName?: string;
-  blockOrder?: number;
   weekNumber?: number;
-  weekOrder?: number;
-  sessionName?: string;
-  dayOfWeek?: number;
-  sessionOrder?: number;
+  dayName?: string;
   exerciseName?: string;
-  exerciseOrder?: number;
-  targetSets?: number;
-  targetRepsMin?: number;
-  targetRepsMax?: number;
-  targetRpe?: number;
-  targetRir?: number;
-  restSeconds?: number;
+  sets?: number;
+  reps?: number;
+  weight?: number;
+  rpe?: number;
   notes?: string;
 }
 
@@ -42,16 +31,25 @@ export interface ExcelImportRow {
   status: ExcelImportRowStatus;
   errors: ExcelImportRowFieldError[] | null;
   data: ExcelImportRowData | null;
-  // PROMPT 14: id del SessionExercise real que esta fila generó al
-  // confirmarse la importación — `null` mientras el batch siga en
-  // PENDING_REVIEW/REJECTED, o si la fila nunca fue válida.
   resultSessionExerciseId: string | null;
 }
 
-// PROMPT 14: un Program creado por ESTA importación al confirmarse.
-export interface ExcelImportCreatedProgram {
+// Bloque que se creará al confirmar (solo si el archivo no tiene errores).
+export interface ExcelImportPlannedBlock {
+  name: string;
+  weeks: number;
+  days: number;
+  exercises: number;
+  sets: number;
+  alreadyExists: boolean;
+}
+
+// Bloque creado al confirmar. `programId` solo existe en importaciones
+// antiguas, que creaban Programas.
+export interface ExcelImportCreatedBlock {
   id: string;
   name: string;
+  programId: string | null;
 }
 
 export interface ExcelImportBatch {
@@ -66,7 +64,7 @@ export interface ExcelImportBatch {
     invalidRows: number;
   };
   rows: ExcelImportRow[];
-  // PROMPT 14: Program(s) creados por la confirmación de este batch —
-  // siempre `[]` mientras el batch no esté CONFIRMED.
-  createdPrograms: ExcelImportCreatedProgram[];
+  legacyTemplate: boolean;
+  plan: ExcelImportPlannedBlock[];
+  createdBlocks: ExcelImportCreatedBlock[];
 }

@@ -1,5 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StudentsService } from '../students/students.service';
 
@@ -23,6 +24,10 @@ export interface SuggestedLoadResult {
   predictedE1rmKg?: number;
   expectedChangePct?: number;
   lastSession?: { date: string; loadKg: number; reps: number };
+  /** Rango de carga (cuantiles 20–80 % del modelo). */
+  suggestedLoadRangeKg?: [number, number];
+  /** Reglas de esfuerzo aplicadas: `reserve_progression`, `max_effort_hold`. */
+  adjustments?: string[];
   modelVersion?: string;
 }
 
@@ -37,6 +42,8 @@ interface ServiceResponse {
   predicted_e1rm_kg?: number;
   expected_change_pct?: number;
   last_session?: { date: string; load_kg: number; reps: number };
+  suggested_load_range_kg?: [number, number];
+  adjustments?: string[];
   model_version?: string;
 }
 
@@ -78,17 +85,25 @@ const MIN_PROGRESS_SESSIONS = 2;
 const HIGHLIGHT_MAX_SETS = 3000;
 const TREND_POINTS = 12;
 
-type HistorySet = { date: string; load_kg: number; reps: number };
+type HistorySet = {
+  date: string;
+  load_kg: number;
+  reps: number;
+  rpe?: number;
+};
 
 function toHistorySet(set: {
   actualLoad: unknown;
   actualReps: number | null;
+  actualRpe: unknown;
   workoutLog: { performedAt: Date };
 }): HistorySet {
   return {
     date: set.workoutLog.performedAt.toISOString().slice(0, 10),
     load_kg: Number(set.actualLoad),
     reps: set.actualReps ?? 0,
+    // El RPE activa la autorregulación del modelo; se omite si no se anotó.
+    ...(set.actualRpe == null ? {} : { rpe: Number(set.actualRpe) }),
   };
 }
 
@@ -120,7 +135,7 @@ function lastTopSetReps(history: HistorySet[]): number | undefined {
 // Carga sugerida para la próxima sesión de un ejercicio (modelo de
 // data-science/, opcional). El backend sigue siendo la fuente de verdad de
 // la autorización: verifica que alumno y ejercicio sean del coach y envía al
-// servicio solo fechas, cargas y repeticiones (ningún dato personal). Si el
+// servicio solo fechas, cargas, repeticiones y RPE (ningún dato personal). Si el
 // servicio no está configurado o no responde, devuelve `available: false`
 // en vez de fallar: la sugerencia es un apoyo, nunca un requisito.
 @Injectable()
@@ -161,12 +176,18 @@ export class SuggestedLoadService {
       select: {
         actualLoad: true,
         actualReps: true,
+        actualRpe: true,
         workoutLog: { select: { performedAt: true } },
       },
       orderBy: { workoutLog: { performedAt: 'desc' } },
       take: MAX_SETS,
     });
-    return this.requestSuggestion(baseUrl, sets.map(toHistorySet), targetReps);
+    return this.requestSuggestion(
+      baseUrl,
+      sets.map(toHistorySet),
+      { studentId, exerciseId },
+      targetReps,
+    );
   }
 
   // Resumen para la portada del alumno: los ejercicios que más entrena, con
@@ -186,7 +207,10 @@ export class SuggestedLoadService {
         exerciseName: item.exerciseName,
         sessions: item.trend.length,
         trend: item.trend.slice(-TREND_POINTS),
-        suggestion: await this.requestSuggestion(baseUrl, item.history),
+        suggestion: await this.requestSuggestion(baseUrl, item.history, {
+          studentId,
+          exerciseId: item.exerciseId,
+        }),
       })),
     );
     return { enabled: true, items };
@@ -205,7 +229,10 @@ export class SuggestedLoadService {
         const first = item.trend[0];
         const last = item.trend[item.trend.length - 1];
         const suggestion = baseUrl
-          ? await this.requestSuggestion(baseUrl, item.history)
+          ? await this.requestSuggestion(baseUrl, item.history, {
+              studentId,
+              exerciseId: item.exerciseId,
+            })
           : null;
         return {
           exerciseId: item.exerciseId,
@@ -244,6 +271,7 @@ export class SuggestedLoadService {
       select: {
         actualLoad: true,
         actualReps: true,
+        actualRpe: true,
         workoutLog: { select: { performedAt: true } },
         sessionExercise: {
           select: { exercise: { select: { id: true, name: true } } },
@@ -282,6 +310,7 @@ export class SuggestedLoadService {
   private async requestSuggestion(
     baseUrl: string,
     history: HistorySet[],
+    context: { studentId: string; exerciseId: string },
     targetReps?: number,
   ): Promise<SuggestedLoadResult> {
     const reps = Math.min(
@@ -317,7 +346,7 @@ export class SuggestedLoadService {
         basedOnSessions: body.based_on_sessions,
       };
     }
-    return {
+    const result: SuggestedLoadResult = {
       available: true,
       suggestedLoadKg: body.suggested_load_kg,
       targetReps: body.target_reps,
@@ -330,7 +359,57 @@ export class SuggestedLoadService {
         loadKg: body.last_session.load_kg,
         reps: body.last_session.reps,
       },
+      suggestedLoadRangeKg: body.suggested_load_range_kg,
+      adjustments: body.adjustments ?? [],
       modelVersion: body.model_version,
     };
+    await this.recordPrediction(context, result);
+    return result;
+  }
+
+  // Guarda la predicción para compararla después con la sesión real
+  // (prisma/evaluate-suggested-loads.ts). Nunca afecta la respuesta.
+  private async recordPrediction(
+    context: { studentId: string; exerciseId: string },
+    result: SuggestedLoadResult,
+  ) {
+    const { lastSession, modelVersion, targetReps } = result;
+    if (
+      !lastSession ||
+      !modelVersion ||
+      !targetReps ||
+      result.suggestedLoadKg === undefined ||
+      result.lastE1rmKg === undefined ||
+      result.predictedE1rmKg === undefined
+    )
+      return;
+    const key = {
+      ...context,
+      lastSessionDate: new Date(`${lastSession.date}T00:00:00.000Z`),
+      targetReps,
+      modelVersion,
+    };
+    const range = result.suggestedLoadRangeKg;
+    try {
+      await this.prisma.suggestedLoadLog.upsert({
+        where: {
+          studentId_exerciseId_lastSessionDate_targetReps_modelVersion: key,
+        },
+        create: {
+          ...key,
+          suggestedLoadKg: new Prisma.Decimal(result.suggestedLoadKg),
+          rangeLowKg: range ? new Prisma.Decimal(range[0]) : null,
+          rangeHighKg: range ? new Prisma.Decimal(range[1]) : null,
+          lastE1rmKg: new Prisma.Decimal(result.lastE1rmKg),
+          predictedE1rmKg: new Prisma.Decimal(result.predictedE1rmKg),
+          adjustments: result.adjustments ?? [],
+        },
+        update: {},
+      });
+    } catch (error) {
+      this.logger.warn(
+        `No se pudo registrar la predicción: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 }

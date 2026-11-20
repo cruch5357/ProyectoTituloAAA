@@ -1,6 +1,6 @@
 import { ExerciseVideo } from '../../components/ui/ExerciseVideo';
 import { parseExerciseVideo } from '../../lib/exerciseVideo';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useBackdropClose } from '../../lib/useBackdropClose';
 import type { FormEvent } from 'react';
 import { useCreateExercise } from '../../api/exercises';
@@ -18,8 +18,18 @@ import {
 //
 // Solo cubre CREACIÓN: la edición vive en ExerciseDetailPage (un ejercicio
 // ya existente se edita en su propia página, no en este diálogo).
-export function ExerciseFormDialog() {
+// `openOnMount` abre el formulario al llegar desde otra pantalla con la
+// intención de crear un ejercicio (por ejemplo, desde "Importar Excel").
+export function ExerciseFormDialog({
+  openOnMount = false,
+}: { openOnMount?: boolean } = {}) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const openedOnMount = useRef(false);
+  useEffect(() => {
+    if (!openOnMount || openedOnMount.current) return;
+    openedOnMount.current = true;
+    dialogRef.current?.showModal();
+  }, [openOnMount]);
   const backdropClose = useBackdropClose(dialogRef);
   const [name, setName] = useState('');
   const [muscleGroups, setMuscleGroups] = useState<string[]>([]);

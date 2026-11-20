@@ -1,10 +1,10 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/renderWithProviders';
 import { apiClient, ApiError } from '../../lib/apiClient';
 import { ImportExcelPage } from './ImportExcelPage';
-import type { ExcelImportBatch } from '../../types/excelImport';
+import type { ExcelImportBatch, ExcelImportRow } from '../../types/excelImport';
 
 function buildBatch(
   overrides: Partial<ExcelImportBatch> = {},
@@ -13,440 +13,356 @@ function buildBatch(
     id: 'batch-1',
     originalFilename: 'plan.xlsx',
     status: 'PENDING_REVIEW',
-    uploadedAt: '2026-01-01T00:00:00.000Z',
+    uploadedAt: '2026-11-20T10:00:00.000Z',
     confirmedAt: null,
     counts: { totalRows: 0, validRows: 0, invalidRows: 0 },
     rows: [],
-    createdPrograms: [],
+    legacyTemplate: false,
+    plan: [],
+    createdBlocks: [],
     ...overrides,
   };
 }
 
-function buildRows() {
-  return [
-    {
-      id: 'row-1',
-      rowNumber: 2,
-      status: 'VALID' as const,
-      errors: null,
-      data: { programName: 'Hipertrofia', exerciseName: 'Sentadilla' },
-      resultSessionExerciseId: null,
-    },
-    {
-      id: 'row-2',
-      rowNumber: 3,
-      status: 'INVALID' as const,
-      errors: [{ field: 'target_rpe', message: 'debe estar entre 0 y 10' }],
-      data: { programName: 'Hipertrofia', exerciseName: 'Press banca' },
-      resultSessionExerciseId: null,
-    },
-  ];
-}
+const validRow: ExcelImportRow = {
+  id: 'row-1',
+  rowNumber: 2,
+  status: 'VALID',
+  errors: null,
+  data: {
+    blockName: 'Fuerza base',
+    weekNumber: 1,
+    dayName: 'Día A',
+    exerciseName: 'Sentadilla',
+    sets: 3,
+    reps: 8,
+    weight: 62.5,
+    rpe: 7,
+  },
+  resultSessionExerciseId: null,
+};
 
-function buildXlsxFile(name = 'plan.xlsx', sizeBytes = 1024): File {
-  const file = new File([new Uint8Array(sizeBytes)], name, {
+const invalidRow: ExcelImportRow = {
+  id: 'row-2',
+  rowNumber: 3,
+  status: 'INVALID',
+  errors: [
+    {
+      field: 'exercise_name',
+      cell: 'D3',
+      message:
+        '"Sentadila" no está en tu catálogo de ejercicios. ¿Quisiste decir "Sentadilla"?',
+    },
+  ],
+  data: {
+    blockName: 'Fuerza base',
+    weekNumber: 1,
+    dayName: 'Día A',
+    exerciseName: 'Sentadila',
+  },
+  resultSessionExerciseId: null,
+};
+
+const readyBatch = buildBatch({
+  counts: { totalRows: 1, validRows: 1, invalidRows: 0 },
+  rows: [validRow],
+  plan: [
+    {
+      name: 'Fuerza base',
+      weeks: 2,
+      days: 3,
+      exercises: 4,
+      sets: 11,
+      alreadyExists: false,
+    },
+  ],
+});
+
+const batchWithErrors = buildBatch({
+  counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
+  rows: [validRow, invalidRow],
+});
+
+const xlsxFile = (name = 'plan.xlsx', size = 1024) =>
+  new File([new Uint8Array(size)], name, {
     type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   });
-  return file;
+
+async function uploadPreview(batch: ExcelImportBatch) {
+  const user = userEvent.setup();
+  vi.spyOn(apiClient, 'postFile').mockResolvedValue({
+    data: batch,
+    error: null,
+    meta: {},
+  });
+  renderWithProviders(<ImportExcelPage />);
+  await user.upload(screen.getByLabelText('Archivo Excel (.xlsx)'), xlsxFile());
+  await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
+  await screen.findByText(`Revisión de ${batch.originalFilename}`);
+  return user;
+}
+
+function mockCatalog(exercises: Array<{ id: string; name: string }>) {
+  return vi
+    .spyOn(apiClient, 'get')
+    .mockImplementation(async (path) =>
+      path === '/block-library/catalog'
+        ? { data: { exercises, modifiers: [] }, error: null, meta: {} }
+        : { data: null, error: null, meta: {} },
+    );
 }
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  mockCatalog([{ id: 'ex-1', name: 'Sentadilla' }]);
 });
 
-// PROMPT 13 — "selección de archivo".
-describe('ImportExcelPage - selección de archivo', () => {
-  it('habilita el botón de subir solo cuando se selecciona un archivo válido', async () => {
+describe('Importar Excel - coach sin ejercicios', () => {
+  it('avisa que no tiene ejercicios y ofrece crear uno o cerrar', async () => {
     const user = userEvent.setup();
+    mockCatalog([]);
     renderWithProviders(<ImportExcelPage />);
-
+    const dialog = await screen.findByRole('dialog', {
+      name: 'No tienes ejercicios ingresados',
+    });
+    expect(dialog).toHaveAttribute('open');
     expect(
-      screen.getByRole('button', { name: 'Subir archivo' }),
-    ).toBeDisabled();
+      within(dialog).getByRole('link', { name: 'Crear ejercicio' }),
+    ).toHaveAttribute('href', '/exercises?nuevo=1');
+    await user.click(within(dialog).getByRole('button', { name: 'Cerrar' }));
+    expect(dialog).not.toHaveAttribute('open');
+  });
 
-    const input = screen.getByLabelText('Archivo Excel (.xlsx)');
-    await user.upload(input, buildXlsxFile());
-
-    expect(screen.getByRole('button', { name: 'Subir archivo' })).toBeEnabled();
+  it('no muestra el aviso si tiene ejercicios', async () => {
+    renderWithProviders(<ImportExcelPage />);
+    await waitFor(() =>
+      expect(apiClient.get).toHaveBeenCalledWith('/block-library/catalog'),
+    );
+    expect(
+      screen.queryByRole('dialog', { name: 'No tienes ejercicios ingresados' }),
+    ).toBeNull();
   });
 });
 
-// PROMPT 13 — "validación básica" (ayuda de UX, nunca autoritativa).
-describe('ImportExcelPage - validación básica del lado del cliente', () => {
-  it('rechaza una extensión distinta de .xlsx antes de subir', () => {
-    // Se usa fireEvent (no userEvent.upload) a propósito: `userEvent.upload`
-    // respeta el atributo `accept` del input y ni siquiera dispara el
-    // evento para un archivo que el picker del sistema operativo ya habría
-    // filtrado. Un usuario real puede igual llegar a este estado (eligiendo
-    // "todos los archivos" o arrastrando el archivo), así que la validación
-    // propia del componente debe probarse sin depender de ese filtro del
-    // navegador — el backend, de todas formas, es quien valida de verdad.
-    const postFileSpy = vi.spyOn(apiClient, 'postFile');
+describe('Importar Excel - antes de subir', () => {
+  it('explica los pasos y la regla de escribir los nombres igual', () => {
     renderWithProviders(<ImportExcelPage />);
+    expect(
+      screen.getByText('Escribe una fila por ejercicio.'),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'escribe el nombre de cada bloque y de cada día exactamente igual en todas sus filas',
+    );
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'el Excel no se puede importar',
+    );
+  });
 
+  it('habilita la subida solo con un .xlsx válido', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<ImportExcelPage />);
+    expect(
+      screen.getByRole('button', { name: 'Subir archivo' }),
+    ).toBeDisabled();
+    await user.upload(
+      screen.getByLabelText('Archivo Excel (.xlsx)'),
+      xlsxFile(),
+    );
+    expect(screen.getByRole('button', { name: 'Subir archivo' })).toBeEnabled();
+  });
+
+  it('rechaza otra extensión o un archivo muy grande sin subirlo', async () => {
+    const postFile = vi.spyOn(apiClient, 'postFile');
+    renderWithProviders(<ImportExcelPage />);
     const input = screen.getByLabelText('Archivo Excel (.xlsx)');
-    fireEvent.change(input, {
-      target: { files: [buildXlsxFile('plan.xlsm')] },
-    });
-
+    fireEvent.change(input, { target: { files: [xlsxFile('plan.xlsm')] } });
     expect(
       screen.getByText(/Solo se aceptan archivos \.xlsx/),
     ).toBeInTheDocument();
+    fireEvent.change(input, {
+      target: { files: [xlsxFile('plan.xlsx', 6 * 1024 * 1024)] },
+    });
+    expect(screen.getByText(/supera el tamaño máximo/)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Subir archivo' }),
     ).toBeDisabled();
-    expect(postFileSpy).not.toHaveBeenCalled();
+    expect(postFile).not.toHaveBeenCalled();
   });
 
-  it('rechaza un archivo que excede el tamaño máximo', async () => {
+  it('descarga la plantilla desde el backend', async () => {
     const user = userEvent.setup();
+    const blob = vi
+      .spyOn(apiClient, 'blob')
+      .mockResolvedValue(new Blob(['xlsx']));
+    vi.stubGlobal('URL', {
+      ...URL,
+      createObjectURL: vi.fn(() => 'blob:x'),
+      revokeObjectURL: vi.fn(),
+    });
+    const click = vi
+      .spyOn(HTMLAnchorElement.prototype, 'click')
+      .mockImplementation(() => {});
     renderWithProviders(<ImportExcelPage />);
+    await user.click(
+      screen.getByRole('button', { name: 'Descargar plantilla' }),
+    );
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    expect(blob).toHaveBeenCalledWith('/imports/excel/template');
+    vi.unstubAllGlobals();
+  });
+});
 
-    const input = screen.getByLabelText('Archivo Excel (.xlsx)');
-    await user.upload(input, buildXlsxFile('plan.xlsx', 6 * 1024 * 1024));
-
+describe('Importar Excel - revisión', () => {
+  it('con errores, lista fila, celda y columna, y no deja confirmar', async () => {
+    await uploadPreview(batchWithErrors);
+    const errors = screen.getByRole('alert');
+    expect(errors).toHaveTextContent(
+      'Corrige 1 fila en tu Excel antes de importar',
+    );
     expect(
-      screen.getByText(/supera el tamaño máximo permitido/),
+      within(errors).getByText('Fila 3 · celda D3 (Ejercicio):'),
     ).toBeInTheDocument();
+    expect(errors).toHaveTextContent('¿Quisiste decir "Sentadilla"?');
     expect(
-      screen.getByRole('button', { name: 'Subir archivo' }),
+      screen.getByRole('button', { name: 'Confirmar importación' }),
     ).toBeDisabled();
+    expect(screen.getByText('Corregir D3')).toBeInTheDocument();
   });
-});
 
-// PROMPT 13 — "upload" + "vista previa".
-describe('ImportExcelPage - subida y vista previa', () => {
-  it('sube el archivo seleccionado y muestra la vista previa', async () => {
-    const user = userEvent.setup();
-    const batch = buildBatch({
-      counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
-      rows: buildRows(),
-    });
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: batch,
-      error: null,
-      meta: {},
-    });
-
-    renderWithProviders(<ImportExcelPage />);
-    const input = screen.getByLabelText('Archivo Excel (.xlsx)');
-    await user.upload(input, buildXlsxFile());
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
-    expect(apiClient.postFile).toHaveBeenCalledWith(
-      '/imports/excel',
-      expect.any(FormData),
-    );
-
+  it('sin errores, resume los bloques que se crearán y permite confirmar', async () => {
+    await uploadPreview(readyBatch);
     expect(
-      await screen.findByText('Vista previa de la importación'),
+      screen.getByText('Todo correcto. Se crearán estos bloques:'),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Total de filas: 2/)).toBeInTheDocument();
-  });
-
-  // PROMPT 13 — "filas válidas"/"filas inválidas"/"errores por fila".
-  it('muestra las filas válidas e inválidas con sus errores', async () => {
-    const user = userEvent.setup();
-    const batch = buildBatch({
-      counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
-      rows: buildRows(),
-    });
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: batch,
-      error: null,
-      meta: {},
-    });
-
-    renderWithProviders(<ImportExcelPage />);
-    await user.upload(
-      screen.getByLabelText('Archivo Excel (.xlsx)'),
-      buildXlsxFile(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
-    expect(await screen.findByText('Válida')).toBeInTheDocument();
-    expect(screen.getByText('Inválida')).toBeInTheDocument();
-    expect(screen.getByText(/debe estar entre 0 y 10/)).toBeInTheDocument();
-  });
-
-  // PROMPT 13 — "estado vacío".
-  it('muestra un estado vacío cuando el archivo no tiene filas de datos', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: buildBatch(),
-      error: null,
-      meta: {},
-    });
-
-    renderWithProviders(<ImportExcelPage />);
-    await user.upload(
-      screen.getByLabelText('Archivo Excel (.xlsx)'),
-      buildXlsxFile(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
     expect(
-      await screen.findByText('El archivo no tiene filas de datos.'),
+      screen.getByText(
+        (_, element) =>
+          element?.tagName === 'LI' &&
+          element.textContent ===
+            'Fuerza base: 2 semanas · 3 días · 4 ejercicios · 11 series',
+      ),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Total de filas: 0/)).toBeInTheDocument();
-  });
-
-  // PROMPT 13 — "errores" (respuesta del backend).
-  it('muestra el mensaje de error del backend cuando la subida falla', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, 'postFile').mockRejectedValue(
-      new ApiError(400, 'El archivo no es un Excel (.xlsx) válido.'),
-    );
-
-    renderWithProviders(<ImportExcelPage />);
-    await user.upload(
-      screen.getByLabelText('Archivo Excel (.xlsx)'),
-      buildXlsxFile(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText('El archivo no es un Excel (.xlsx) válido.'),
-      ).toBeInTheDocument();
-    });
-  });
-
-  it('deshabilita "Confirmar importación" cuando no hay ninguna fila válida', async () => {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: buildBatch(),
-      error: null,
-      meta: {},
-    });
-
-    renderWithProviders(<ImportExcelPage />);
-    await user.upload(
-      screen.getByLabelText('Archivo Excel (.xlsx)'),
-      buildXlsxFile(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
-    const confirmButton = await screen.findByRole('button', {
-      name: 'Confirmar importación',
-    });
-    expect(confirmButton).toBeDisabled();
-  });
-});
-
-// PROMPT 14 — "confirmación", "rechazo" y "resultado" de una importación.
-describe('ImportExcelPage - confirmación y rechazo (PROMPT 14)', () => {
-  async function uploadPreview(
-    batch: ExcelImportBatch = buildBatch({
-      counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
-      rows: buildRows(),
-    }),
-  ) {
-    const user = userEvent.setup();
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: batch,
-      error: null,
-      meta: {},
-    });
-    renderWithProviders(<ImportExcelPage />);
-    await user.upload(
-      screen.getByLabelText('Archivo Excel (.xlsx)'),
-      buildXlsxFile(),
-    );
-    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
-    await screen.findByText('Vista previa de la importación');
-    return user;
-  }
-
-  it('muestra el botón "Confirmar importación" habilitado cuando hay al menos una fila válida', async () => {
-    await uploadPreview();
-
     expect(
       screen.getByRole('button', { name: 'Confirmar importación' }),
     ).toBeEnabled();
-    expect(
-      screen.getByRole('button', { name: 'Rechazar importación' }),
-    ).toBeEnabled();
+    expect(screen.getByText('3 × 8 · 62,5 kg · RPE 7')).toBeInTheDocument();
   });
 
-  it('confirma la importación y muestra el resultado (programas creados) al hacer clic', async () => {
-    const user = await uploadPreview();
-    const confirmedBatch = buildBatch({
-      status: 'CONFIRMED',
-      confirmedAt: '2026-01-01T00:05:00.000Z',
-      counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
-      rows: buildRows(),
-      createdPrograms: [{ id: 'program-1', name: 'Hipertrofia' }],
-    });
-    const postSpy = vi
-      .spyOn(apiClient, 'post')
-      .mockResolvedValue({ data: confirmedBatch, error: null, meta: {} });
+  it('avisa si ya existe un bloque con ese nombre', async () => {
+    await uploadPreview(
+      buildBatch({
+        ...readyBatch,
+        plan: [{ ...readyBatch.plan[0], alreadyExists: true }],
+      }),
+    );
+    expect(
+      screen.getByText(/Ya tienes un bloque con este nombre/),
+    ).toBeInTheDocument();
+  });
 
+  it('pide la plantilla nueva para una importación antigua', async () => {
+    await uploadPreview(buildBatch({ ...readyBatch, legacyTemplate: true }));
+    expect(screen.getByRole('alert')).toHaveTextContent('plantilla anterior');
+    expect(
+      screen.getByRole('button', { name: 'Confirmar importación' }),
+    ).toBeDisabled();
+  });
+
+  it('muestra el mensaje del backend si el archivo no respeta la plantilla', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(apiClient, 'postFile').mockRejectedValue(
+      new ApiError(400, 'Falta la columna obligatoria "Día".'),
+    );
+    renderWithProviders(<ImportExcelPage />);
+    await user.upload(
+      screen.getByLabelText('Archivo Excel (.xlsx)'),
+      xlsxFile(),
+    );
+    await user.click(screen.getByRole('button', { name: 'Subir archivo' }));
+    expect(
+      await screen.findByText('Falta la columna obligatoria "Día".'),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('Importar Excel - confirmar y descartar', () => {
+  it('confirma y enlaza a los bloques creados', async () => {
+    const user = await uploadPreview(readyBatch);
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: buildBatch({
+        ...readyBatch,
+        status: 'CONFIRMED',
+        plan: [],
+        createdBlocks: [
+          { id: 'block-9', name: 'Fuerza base', programId: null },
+        ],
+      }),
+      error: null,
+      meta: {},
+    });
     await user.click(
       screen.getByRole('button', { name: 'Confirmar importación' }),
     );
-
-    expect(postSpy).toHaveBeenCalledWith('/imports/excel/batch-1/confirm');
+    expect(post).toHaveBeenCalledWith('/imports/excel/batch-1/confirm');
     expect(
       await screen.findByText('Importación confirmada'),
     ).toBeInTheDocument();
-    expect(screen.getByText('Hipertrofia')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Ir a Mis programas' }),
-    ).toHaveAttribute('href', '/programs');
-    // El panel de confirmar/rechazar desaparece una vez decidido.
+      screen.getByRole('link', { name: 'Abrir y editar' }),
+    ).toHaveAttribute('href', '/block-library/block-9');
+    expect(screen.getByRole('link', { name: 'Ir a Bloques' })).toHaveAttribute(
+      'href',
+      '/blocks',
+    );
     expect(
       screen.queryByRole('button', { name: 'Confirmar importación' }),
     ).not.toBeInTheDocument();
   });
 
-  it('muestra un estado de carga mientras se confirma', async () => {
-    const user = await uploadPreview();
-    let resolveConfirm!: (value: {
-      data: ExcelImportBatch;
-      error: null;
-      meta: object;
-    }) => void;
-    vi.spyOn(apiClient, 'post').mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveConfirm = resolve;
-        }),
-    );
-
-    await user.click(
-      screen.getByRole('button', { name: 'Confirmar importación' }),
-    );
-
-    expect(await screen.findByText('Confirmando…')).toBeInTheDocument();
-
-    resolveConfirm({
-      data: buildBatch({ status: 'CONFIRMED', createdPrograms: [] }),
-      error: null,
-      meta: {},
-    });
-  });
-
-  it('muestra el mensaje de error del backend cuando la confirmación falla', async () => {
-    const user = await uploadPreview();
+  it('si la confirmación encuentra errores nuevos, muestra el motivo y recarga la revisión', async () => {
+    const user = await uploadPreview(readyBatch);
     vi.spyOn(apiClient, 'post').mockRejectedValue(
       new ApiError(
-        409,
-        'La importación ya fue confirmada o rechazada anteriormente.',
+        422,
+        'No se puede importar: hay 1 fila con errores. Corrígelas en tu Excel y súbelo otra vez.',
       ),
     );
-
-    await user.click(
-      screen.getByRole('button', { name: 'Confirmar importación' }),
-    );
-
-    expect(
-      await screen.findByText(
-        'La importación ya fue confirmada o rechazada anteriormente.',
-      ),
-    ).toBeInTheDocument();
-  });
-
-  it('rechaza la importación al hacer clic en "Rechazar importación"', async () => {
-    const user = await uploadPreview();
-    const rejectedBatch = buildBatch({ status: 'REJECTED' });
-    const postSpy = vi
-      .spyOn(apiClient, 'post')
-      .mockResolvedValue({ data: rejectedBatch, error: null, meta: {} });
-
-    await user.click(
-      screen.getByRole('button', { name: 'Rechazar importación' }),
-    );
-
-    expect(postSpy).not.toHaveBeenCalled();
-    expect(screen.getByRole('button', { name: 'Cancelar' })).toHaveClass(
-      'button--neutral',
-    );
-    expect(
-      screen.getByRole('button', { name: 'Rechazar definitivamente' }),
-    ).toHaveClass('button--danger');
-    await user.click(
-      screen.getByRole('button', { name: 'Rechazar definitivamente' }),
-    );
-    expect(postSpy).toHaveBeenCalledWith('/imports/excel/batch-1/reject');
-    expect(
-      await screen.findByText('Importación rechazada'),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('button', { name: 'Rechazar importación' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('permite navegar a "Mis programas" después de confirmar', async () => {
-    const user = await uploadPreview();
-    vi.spyOn(apiClient, 'post').mockResolvedValue({
-      data: buildBatch({
-        status: 'CONFIRMED',
-        createdPrograms: [{ id: 'program-1', name: 'Hipertrofia' }],
-      }),
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: batchWithErrors,
       error: null,
       meta: {},
     });
-
     await user.click(
       screen.getByRole('button', { name: 'Confirmar importación' }),
     );
-
-    const link = await screen.findByRole('link', {
-      name: 'Ir a Mis programas',
-    });
-    expect(link.getAttribute('href')).toBe('/programs');
-  });
-});
-
-describe('ImportExcelPage - plantilla y textos en español', () => {
-  it('descarga la plantilla desde el backend', async () => {
-    const user = userEvent.setup();
-    const blobSpy = vi
-      .spyOn(apiClient, 'blob')
-      .mockResolvedValue(new Blob(['xlsx']));
-    const createUrl = vi.fn(() => 'blob:plantilla');
-    const revokeUrl = vi.fn();
-    vi.stubGlobal('URL', {
-      ...URL,
-      createObjectURL: createUrl,
-      revokeObjectURL: revokeUrl,
-    });
-    const clickSpy = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => {});
-
-    renderWithProviders(<ImportExcelPage />);
-    await user.click(
-      screen.getByRole('button', { name: 'Descargar plantilla' }),
-    );
-
-    await waitFor(() => expect(clickSpy).toHaveBeenCalled());
-    expect(blobSpy).toHaveBeenCalledWith('/imports/excel/template');
-    expect(revokeUrl).toHaveBeenCalledWith('blob:plantilla');
-    vi.unstubAllGlobals();
+    expect(
+      await screen.findByText(/hay 1 fila con errores/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('Fila 3 · celda D3 (Ejercicio):'),
+    ).toBeInTheDocument();
+    expect(apiClient.get).toHaveBeenCalledWith('/imports/excel/batch-1');
   });
 
-  it('muestra el estado y el nombre de la columna con error en español', async () => {
-    vi.spyOn(apiClient, 'postFile').mockResolvedValue({
-      data: buildBatch({
-        counts: { totalRows: 2, validRows: 1, invalidRows: 1 },
-        rows: buildRows(),
-      }),
+  it('descarta la importación tras confirmar en el diálogo', async () => {
+    const user = await uploadPreview(readyBatch);
+    const post = vi.spyOn(apiClient, 'post').mockResolvedValue({
+      data: buildBatch({ status: 'REJECTED' }),
       error: null,
       meta: {},
     });
-
-    renderWithProviders(<ImportExcelPage />);
-    const input = screen.getByLabelText('Archivo Excel (.xlsx)');
-    fireEvent.change(input, {
-      target: { files: [new File(['x'], 'plan.xlsx')] },
+    await user.click(screen.getByRole('button', { name: 'Descartar' }));
+    expect(post).not.toHaveBeenCalled();
+    const dialog = screen.getByRole('dialog', {
+      name: 'Confirmar rechazo',
+      hidden: true,
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Subir archivo' }));
-
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Descartar', hidden: true }),
+    );
+    expect(post).toHaveBeenCalledWith('/imports/excel/batch-1/reject');
     expect(
-      await screen.findByText('Pendiente de revisión'),
+      await screen.findByText('Importación descartada'),
     ).toBeInTheDocument();
-    expect(screen.getByText('RPE:')).toBeInTheDocument();
   });
 });

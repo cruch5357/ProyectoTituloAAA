@@ -311,7 +311,11 @@ export function Calendar({ studentId }: { studentId?: string }) {
   };
 
   return (
-    <Card className="month-calendar">
+    // En la ficha del coach (studentId) el calendario usa todo el ancho; el
+    // del alumno conserva su ancho acotado.
+    <Card
+      className={`month-calendar${studentId ? ' month-calendar--wide' : ''}`}
+    >
       <div className="month-calendar__header">
         <h2>
           {capitalize(

@@ -22,44 +22,50 @@ import {
   EXCEL_PROCESSING_TIMEOUT_MS,
 } from '../common/imports/excel-import.constants';
 import {
+  columnLetter,
   EXCEL_COLUMN_LABELS,
   EXCEL_MANDATORY_COLUMNS,
   EXCEL_TEMPLATE_COLUMNS,
   ExcelTemplateColumn,
+  isLegacyTemplateHeader,
   resolveTemplateColumn,
 } from '../common/imports/excel-template';
-import { inferMissingOrders } from '../common/imports/excel-order-inference';
-import { buildTemplateWorkbook } from '../common/imports/excel-template-workbook';
+import { fillDownHierarchy } from '../common/imports/excel-fill-down';
 import {
+  buildTemplateWorkbook,
+  PLAN_SHEET_NAME,
+} from '../common/imports/excel-template-workbook';
+import {
+  cellText,
+  extractCellValue,
   isBlankExcelRow,
   RawExcelRowValues,
+  RowFieldError,
   validateExcelRow,
+  ValidatedRowValues,
 } from '../common/imports/excel-row-validation';
-import {
-  ExcelImportRowWithResult,
-  PublicExcelImportBatch,
-  toPublicExcelImportBatch,
-} from './excel-import.mapper';
+import { buildExerciseLookup } from '../common/imports/excel-exercise-lookup';
 import {
   buildImportPlan,
-  countImportPlanEntities,
-  NormalizedRowInput,
+  looseKey,
+  PlanBlock,
+  PlanRowInput,
+  summarizePlan,
 } from '../common/imports/excel-import-grouping';
+import {
+  ExcelImportRowWithResult,
+  isLegacyRow,
+  PublicExcelImportBatch,
+  PublicImportBlockSummary,
+  toPublicExcelImportBatch,
+} from './excel-import.mapper';
 
 const GENERIC_BATCH_NOT_FOUND = 'Importación no encontrada';
 const BATCH_ALREADY_FINALIZED =
   'La importación ya fue confirmada o rechazada anteriormente.';
-const NO_VALID_ROWS_TO_CONFIRM =
-  'El archivo no tiene ninguna fila válida para confirmar. Corrige los errores e inténtalo nuevamente.';
+const LEGACY_TEMPLATE_MESSAGE =
+  'Este archivo usa la plantilla anterior (con columnas como Programa o Sesión). Descarga la plantilla nueva desde "Importar Excel", copia tu planificación en ella y súbela otra vez.';
 
-// Include reutilizado por cada consulta que necesita devolver la vista
-// previa completa (batch + filas) — mismo criterio de "constante local de
-// include", no exportada, ya usado en otros servicios (ej.
-// `STUDENT_SUMMARY_SELECT` en program-assignments.service.ts). Incluye la
-// cadena completa `resultSessionExercise -> session -> week -> block ->
-// program` (PROMPT 14) para que `toPublicExcelImportBatch()` pueda derivar
-// `createdPrograms` sin una consulta aparte, tanto recién confirmado como en
-// cualquier GET posterior sobre el mismo batch.
 const ROW_RESULT_INCLUDE = {
   resultSessionExercise: {
     include: {
@@ -75,6 +81,8 @@ const BATCH_WITH_ROWS_INCLUDE = {
   rows: { include: ROW_RESULT_INCLUDE },
 } as const;
 
+type BatchWithRows = ExcelImportBatch & { rows: ExcelImportRowWithResult[] };
+
 export interface UploadedExcelFile {
   originalname: string;
   mimetype: string | undefined;
@@ -82,20 +90,29 @@ export interface UploadedExcelFile {
   buffer: Buffer;
 }
 
+// Fila leída de la hoja: celdas por columna y la letra de cada columna en el
+// archivo, para indicar la celda exacta de cada error.
+interface SheetRow {
+  rowNumber: number;
+  cells: RawExcelRowValues;
+  letters: Partial<Record<ExcelTemplateColumn, string>>;
+}
+
+interface EvaluatedRow extends SheetRow {
+  errors: RowFieldError[];
+  values: ValidatedRowValues;
+}
+
 // ---------------------------------------------------------------------------
-// Importación de Excel — PRIMERA MITAD de RF-17/RF-18/RF-19 (PROMPT 13):
-// archivo -> validación -> normalización inicial -> vista previa. Este
-// servicio NUNCA escribe en Program/Block/Week/Session/SessionExercise (eso
-// es PROMPT 14, al confirmar el batch) y NUNCA crea un Exercise nuevo en el
-// catálogo del coach aunque el nombre de la fila no exista — una fila así
-// queda simplemente INVALID con un error explicativo, nunca se inventa ni
-// se modifica el catálogo desde acá.
+// Importación de Excel: archivo -> validación -> vista previa -> confirmar o
+// rechazar. Al confirmar, cada bloque del archivo se crea en la biblioteca de
+// Bloques del coach (igual que si lo armara en el editor), listo para
+// editarlo y asignarlo con "Asignar ciclo".
 //
-// El archivo nunca se persiste a disco ni en la base de datos: se procesa
-// enteramente en memoria (buffer de multer con `memoryStorage()`) y se
-// descarta al terminar el request — coherente con que `ExcelImportBatch`
-// (schema.prisma) no tiene ninguna columna de ruta/blob de almacenamiento,
-// solo `originalFilename` como metadata.
+// Nunca crea ni modifica ejercicios del catálogo: un ejercicio que no existe
+// es un error de la fila (con sugerencia del nombre más parecido). El archivo
+// se procesa en memoria y se descarta; solo se guardan sus filas para la
+// vista previa y la trazabilidad.
 // ---------------------------------------------------------------------------
 @Injectable()
 export class ExcelImportsService {
@@ -104,269 +121,237 @@ export class ExcelImportsService {
     private readonly auditService: AuditService,
   ) {}
 
-  // Mismo patrón exacto que `ensureOwnedStudent`/`ensureOwnedExercise`: 404
-  // genérico (nunca 403) tanto si el batch no existe como si es de otro
-  // coach, para no confirmarle a un coach que un id ajeno corresponde a una
-  // importación real de otro coach.
+  // 404 genérico (nunca 403) tanto si no existe como si es de otro coach.
   private ensureOwnedBatch(
     coachId: string,
-    batch: (ExcelImportBatch & { rows: ExcelImportRowWithResult[] }) | null,
-  ): ExcelImportBatch & { rows: ExcelImportRowWithResult[] } {
+    batch: BatchWithRows | null,
+  ): BatchWithRows {
     if (!batch || batch.coachId !== coachId) {
       throw new NotFoundException(GENERIC_BATCH_NOT_FOUND);
     }
     return batch;
   }
 
+  private async loadOwnedBatch(coachId: string, batchId: string) {
+    return this.ensureOwnedBatch(
+      coachId,
+      await this.prisma.excelImportBatch.findUnique({
+        where: { id: batchId },
+        include: BATCH_WITH_ROWS_INCLUDE,
+      }),
+    );
+  }
+
   async getOwnedPreview(
     coachId: string,
     batchId: string,
   ): Promise<PublicExcelImportBatch> {
-    const batch = await this.prisma.excelImportBatch.findUnique({
-      where: { id: batchId },
-      include: BATCH_WITH_ROWS_INCLUDE,
+    return this.toPublic(coachId, await this.loadOwnedBatch(coachId, batchId));
+  }
+
+  // Vista pública con el resumen de los bloques que se crearían, solo si la
+  // importación sigue pendiente y no tiene errores.
+  private async toPublic(
+    coachId: string,
+    batch: BatchWithRows,
+  ): Promise<PublicExcelImportBatch> {
+    let plan: PublicImportBlockSummary[] = [];
+    const ready =
+      batch.status === 'PENDING_REVIEW' &&
+      batch.rows.length > 0 &&
+      batch.rows.every((row) => row.status === 'VALID') &&
+      !batch.rows.some(isLegacyRow);
+    if (ready) {
+      const { blocks } = buildImportPlan(
+        batch.rows.map((row) => this.planInputFromStored(row)),
+      );
+      const existing = await this.libraryBlockNames(coachId);
+      plan = summarizePlan(blocks).map((summary) => ({
+        ...summary,
+        alreadyExists: existing.has(looseKey(summary.name)),
+      }));
+    }
+    return toPublicExcelImportBatch(batch, plan);
+  }
+
+  private async libraryBlockNames(coachId: string): Promise<Set<string>> {
+    const blocks = await this.prisma.block.findMany({
+      where: { coachId, programId: null },
+      select: { name: true },
     });
-    return toPublicExcelImportBatch(this.ensureOwnedBatch(coachId, batch));
+    return new Set(blocks.map((block) => looseKey(block.name)));
+  }
+
+  private planInputFromStored(row: ExcelImportRow): PlanRowInput {
+    const normalized = (row.rawData as { normalized?: ValidatedRowValues })
+      ?.normalized;
+    return {
+      rowId: row.id,
+      rowNumber: row.rowNumber,
+      values: normalized as PlanRowInput['values'],
+    };
   }
 
   // ---------------------------------------------------------------------
-  // PROMPT 14 — CONFIRMACIÓN (RF-19/RF-20): transforma las filas VÁLIDAS
-  // de un batch PENDING_REVIEW en la jerarquía relacional real
-  // (Program -> Block -> Week -> Session -> SessionExercise). Nunca
-  // reutiliza un Program ya existente del coach (ver el comentario de
-  // cabecera de `excel-import-grouping.ts` para la justificación completa):
-  // cada confirmación exitosa crea SIEMPRE uno o más Program nuevos.
-  //
-  // Re-valida TODAS las filas contra el estado ACTUAL del catálogo de
-  // ejercicios del coach (nunca confía ciegamente en el `status`/`errors`
-  // guardados en el upload) — reutiliza literalmente `validateExcelRow()`
-  // de PROMPT 13 (nunca se reimplementa el parser ni la validación de
-  // campos), solo cambia qué `resolvedExerciseId` se le pasa. Esto significa
-  // que una fila marcada INVALID en la vista previa por "ejercicio no
-  // encontrado" puede confirmarse igual si el coach agregó ese ejercicio a
-  // su catálogo entre el upload y la confirmación, sin necesidad de volver a
-  // subir el archivo — una fila que YA era válida puede, simétricamente,
-  // dejar de serlo si el ejercicio fue desactivado mientras tanto.
+  // Confirmación: vuelve a validar todas las filas contra el catálogo
+  // ACTUAL (un ejercicio pudo desactivarse desde la vista previa) y, solo si
+  // no hay ningún error, crea los bloques en una única transacción. Una
+  // importación con errores nunca se confirma a medias: un bloque al que le
+  // faltan filas no sería la planificación que el coach escribió.
   // ---------------------------------------------------------------------
   async confirmBatch(
     coachId: string,
     batchId: string,
   ): Promise<PublicExcelImportBatch> {
-    const batch = this.ensureOwnedBatch(
-      coachId,
-      await this.prisma.excelImportBatch.findUnique({
-        where: { id: batchId },
-        include: BATCH_WITH_ROWS_INCLUDE,
-      }),
-    );
-
-    // Chequeo barato antes de re-validar nada: evita todo el trabajo de
-    // re-validación si el batch ya no está pendiente.
+    const batch = await this.loadOwnedBatch(coachId, batchId);
     if (batch.status !== 'PENDING_REVIEW') {
       throw new ConflictException(BATCH_ALREADY_FINALIZED);
     }
+    if (batch.rows.some(isLegacyRow)) {
+      throw new UnprocessableEntityException(LEGACY_TEMPLATE_MESSAGE);
+    }
 
-    const exerciseIndex = await this.buildExerciseNameIndex(coachId);
-    const freshRows = batch.rows.map((row) => {
-      const raw = this.extractStoredCells(row.rawData);
-      const exerciseName = this.readPlainString(raw.exercise_name);
-      const resolvedExerciseId = exerciseName
-        ? (exerciseIndex.get(exerciseName.trim().toLowerCase()) ?? null)
-        : null;
-      const { errors, values } = validateExcelRow(raw, resolvedExerciseId);
-      return { row, errors, values, resolvedExerciseId };
-    });
-
-    const validFreshRows = freshRows.filter(
-      (fresh) => fresh.errors.length === 0,
+    const evaluated = await this.evaluateRows(
+      coachId,
+      batch.rows
+        .slice()
+        .sort((a, b) => a.rowNumber - b.rowNumber)
+        .map((row) => this.sheetRowFromStored(row)),
     );
-    if (validFreshRows.length === 0) {
-      throw new UnprocessableEntityException(NO_VALID_ROWS_TO_CONFIRM);
+    const rowsWithErrors = evaluated.filter((row) => row.errors.length > 0);
+    const { blocks } = buildImportPlan(
+      evaluated.map((row) => ({
+        rowId: this.rowIdByNumber(batch, row.rowNumber),
+        rowNumber: row.rowNumber,
+        values: row.values as PlanRowInput['values'],
+      })),
+    );
+    if (rowsWithErrors.length > 0 || blocks.length === 0) {
+      // Se guardan los errores actuales para que la vista previa los
+      // muestre (por ejemplo, un ejercicio desactivado después de subir).
+      await this.prisma.$transaction(
+        evaluated.map((row) => {
+          const id = this.rowIdByNumber(batch, row.rowNumber);
+          return this.prisma.excelImportRow.update({
+            where: { id },
+            data: this.rowState(row),
+          });
+        }),
+      );
+      throw new UnprocessableEntityException(
+        `No se puede importar: ${rowsWithErrors.length === 1 ? 'hay 1 fila con errores' : `hay ${rowsWithErrors.length} filas con errores`}. Corrígelas en tu Excel y súbelo otra vez.`,
+      );
     }
-
-    // Precondición garantizada por `errors.length === 0`: todos los campos
-    // obligatorios de la plantilla (ver excel-template.ts) y el ejercicio ya
-    // pasaron la validación de `validateExcelRow()`, así que las
-    // aserciones `!` de abajo son seguras — nunca se confirma una fila cuyo
-    // ejercicio no resolvió o cuyos campos de identidad falten.
-    const groupingInput: NormalizedRowInput[] = validFreshRows.map((fresh) => ({
-      rowId: fresh.row.id,
-      rowNumber: fresh.row.rowNumber,
-      exerciseId: fresh.resolvedExerciseId!,
-      values: {
-        programName: fresh.values.programName!,
-        programDescription: fresh.values.programDescription,
-        durationWeeks: fresh.values.durationWeeks,
-        blockName: fresh.values.blockName!,
-        blockOrder: fresh.values.blockOrder!,
-        weekNumber: fresh.values.weekNumber!,
-        weekOrder: fresh.values.weekOrder!,
-        sessionName: fresh.values.sessionName!,
-        dayOfWeek: fresh.values.dayOfWeek,
-        sessionOrder: fresh.values.sessionOrder!,
-        exerciseOrder: fresh.values.exerciseOrder!,
-        targetSets: fresh.values.targetSets,
-        targetRepsMin: fresh.values.targetRepsMin,
-        targetRepsMax: fresh.values.targetRepsMax,
-        targetRpe: fresh.values.targetRpe,
-        targetRir: fresh.values.targetRir,
-        restSeconds: fresh.values.restSeconds,
-        notes: fresh.values.notes,
-      },
-    }));
-
-    const planResult = buildImportPlan(groupingInput);
-    if ('conflicts' in planResult) {
-      throw new UnprocessableEntityException({
-        message:
-          'El archivo tiene filas válidas con datos contradictorios entre sí (mismo orden con identidad distinta) y no se puede confirmar.',
-        errors: planResult.conflicts,
-      });
-    }
-    const plan = planResult.plan;
-    const planRowIds = new Set(groupingInput.map((row) => row.rowId));
 
     const confirmedAt = new Date();
-    await this.prisma.$transaction(async (tx) => {
-      // Guarda atómica + cambio de estado terminal, en una sola sentencia y
-      // COMO PRIMER PASO de la transacción: si otra petición concurrente ya
-      // confirmó/rechazó este batch, `count` da 0 y se aborta toda la
-      // transacción (rollback) sin haber creado nada — es la barrera real
-      // contra condiciones de carrera de doble confirmación (idempotencia).
-      const guard = await tx.excelImportBatch.updateMany({
-        where: { id: batchId, status: 'PENDING_REVIEW' },
-        data: { status: 'CONFIRMED', confirmedAt },
-      });
-      if (guard.count === 0) {
-        throw new ConflictException(BATCH_ALREADY_FINALIZED);
-      }
-
-      for (const program of plan) {
-        const createdProgram = await tx.program.create({
-          data: {
-            coachId,
-            name: program.name,
-            description: program.description,
-            durationWeeks: program.durationWeeks,
-          },
+    const counts = { blocks: 0, weeks: 0, days: 0, exercises: 0, sets: 0 };
+    await this.prisma.$transaction(
+      async (tx) => {
+        // Guarda atómica como primer paso: si otra petición ya confirmó o
+        // rechazó el lote, se aborta sin crear nada (doble clic, dos pestañas).
+        const guard = await tx.excelImportBatch.updateMany({
+          where: { id: batchId, status: 'PENDING_REVIEW' },
+          data: { status: 'CONFIRMED', confirmedAt },
         });
-        for (const block of program.blocks) {
-          const createdBlock = await tx.block.create({
-            data: {
-              programId: createdProgram.id,
-              name: block.name,
-              order: block.order,
-            },
-          });
-          for (const week of block.weeks) {
-            const createdWeek = await tx.week.create({
-              data: {
-                blockId: createdBlock.id,
-                number: week.number,
-                order: week.order,
-              },
-            });
-            for (const session of week.sessions) {
-              const createdSession = await tx.session.create({
-                data: {
-                  weekId: createdWeek.id,
-                  name: session.name,
-                  dayOfWeek: session.dayOfWeek ?? null,
-                  order: session.order,
-                },
-              });
-              for (const exercise of session.exercises) {
-                const createdSessionExercise = await tx.sessionExercise.create({
-                  data: {
-                    sessionId: createdSession.id,
-                    exerciseId: exercise.exerciseId,
-                    order: exercise.order,
-                    targetSets: exercise.targetSets ?? null,
-                    targetRepsMin: exercise.targetRepsMin ?? null,
-                    targetRepsMax: exercise.targetRepsMax ?? null,
-                    targetRpe: exercise.targetRpe ?? null,
-                    targetRir: exercise.targetRir ?? null,
-                    restSeconds: exercise.restSeconds ?? null,
-                    notes: exercise.notes ?? null,
-                  },
-                });
-                await tx.excelImportRow.update({
-                  where: { id: exercise.rowId },
-                  data: {
-                    resultSessionExerciseId: createdSessionExercise.id,
-                    status: 'VALID',
-                    errors: Prisma.JsonNull,
-                  },
-                });
-              }
-            }
-          }
+        if (guard.count === 0) {
+          throw new ConflictException(BATCH_ALREADY_FINALIZED);
         }
-      }
+        for (const block of blocks) {
+          await this.createLibraryBlock(tx, coachId, block, counts);
+        }
+      },
+      { timeout: 30000 },
+    );
 
-      // Refresca las filas que NO entraron al plan (siempre inválidas: si
-      // el plan se construyó sin conflictos, toda fila válida quedó
-      // incluida) para que la vista previa posterior refleje el resultado
-      // exacto de la re-validación de esta confirmación, nunca el estado
-      // potencialmente desactualizado del upload original.
-      for (const fresh of freshRows) {
-        if (planRowIds.has(fresh.row.id)) continue;
-        await tx.excelImportRow.update({
-          where: { id: fresh.row.id },
-          data: {
-            status: 'INVALID',
-            errors: fresh.errors as unknown as Prisma.InputJsonValue,
-          },
-        });
-      }
-    });
-
-    const entityCounts = countImportPlanEntities(plan);
     await this.auditService.record({
       actorId: coachId,
       action: AUDIT_ACTIONS.EXCEL_IMPORT_BATCH_CONFIRMED,
       entityType: AUDIT_ENTITY_EXCEL_IMPORT_BATCH,
       entityId: batchId,
-      metadata: entityCounts,
+      metadata: {
+        blocksCreated: counts.blocks,
+        weeksCreated: counts.weeks,
+        daysCreated: counts.days,
+        exercisesCreated: counts.exercises,
+        setsCreated: counts.sets,
+        rows: evaluated.length,
+      },
     });
 
-    const confirmedBatch = await this.prisma.excelImportBatch.findUnique({
-      where: { id: batchId },
-      include: BATCH_WITH_ROWS_INCLUDE,
-    });
-    return toPublicExcelImportBatch(
-      this.ensureOwnedBatch(coachId, confirmedBatch),
-    );
+    return this.toPublic(coachId, await this.loadOwnedBatch(coachId, batchId));
   }
 
-  // ---------------------------------------------------------------------
-  // PROMPT 14 — RECHAZO: descarta un batch pendiente sin generar ninguna
-  // entidad de programación. Nunca toca las filas (se conserva toda la
-  // trazabilidad de la vista previa tal cual quedó en PROMPT 13) — solo
-  // cambia el estado del batch. `confirmedAt` se deja explícitamente en
-  // `null`: ese campo significa "cuándo se CONFIRMÓ" (ver schema.prisma),
-  // así que usarlo también para el rechazo sería semánticamente incorrecto.
-  // ---------------------------------------------------------------------
+  // Crea un bloque de la biblioteca con la misma forma que guarda el editor
+  // de Bloques (blocks/library-tree.ts): semanas numeradas desde 1, días y
+  // ejercicios en orden, una ProgrammedSet por serie.
+  private async createLibraryBlock(
+    tx: Prisma.TransactionClient,
+    coachId: string,
+    block: PlanBlock,
+    counts: Record<'blocks' | 'weeks' | 'days' | 'exercises' | 'sets', number>,
+  ) {
+    const created = await tx.block.create({
+      data: { coachId, name: block.name, order: 1 },
+    });
+    counts.blocks += 1;
+    for (const [weekIndex, week] of block.weeks.entries()) {
+      const createdWeek = await tx.week.create({
+        data: {
+          blockId: created.id,
+          number: weekIndex + 1,
+          order: weekIndex + 1,
+        },
+      });
+      counts.weeks += 1;
+      for (const [dayIndex, day] of week.days.entries()) {
+        const session = await tx.session.create({
+          data: { weekId: createdWeek.id, name: day.name, order: dayIndex + 1 },
+        });
+        counts.days += 1;
+        for (const [exerciseIndex, exercise] of day.exercises.entries()) {
+          const sessionExercise = await tx.sessionExercise.create({
+            data: {
+              sessionId: session.id,
+              exerciseId: exercise.exerciseId,
+              order: exerciseIndex + 1,
+              notes: exercise.notes,
+              modifiers: [],
+              targetSets: exercise.sets.length,
+              programmedSets: {
+                create: exercise.sets.map((set, setIndex) => ({
+                  order: setIndex + 1,
+                  weight: set.weight,
+                  reps: set.reps,
+                  rpe: set.rpe,
+                })),
+              },
+            },
+          });
+          counts.exercises += 1;
+          counts.sets += exercise.sets.length;
+          await tx.excelImportRow.updateMany({
+            where: { id: { in: exercise.rowIds } },
+            data: { resultSessionExerciseId: sessionExercise.id },
+          });
+        }
+      }
+    }
+  }
+
+  private rowIdByNumber(batch: BatchWithRows, rowNumber: number): string {
+    return batch.rows.find((row) => row.rowNumber === rowNumber)!.id;
+  }
+
+  // Rechazo: descarta un lote pendiente sin crear nada. Conserva sus filas
+  // tal cual para la trazabilidad.
   async rejectBatch(
     coachId: string,
     batchId: string,
   ): Promise<PublicExcelImportBatch> {
-    const batch = this.ensureOwnedBatch(
-      coachId,
-      await this.prisma.excelImportBatch.findUnique({
-        where: { id: batchId },
-        include: BATCH_WITH_ROWS_INCLUDE,
-      }),
-    );
-
+    const batch = await this.loadOwnedBatch(coachId, batchId);
     if (batch.status !== 'PENDING_REVIEW') {
       throw new ConflictException(BATCH_ALREADY_FINALIZED);
     }
-
-    // Misma guarda atómica que `confirmBatch`: una sola sentencia
-    // condicionada por `status: 'PENDING_REVIEW'` es suficiente acá (no
-    // hace falta envolverla en `$transaction` porque no hay ninguna otra
-    // escritura que deba correr atómicamente junto a ella).
     const guard = await this.prisma.excelImportBatch.updateMany({
       where: { id: batchId, status: 'PENDING_REVIEW' },
       data: { status: 'REJECTED' },
@@ -374,7 +359,6 @@ export class ExcelImportsService {
     if (guard.count === 0) {
       throw new ConflictException(BATCH_ALREADY_FINALIZED);
     }
-
     await this.auditService.record({
       actorId: coachId,
       action: AUDIT_ACTIONS.EXCEL_IMPORT_BATCH_REJECTED,
@@ -382,20 +366,11 @@ export class ExcelImportsService {
       entityId: batchId,
       metadata: {},
     });
-
-    const rejectedBatch = await this.prisma.excelImportBatch.findUnique({
-      where: { id: batchId },
-      include: BATCH_WITH_ROWS_INCLUDE,
-    });
-    return toPublicExcelImportBatch(
-      this.ensureOwnedBatch(coachId, rejectedBatch),
-    );
+    return this.toPublic(coachId, await this.loadOwnedBatch(coachId, batchId));
   }
 
-  // Plantilla .xlsx en español para que el coach complete su planificación.
-  // Incluye los nombres de su catálogo activo (hoja "Mis ejercicios") y usa
-  // algunos de ellos en las filas de ejemplo, para que el ejemplo sea
-  // importable tal cual.
+  // Plantilla .xlsx con el catálogo activo del coach (lista desplegable de
+  // ejercicios y filas de ejemplo importables tal cual).
   async buildTemplate(coachId: string): Promise<Buffer> {
     const exercises = await this.prisma.exercise.findMany({
       where: { coachId, isActive: true },
@@ -412,7 +387,6 @@ export class ExcelImportsService {
     if (!file) {
       throw new BadRequestException('Debes adjuntar un archivo .xlsx.');
     }
-
     const fileErrors = validateExcelFile({
       originalName: file.originalname,
       mimetype: file.mimetype,
@@ -427,7 +401,8 @@ export class ExcelImportsService {
     }
 
     const workbook = await this.loadWorkbook(file.buffer);
-    const worksheet = workbook.worksheets[0];
+    const worksheet =
+      workbook.getWorksheet(PLAN_SHEET_NAME) ?? workbook.worksheets[0];
     if (!worksheet) {
       throw new BadRequestException(
         'El archivo no contiene ninguna hoja con datos.',
@@ -435,49 +410,34 @@ export class ExcelImportsService {
     }
 
     const columnsByIndex = this.readAndValidateHeaders(worksheet);
+    const sheetRows = this.readRows(worksheet, columnsByIndex);
+    if (sheetRows.length === 0) {
+      throw new BadRequestException(
+        `La hoja "${worksheet.name}" no tiene filas con datos debajo de los encabezados.`,
+      );
+    }
+    const evaluated = await this.evaluateRows(coachId, sheetRows);
     const sanitizedName = sanitizeOriginalFilename(file.originalname);
-
-    const rowsToCreate = await this.parseAndValidateRows(
-      coachId,
-      worksheet,
-      columnsByIndex,
-    );
 
     const batch = await this.prisma.$transaction(async (tx) => {
       const created = await tx.excelImportBatch.create({
-        data: {
-          coachId,
-          originalFilename: sanitizedName,
-        },
+        data: { coachId, originalFilename: sanitizedName },
       });
-
-      if (rowsToCreate.length > 0) {
-        await tx.excelImportRow.createMany({
-          data: rowsToCreate.map((row) => ({
-            batchId: created.id,
-            rowNumber: row.rowNumber,
-            rawData: row.rawData,
-            status: row.status,
-            errors: row.errors,
-          })),
-        });
-      }
-
+      await tx.excelImportRow.createMany({
+        data: evaluated.map((row) => ({
+          batchId: created.id,
+          rowNumber: row.rowNumber,
+          ...this.rowState(row),
+        })),
+      });
       const rows = await tx.excelImportRow.findMany({
         where: { batchId: created.id },
         include: ROW_RESULT_INCLUDE,
       });
-
-      return { ...created, rows };
+      return { ...created, rows } as BatchWithRows;
     });
 
-    const validRows = batch.rows.filter((row) => row.status === 'VALID').length;
-
-    // Auditoría de la CREACIÓN del batch (punto crítico: nace un artefacto
-    // nuevo con datos del coach) — nunca se audita el contenido del archivo,
-    // solo metadata ya sanitizada y conteos. Ver auth.constants.ts para el
-    // criterio de por qué esta acción SÍ se audita (a diferencia de un
-    // simple `create` de Program/Block/Week/Session).
+    const invalidRows = evaluated.filter((row) => row.errors.length).length;
     await this.auditService.record({
       actorId: coachId,
       action: AUDIT_ACTIONS.EXCEL_IMPORT_BATCH_CREATED,
@@ -485,22 +445,89 @@ export class ExcelImportsService {
       entityId: batch.id,
       metadata: {
         originalFilename: sanitizedName,
-        totalRows: batch.rows.length,
-        validRows,
-        invalidRows: batch.rows.length - validRows,
+        totalRows: evaluated.length,
+        validRows: evaluated.length - invalidRows,
+        invalidRows,
       },
     });
 
-    return toPublicExcelImportBatch(batch);
+    return this.toPublic(coachId, batch);
   }
 
-  // exceljs nunca ejecuta fórmulas ni macros (solo lee el árbol OOXML y los
-  // valores/resultados ya calculados por Excel) — es la razón principal por
-  // la que se eligió sobre alternativas como `xlsx`/SheetJS (ver informe de
-  // cierre de PROMPT 13 para la comparación completa). Un archivo corrupto
-  // o con una estructura interna inválida hace fallar `load()`, que acá se
-  // traduce siempre a un 400 controlado, nunca a un 500 con detalles
-  // internos.
+  // Lo que se guarda de cada fila: celdas (ya completadas con la fila de
+  // arriba), letras de columna, valores entendidos y errores con su celda.
+  private rowState(row: EvaluatedRow) {
+    return {
+      rawData: {
+        cells: this.toJsonSafeCells(row.cells),
+        letters: row.letters,
+        normalized: row.values,
+      } as unknown as Prisma.InputJsonValue,
+      status: row.errors.length > 0 ? ('INVALID' as const) : ('VALID' as const),
+      errors:
+        row.errors.length > 0
+          ? (row.errors as unknown as Prisma.InputJsonValue)
+          : Prisma.JsonNull,
+    };
+  }
+
+  // Valida cada fila contra el catálogo del coach y luego las revisa en
+  // conjunto (nombres de bloque/día escritos distinto, semanas salteadas,
+  // más de 7 días). Cada error queda en su fila con la celda a corregir.
+  private async evaluateRows(
+    coachId: string,
+    sheetRows: SheetRow[],
+  ): Promise<EvaluatedRow[]> {
+    const exercises = await this.prisma.exercise.findMany({
+      where: { coachId, isActive: true },
+      select: { id: true, name: true },
+    });
+    const lookup = buildExerciseLookup(exercises);
+    const evaluated: EvaluatedRow[] = sheetRows.map((row) => {
+      const name = cellText(row.cells.exercise_name);
+      const { errors, values } = validateExcelRow(
+        row.cells,
+        name ? lookup(name) : null,
+      );
+      return { ...row, errors, values };
+    });
+    const { errors } = buildImportPlan(
+      evaluated
+        .filter((row) => row.errors.length === 0)
+        .map((row) => ({
+          rowId: String(row.rowNumber),
+          rowNumber: row.rowNumber,
+          values: row.values as PlanRowInput['values'],
+        })),
+    );
+    for (const error of errors) {
+      evaluated
+        .find((row) => row.rowNumber === error.rowNumber)!
+        .errors.push({ field: error.field, message: error.message });
+    }
+    for (const row of evaluated) {
+      for (const error of row.errors) {
+        const letter = row.letters[error.field];
+        if (letter) error.cell = `${letter}${row.rowNumber}`;
+      }
+    }
+    return evaluated;
+  }
+
+  private sheetRowFromStored(row: ExcelImportRow): SheetRow {
+    const raw = row.rawData as {
+      cells?: RawExcelRowValues;
+      letters?: SheetRow['letters'];
+    } | null;
+    return {
+      rowNumber: row.rowNumber,
+      cells: raw?.cells ?? {},
+      letters: raw?.letters ?? {},
+    };
+  }
+
+  // exceljs nunca ejecuta fórmulas ni macros: solo lee valores ya calculados.
+  // Un archivo corrupto se traduce siempre a un 400 controlado.
   private async loadWorkbook(buffer: Buffer): Promise<ExcelJS.Workbook> {
     const workbook = new ExcelJS.Workbook();
     try {
@@ -513,251 +540,113 @@ export class ExcelImportsService {
     return workbook;
   }
 
-  // Lee la fila 1 como encabezado, valida que estén todas las columnas
-  // obligatorias, que no haya columnas desconocidas (plantilla cerrada,
-  // mismo espíritu que `forbidNonWhitelisted`) y que ninguna columna
-  // reconocida esté duplicada. Acepta los encabezados en español de la
-  // plantilla descargable (con o sin tildes) y los nombres técnicos
-  // (`program_name`). Devuelve el mapeo índice de columna -> columna de la
-  // plantilla, para leer las filas de datos.
+  // Lee la fila 1 como encabezado: columnas obligatorias presentes, ninguna
+  // desconocida ni repetida. Acepta los encabezados en español (con o sin
+  // tildes), sus alias y los nombres técnicos.
   private readAndValidateHeaders(
     worksheet: ExcelJS.Worksheet,
   ): Map<number, ExcelTemplateColumn> {
     const headerRow = worksheet.getRow(1);
     const columnsByIndex = new Map<number, ExcelTemplateColumn>();
-    const seenColumns = new Set<ExcelTemplateColumn>();
-    const unknownHeaders: string[] = [];
-    const duplicatedHeaders: string[] = [];
+    const seen = new Set<ExcelTemplateColumn>();
+    const unknown: string[] = [];
+    const duplicated: string[] = [];
+    let legacy = false;
 
     const columnCount = Math.max(
       headerRow.cellCount,
       headerRow.actualCellCount,
     );
     for (let col = 1; col <= columnCount; col += 1) {
-      const rawHeader = headerRow.getCell(col).value;
-      const headerText = String(rawHeader ?? '').trim();
+      const rawHeader = extractCellValue(headerRow.getCell(col).value);
+      const headerText = cellText(rawHeader);
       if (!headerText) continue;
-
+      if (isLegacyTemplateHeader(rawHeader)) {
+        legacy = true;
+        continue;
+      }
       const column = resolveTemplateColumn(rawHeader);
       if (!column) {
-        unknownHeaders.push(headerText);
-        continue;
+        unknown.push(`"${headerText}" (columna ${columnLetter(col)})`);
+      } else if (seen.has(column)) {
+        duplicated.push(`"${headerText}" (columna ${columnLetter(col)})`);
+      } else {
+        seen.add(column);
+        columnsByIndex.set(col, column);
       }
-      if (seenColumns.has(column)) {
-        duplicatedHeaders.push(headerText);
-        continue;
-      }
-      seenColumns.add(column);
-      columnsByIndex.set(col, column);
     }
+    if (legacy) throw new BadRequestException(LEGACY_TEMPLATE_MESSAGE);
 
-    const missingMandatory = EXCEL_MANDATORY_COLUMNS.filter(
-      (column) => !seenColumns.has(column),
+    const missing = EXCEL_MANDATORY_COLUMNS.filter(
+      (column) => !seen.has(column),
     );
-
-    if (
-      missingMandatory.length > 0 ||
-      unknownHeaders.length > 0 ||
-      duplicatedHeaders.length > 0
-    ) {
-      const errors = [
-        ...missingMandatory.map((column) => ({
-          code: 'MISSING_MANDATORY_COLUMN',
-          message: `Falta la columna obligatoria "${EXCEL_COLUMN_LABELS[column]}".`,
-        })),
-        ...unknownHeaders.map((header) => ({
-          code: 'UNKNOWN_COLUMN',
-          message: `La columna "${header}" no pertenece a la plantilla. Columnas válidas: ${EXCEL_TEMPLATE_COLUMNS.map((column) => EXCEL_COLUMN_LABELS[column]).join(', ')}.`,
-        })),
-        ...duplicatedHeaders.map((header) => ({
-          code: 'DUPLICATED_COLUMN',
-          message: `La columna "${header}" está repetida.`,
-        })),
-      ];
-      // El detalle va también en el mensaje: el filtro global de errores
-      // solo entrega `message` al cliente, y sin el detalle el coach no
-      // sabría qué columna corregir.
-      throw new BadRequestException({
-        message: `El archivo no respeta la plantilla de importación. ${errors.map((error) => error.message).join(' ')}`,
-        errors,
-      });
+    const problems = [
+      ...missing.map(
+        (column) =>
+          `Falta la columna obligatoria "${EXCEL_COLUMN_LABELS[column]}".`,
+      ),
+      ...(unknown.length
+        ? [
+            `${unknown.length === 1 ? 'La columna' : 'Las columnas'} ${unknown.join(', ')} no ${unknown.length === 1 ? 'pertenece' : 'pertenecen'} a la plantilla.`,
+          ]
+        : []),
+      ...duplicated.map((header) => `La columna ${header} está repetida.`),
+    ];
+    if (problems.length > 0) {
+      throw new BadRequestException(
+        `El archivo no respeta la plantilla (los encabezados van en la fila 1). ${problems.join(' ')} Columnas válidas: ${EXCEL_TEMPLATE_COLUMNS.map((column) => EXCEL_COLUMN_LABELS[column]).join(', ')}.`,
+      );
     }
-
     return columnsByIndex;
   }
 
-  // Resuelve TODO el catálogo activo del coach en una única consulta (nunca
-  // una consulta por fila) y arma un mapa nombre-en-minúsculas -> id, para
-  // que la resolución de `exercise_name` por fila sea una búsqueda en
-  // memoria O(1) — el catálogo de un coach es acotado (docenas/cientos de
-  // ejercicios), nunca miles, así que esto es más liviano que N consultas
-  // repetidas a la base de datos.
-  private async buildExerciseNameIndex(
-    coachId: string,
-  ): Promise<Map<string, string>> {
-    const exercises = await this.prisma.exercise.findMany({
-      where: { coachId, isActive: true },
-      select: { id: true, name: true },
-    });
-    const index = new Map<string, string>();
-    for (const exercise of exercises) {
-      index.set(exercise.name.trim().toLowerCase(), exercise.id);
-    }
-    return index;
-  }
-
-  private async parseAndValidateRows(
-    coachId: string,
+  private readRows(
     worksheet: ExcelJS.Worksheet,
     columnsByIndex: Map<number, ExcelTemplateColumn>,
-  ): Promise<
-    Array<{
-      rowNumber: number;
-      rawData: Prisma.InputJsonValue;
-      status: ExcelImportRow['status'];
-      errors: Prisma.InputJsonValue | typeof Prisma.JsonNull;
-    }>
-  > {
-    const exerciseIndex = await this.buildExerciseNameIndex(coachId);
-    const lastRowNumber = worksheet.actualRowCount;
-    const results: Array<{
-      rowNumber: number;
-      rawData: Prisma.InputJsonValue;
-      status: ExcelImportRow['status'];
-      errors: Prisma.InputJsonValue | typeof Prisma.JsonNull;
-    }> = [];
-
+  ): SheetRow[] {
+    const letters: SheetRow['letters'] = {};
+    for (const [index, column] of columnsByIndex) {
+      letters[column] = columnLetter(index);
+    }
     const deadline = Date.now() + EXCEL_PROCESSING_TIMEOUT_MS;
-    let dataRowCount = 0;
-    const dataRows: Array<{ rowNumber: number; raw: RawExcelRowValues }> = [];
-
-    for (let rowNumber = 2; rowNumber <= lastRowNumber; rowNumber += 1) {
+    const rows: SheetRow[] = [];
+    for (let rowNumber = 2; rowNumber <= worksheet.rowCount; rowNumber += 1) {
       if (Date.now() > deadline) {
         throw new BadRequestException(
           'El procesamiento del archivo excedió el tiempo máximo permitido. Reduce el tamaño del archivo e intenta nuevamente.',
         );
       }
-
       const row = worksheet.getRow(rowNumber);
-      const raw: RawExcelRowValues = {};
-      for (const [colIndex, column] of columnsByIndex) {
-        (raw as Record<string, unknown>)[column] = row.getCell(colIndex).value;
+      const cells: RawExcelRowValues = {};
+      for (const [index, column] of columnsByIndex) {
+        cells[column] = row.getCell(index).value;
       }
-
-      if (isBlankExcelRow(raw)) {
-        continue;
-      }
-
-      dataRowCount += 1;
-      if (dataRowCount > EXCEL_MAX_DATA_ROWS) {
+      if (isBlankExcelRow(cells)) continue;
+      if (rows.length >= EXCEL_MAX_DATA_ROWS) {
         throw new BadRequestException(
           `El archivo supera el máximo de ${EXCEL_MAX_DATA_ROWS} filas de datos permitidas por importación.`,
         );
       }
-      dataRows.push({ rowNumber, raw });
+      rows.push({ rowNumber, cells, letters });
     }
-
-    // Las columnas de orden vacías se deducen del orden de las filas ANTES
-    // de validar y de guardar las celdas (ver excel-order-inference.ts).
-    const completedRows = inferMissingOrders(dataRows.map((row) => row.raw));
-
-    for (const [index, { rowNumber }] of dataRows.entries()) {
-      const raw = completedRows[index];
-      const exerciseName = this.readPlainString(raw.exercise_name);
-      const resolvedExerciseId = exerciseName
-        ? (exerciseIndex.get(exerciseName.trim().toLowerCase()) ?? null)
-        : null;
-
-      const { errors, values } = validateExcelRow(raw, resolvedExerciseId);
-
-      results.push({
-        rowNumber,
-        rawData: {
-          cells: this.toJsonSafeCells(raw),
-          normalized: values as unknown as Prisma.InputJsonValue,
-        } as unknown as Prisma.InputJsonValue,
-        status: errors.length > 0 ? 'INVALID' : 'VALID',
-        errors:
-          errors.length > 0
-            ? (errors as unknown as Prisma.InputJsonValue)
-            : Prisma.JsonNull,
-      });
-    }
-
-    return results;
+    const filled = fillDownHierarchy(rows.map((row) => row.cells));
+    return rows.map((row, index) => ({ ...row, cells: filled[index] }));
   }
 
-  private readPlainString(value: unknown): string | undefined {
-    if (value === null || value === undefined) return undefined;
-    if (
-      typeof value === 'object' &&
-      'result' in (value as Record<string, unknown>)
-    ) {
-      return this.readPlainString((value as { result: unknown }).result);
-    }
-    const str = String(value).trim();
-    return str.length > 0 ? str : undefined;
-  }
-
-  // Convierte los valores crudos de celda (que pueden incluir objetos de
-  // fórmula de exceljs o `Date`) a algo serializable en JSON, guardado ÚNICA
-  // Y EXCLUSIVAMENTE para trazabilidad/depuración (comentario de
-  // `ExcelImportRow.rawData` en schema.prisma) — nunca se usa como fuente de
-  // verdad para ninguna decisión, eso siempre pasa por `values` (normalizado
-  // en excel-row-validation.ts).
+  // Celdas en forma serializable (fórmulas -> su resultado, fechas -> ISO),
+  // guardadas para la trazabilidad y para volver a validar al confirmar.
   private toJsonSafeCells(
     raw: RawExcelRowValues,
   ): Record<string, string | number | null> {
     const safe: Record<string, string | number | null> = {};
     for (const [key, value] of Object.entries(raw)) {
-      if (value === null || value === undefined) {
-        safe[key] = null;
-      } else if (value instanceof Date) {
-        safe[key] = value.toISOString();
-      } else if (typeof value === 'number' || typeof value === 'string') {
-        safe[key] = value;
-      } else if (
-        typeof value === 'object' &&
-        'result' in (value as Record<string, unknown>)
-      ) {
-        const result = (value as { result: unknown }).result;
-        safe[key] =
-          typeof result === 'number' || typeof result === 'string'
-            ? result
-            : String(result ?? '');
-      } else {
-        safe[key] = String(value);
-      }
+      const extracted = extractCellValue(value);
+      if (extracted === null || extracted === undefined) safe[key] = null;
+      else if (extracted instanceof Date) safe[key] = extracted.toISOString();
+      else if (typeof extracted === 'number' || typeof extracted === 'string')
+        safe[key] = extracted;
+      else safe[key] = String(extracted);
     }
     return safe;
-  }
-
-  // ---------------------------------------------------------------------
-  // PROMPT 14 — reconstruye un `RawExcelRowValues` a partir de lo que
-  // `parseAndValidateRows` guardó en `ExcelImportRow.rawData` (siempre con
-  // forma `{ cells: {...}, normalized: {...} }`, ver más arriba). Se usa
-  // ÚNICAMENTE `cells` (los valores crudos ya aplanados a
-  // string/number/null por `toJsonSafeCells`) y nunca `normalized`: la
-  // confirmación debe re-ejecutar `validateExcelRow()` de punta a punta
-  // (incluida la resolución del ejercicio contra el catálogo ACTUAL del
-  // coach), no confiar en un resultado de validación potencialmente
-  // desactualizado calculado en el momento del upload.
-  private extractStoredCells(rawData: Prisma.JsonValue): RawExcelRowValues {
-    if (
-      rawData &&
-      typeof rawData === 'object' &&
-      !Array.isArray(rawData) &&
-      'cells' in (rawData as Record<string, unknown>)
-    ) {
-      const cells = (rawData as Record<string, unknown>).cells;
-      if (cells && typeof cells === 'object' && !Array.isArray(cells)) {
-        return cells as RawExcelRowValues;
-      }
-    }
-    // Estado inesperado (no debería ocurrir: toda fila la crea
-    // `parseAndValidateRows` con esta forma) — se trata como fila
-    // completamente vacía para que `validateExcelRow` la marque inválida
-    // por campos faltantes, en vez de lanzar una excepción no controlada.
-    return {};
   }
 }

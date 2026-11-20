@@ -1,14 +1,22 @@
 # ProyectoTituloAAA
 
-Plataforma PWA de gestión y seguimiento del entrenamiento, desarrollada por Alan Basso, Alonso Cruz y Angel Rubio. El Coach planifica y acompaña; el Alumno consulta su calendario, ejecuta sesiones y registra resultados. La presentación se realiza localmente y el producto continúa en desarrollo.
+Plataforma PWA de gestión y seguimiento del entrenamiento, desarrollada por Alan Basso, Alonso Cruz y Angel Rubio. Reúne en un solo lugar la prescripción del entrenamiento, su ejecución real y el progreso de cada alumno.
+
+- **Coach:** crea ejercicios y bloques reutilizables, los asigna, revisa adherencia y progreso, y se comunica con sus alumnos.
+- **Alumno:** organiza su semana, registra cada serie (carga, repeticiones y esfuerzo) y consulta su historial y progreso.
+
+La presentación se realiza localmente y el producto continúa en desarrollo.
 
 ## Qué funciona
 
 - Autenticación, invitación de alumnos y recuperación por email; JWT de acceso, refresh opaco y roles COACH/STUDENT.
-- Catálogo de ejercicios y planificación `Program → Block → Week → Session → SessionExercise`, con importación Excel validada y confirmación.
-- `ProgramAssignment` con fecha de inicio, calendario, competiciones y objetivos separados de Coach y Alumno.
+- Catálogo de ejercicios (grupos musculares, imágenes y video) y planificación `Program → Block → Week → Session → SessionExercise`, con importación Excel validada y confirmación.
+- Biblioteca de bloques reutilizables: al asignarlos se guarda una copia congelada, así los cambios posteriores del Coach no alteran ciclos ya asignados.
+- Planificación semanal flexible: sin días fijos, el Alumno elige qué días entrenar (lunes a domingo), con máximo un entrenamiento por día y advertencias de recuperación.
+- `ProgramAssignment` con fecha de inicio, calendario, adherencia, hitos (deportivos o médicos) y objetivos separados de Coach y Alumno.
 - Ejecución `WorkoutLog → SetLog`, historial, evolución descriptiva y Dashboard del Coach. La prescripción se congela al iniciar el entrenamiento; los registros anteriores indican fallback a la prescripción actual.
 - Perfiles, mensajes privados con imágenes/videos y notificaciones internas mediante polling.
+- Carga sugerida (opcional, `data-science/`): un modelo estima el 1RM por sesión y predice su cambio. El Coach ve la carga sugerida como apoyo; el Alumno ve su progreso de fuerza y la previsión, sin cargas. Sin el servicio, la plataforma funciona igual.
 - PWA instalable, temas claro/oscuro y vistas adaptadas a móvil y escritorio. No sincroniza registros offline.
 
 ## Arquitectura
@@ -20,19 +28,23 @@ Plataforma PWA de gestión y seguimiento del entrenamiento, desarrollada por Ala
 | Datos | PostgreSQL, Prisma 5, migraciones versionadas |
 | Archivos | LocalStorageService privado detrás de StorageService |
 | Email | Nodemailer, SMTP STARTTLS; configuración Brevo existente |
+| Modelo de ML | Python, FastAPI y scikit-learn (gradient boosting); servicio aparte, puerto 8001 |
 
-`backend/` y `frontend/` son proyectos npm independientes con lockfiles propios. La raíz contiene comandos de orquestación. `docs/` describe el estado actual; `docs/history/` conserva material anterior. `data-science/` es una reserva futura y `Fase 1/` conserva material académico.
+`backend/` y `frontend/` son proyectos npm independientes con lockfiles propios. La raíz contiene comandos de orquestación. `docs/` describe el estado actual; `docs/history/` conserva material anterior. `data-science/` contiene el modelo de carga sugerida (ver [su README](data-science/README.md)) y `Fase 1/` conserva material académico.
 
 ## Inicio local
 
-Requisitos: Node **24.21.0** (ver `.nvmrc`), npm 11 y PostgreSQL local (validado con 18). Puertos habituales: PostgreSQL 5432, API 3000 y frontend 5173.
+Requisitos: Node **24.21.0** (ver `.nvmrc`), npm 11 y PostgreSQL local (validado con 18). Puertos habituales: PostgreSQL 5432, API 3000 (configurable con `PORT` en `backend/.env`; el proxy de Vite lo lee de ahí), frontend 5173 y modelo de ML 8001.
 
 1. Copiar `backend/.env.example` a `backend/.env` y `frontend/.env.example` a `frontend/.env.local`.
 2. Configurar PostgreSQL y las variables según [demo local](docs/local-demo.md).
 3. Ejecutar `npm run install:all`.
 4. Ejecutar `npm run prisma:migrate:deploy --prefix backend` y `npm run prisma:generate --prefix backend`.
 5. Opcional: configurar `DEMO_SEED_CONFIRM` y `DEMO_PASSWORD`, y ejecutar `npm run demo:seed`.
-6. En dos terminales: `npm run dev:backend` y `npm run dev:frontend`.
+6. En dos terminales: `npm run dev:backend` y `npm run dev:frontend` (conviene iniciar primero el backend).
+7. Opcional, carga sugerida: instalar `data-science/` según su README, definir `DATA_SCIENCE_URL=http://localhost:8001` en `backend/.env` y, en otra terminal, `cd data-science && .venv/Scripts/python -m uvicorn carga_sugerida.service:app --port 8001`.
+
+Después de cada `git pull` que traiga migraciones, con el backend detenido: `cd backend && npx prisma migrate deploy && npx prisma generate`.
 
 Abrir <http://localhost:5173>. API: <http://localhost:3000/api/v1>; Swagger en `/api/v1/docs` fuera de producción. Para instalar la PWA se usa build/preview según la guía local.
 
@@ -53,4 +65,4 @@ npm run restore:local -- backups/<fecha> --confirm
 
 [Arquitectura](docs/architecture.md) · [Datos](docs/database.md) · [API](docs/api.md) · [Seguridad](docs/security.md) · [Requisitos](docs/requirements.md) · [Roadmap](docs/roadmap.md) · [Email](docs/email-setup.md).
 
-Data Science, predicciones, cloud storage, despliegue cloud, billing, WebSockets, Web Push, wearables, Estimated 1RM, Stress Index y multi-coach permanecen fuera de esta iteración.
+Cloud storage, despliegue cloud, billing, WebSockets, Web Push, wearables, Stress Index y multi-coach permanecen fuera de esta iteración. El modelo de carga sugerida se entrenó con registros de una sola persona; su reentrenamiento con más datos está pendiente (ver `data-science/README.md`).

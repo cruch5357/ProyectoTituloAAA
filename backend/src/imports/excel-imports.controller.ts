@@ -130,7 +130,7 @@ export class ExcelImportsController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Confirma una importación propia PENDING_REVIEW: normaliza sus filas válidas en Program/Block/Week/Session/SessionExercise y marca el batch como CONFIRMED',
+      'Confirma una importación propia PENDING_REVIEW sin errores: crea sus bloques en la biblioteca de Bloques y marca el batch como CONFIRMED',
   })
   async confirm(
     @CurrentUser() currentUser: AuthenticatedUser,

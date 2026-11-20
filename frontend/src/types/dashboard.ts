@@ -72,8 +72,13 @@ export interface SuggestedLoad {
   predictedE1rmKg?: number;
   expectedChangePct?: number;
   lastSession?: { date: string; loadKg: number; reps: number };
+  /** Rango probable de carga (cuantiles 20–80 % del modelo). */
+  suggestedLoadRangeKg?: [number, number];
+  /** Reglas de esfuerzo (RPE) aplicadas por el modelo. */
+  adjustments?: SuggestedLoadAdjustment[];
   modelVersion?: string;
 }
+export type SuggestedLoadAdjustment = 'reserve_progression' | 'max_effort_hold';
 
 // GET /dashboard/students/:id/suggested-loads — ejercicios más entrenados.
 export interface SuggestedLoadHighlight {

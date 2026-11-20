@@ -51,6 +51,8 @@ const highlights = {
         predictedE1rmKg: 72.1,
         expectedChangePct: 3.4,
         lastSession: { date: '2026-11-11', loadKg: 55, reps: 8 },
+        suggestedLoadRangeKg: [55, 60],
+        adjustments: ['reserve_progression'],
       },
     },
     {
@@ -100,6 +102,11 @@ describe('Portada del atleta', () => {
     });
     expect(bench).toHaveTextContent('57,5 kg × 8 reps');
     expect(bench).toHaveTextContent('69,7 → 72,1 kg (+3,4 %)');
+    // Rango del modelo y explicación de la regla de esfuerzo.
+    expect(bench).toHaveTextContent('Rango probable: 55–60 kg');
+    expect(bench).toHaveTextContent(
+      'Sube un disco: completó todas las series con margen (RPE 8 o menos).',
+    );
     expect(
       within(bench).getByRole('img', { name: /prevé 72,1 kg/ }),
     ).toBeInTheDocument();

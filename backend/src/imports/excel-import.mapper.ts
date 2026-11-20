@@ -7,23 +7,19 @@ import {
   SessionExercise,
   Week,
 } from '@prisma/client';
+import type { PlanSummary } from '../common/imports/excel-import-grouping';
 
-// Forma pública de una fila procesada, expuesta en la vista previa. Nunca
-// expone `rawData` completo del Excel tal cual (son datos crudos guardados
-// solo para trazabilidad interna, ver schema.prisma) — se reexponen los
-// mismos datos ya NORMALIZADOS que se usaron para validar, más legibles
-// para el coach que la fila cruda de la hoja.
+// Forma pública de una fila procesada. Nunca expone las celdas crudas del
+// Excel (se guardan solo para trazabilidad): expone los valores ya
+// entendidos y sus errores, cada uno con su columna y celda (ej. "D5").
 export interface PublicExcelImportRow {
   id: string;
   rowNumber: number;
   status: ExcelImportRow['status'];
   errors: unknown;
   data: unknown;
-  // PROMPT 14: cuál SessionExercise generó esta fila al confirmarse la
-  // importación — `null` mientras el batch siga en PENDING_REVIEW/REJECTED,
-  // o si la fila nunca fue válida. Permite al frontend responder
-  // "qué filas generaron una SessionExercise" (requisito explícito de
-  // PROMPT 14) sin adivinar nada a partir del `status`.
+  // Ejercicio del bloque creado a partir de esta fila al confirmar; `null`
+  // mientras la importación no esté confirmada.
   resultSessionExerciseId: string | null;
 }
 
@@ -33,14 +29,19 @@ export interface ExcelImportPreviewCounts {
   invalidRows: number;
 }
 
-// PROMPT 14: identifica los Program creados por ESTA importación al
-// confirmarse — derivado siempre de `resultSessionExercise` de las filas
-// (nunca de un campo separado a mantener sincronizado a mano), así que se ve
-// igual de correcto tanto en la respuesta de `POST .../confirm` como en un
-// `GET` posterior sobre el mismo batch ya confirmado.
-export interface PublicCreatedProgram {
+// Bloque que se creará al confirmar (vista previa sin errores).
+export interface PublicImportBlockSummary extends PlanSummary {
+  // Ya existe un bloque con ese nombre en la biblioteca: se creará otro.
+  alreadyExists: boolean;
+}
+
+// Bloque creado por esta importación, derivado de `resultSessionExercise`
+// de sus filas. `programId` solo existe en importaciones antiguas, que
+// creaban Programas en vez de bloques de la biblioteca.
+export interface PublicCreatedBlock {
   id: string;
   name: string;
+  programId: string | null;
 }
 
 export interface PublicExcelImportBatch {
@@ -51,21 +52,37 @@ export interface PublicExcelImportBatch {
   confirmedAt: Date | null;
   counts: ExcelImportPreviewCounts;
   rows: PublicExcelImportRow[];
-  createdPrograms: PublicCreatedProgram[];
+  // Importación subida con la plantilla anterior (Programa/Sesión/...):
+  // ya no se puede confirmar; hay que volver a subirla con la nueva.
+  legacyTemplate: boolean;
+  plan: PublicImportBlockSummary[];
+  createdBlocks: PublicCreatedBlock[];
 }
 
-// Cadena completa que cuelga de una fila confirmada: SessionExercise ->
-// Session -> Week -> Block -> Program. Se usa únicamente para derivar
-// `createdPrograms` — nunca se expone tal cual al cliente.
 export type ExcelImportRowWithResult = ExcelImportRow & {
   resultSessionExercise:
     | (SessionExercise & {
         session: Session & {
-          week: Week & { block: Block & { program: Program } };
+          week: Week & { block: Block & { program: Program | null } };
         };
       })
     | null;
 };
+
+export function storedNormalized(row: ExcelImportRow): Record<string, unknown> {
+  const raw = row.rawData as Record<string, unknown> | null;
+  const normalized = raw && typeof raw === 'object' ? raw.normalized : null;
+  return normalized && typeof normalized === 'object'
+    ? (normalized as Record<string, unknown>)
+    : {};
+}
+
+// Las filas de la plantilla anterior guardaban `programName`/`sessionName`;
+// las actuales guardan `dayName`.
+export function isLegacyRow(row: ExcelImportRow): boolean {
+  const normalized = storedNormalized(row);
+  return 'programName' in normalized || 'sessionName' in normalized;
+}
 
 export function toPublicExcelImportRow(
   row: ExcelImportRowWithResult,
@@ -75,32 +92,24 @@ export function toPublicExcelImportRow(
     rowNumber: row.rowNumber,
     status: row.status,
     errors: row.errors,
-    // `rawData` guarda, además de la fila cruda, los valores ya
-    // normalizados bajo la clave `normalized` (ver
-    // excel-imports.service.ts) — es lo único que se expone acá.
-    data:
-      row.rawData &&
-      typeof row.rawData === 'object' &&
-      'normalized' in (row.rawData as Record<string, unknown>)
-        ? (row.rawData as Record<string, unknown>).normalized
-        : row.rawData,
+    data: storedNormalized(row),
     resultSessionExerciseId: row.resultSessionExerciseId,
   };
 }
 
 export function toPublicExcelImportBatch(
   batch: ExcelImportBatch & { rows: ExcelImportRowWithResult[] },
+  plan: PublicImportBlockSummary[] = [],
 ): PublicExcelImportBatch {
   const validRows = batch.rows.filter((row) => row.status === 'VALID').length;
-  const invalidRows = batch.rows.length - validRows;
-
-  const createdProgramsById = new Map<string, PublicCreatedProgram>();
+  const createdBlocks = new Map<string, PublicCreatedBlock>();
   for (const row of batch.rows) {
-    const program = row.resultSessionExercise?.session.week.block.program;
-    if (program && !createdProgramsById.has(program.id)) {
-      createdProgramsById.set(program.id, {
-        id: program.id,
-        name: program.name,
+    const block = row.resultSessionExercise?.session.week.block;
+    if (block && !createdBlocks.has(block.id)) {
+      createdBlocks.set(block.id, {
+        id: block.id,
+        name: block.program?.name ?? block.name,
+        programId: block.programId,
       });
     }
   }
@@ -114,12 +123,14 @@ export function toPublicExcelImportBatch(
     counts: {
       totalRows: batch.rows.length,
       validRows,
-      invalidRows,
+      invalidRows: batch.rows.length - validRows,
     },
     rows: batch.rows
       .slice()
       .sort((a, b) => a.rowNumber - b.rowNumber)
       .map(toPublicExcelImportRow),
-    createdPrograms: Array.from(createdProgramsById.values()),
+    legacyTemplate: batch.rows.some(isLegacyRow),
+    plan,
+    createdBlocks: [...createdBlocks.values()],
   };
 }

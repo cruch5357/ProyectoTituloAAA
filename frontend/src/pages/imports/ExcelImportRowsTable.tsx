@@ -1,117 +1,68 @@
 import type { ExcelImportRow } from '../../types/excelImport';
 
-// Nombre en español de cada columna (mismo texto que los encabezados de la
-// plantilla, ver backend/src/common/imports/excel-template.ts).
-const FIELD_LABELS: Record<string, string> = {
-  program_name: 'Programa',
-  program_description: 'Descripción del programa',
-  duration_weeks: 'Duración (semanas)',
-  block_name: 'Bloque',
-  block_order: 'Orden bloque',
-  week_number: 'Semana',
-  week_order: 'Orden semana',
-  session_name: 'Sesión',
-  day_of_week: 'Día',
-  session_order: 'Orden sesión',
-  exercise_name: 'Ejercicio',
-  exercise_order: 'Orden ejercicio',
-  target_sets: 'Series',
-  target_reps_min: 'Reps mín',
-  target_reps_max: 'Reps máx',
-  target_rpe: 'RPE',
-  target_rir: 'RIR',
-  rest_seconds: 'Descanso (seg)',
-  notes: 'Notas',
-};
+const number = (value: number) =>
+  value.toLocaleString('es-CL', { maximumFractionDigits: 2 });
 
-// Tabla de filas procesadas de un batch (PROMPT 13, "vista previa"; columna
-// "Resultado" agregada en PROMPT 14). Muestra SIEMPRE lo que se entendió de
-// cada fila (aunque tenga errores) más sus errores, para que el coach sepa
-// exactamente qué corregir antes de reintentar — nunca solo "fila 5:
-// inválida" sin detalle. La columna "Resultado" refleja
-// `resultSessionExerciseId`: es la única forma explícita, sin adivinar nada
-// a partir de `status`, de saber qué filas ya generaron una prescripción
-// real tras confirmar (requisito explícito de PROMPT 14).
+function prescription(data: ExcelImportRow['data']): string {
+  if (!data) return '—';
+  const parts = [
+    `${data.sets ?? 1} × ${data.reps ?? '—'}`,
+    data.weight !== undefined ? `${number(data.weight)} kg` : null,
+    data.rpe !== undefined ? `RPE ${number(data.rpe)}` : null,
+  ];
+  return parts.filter(Boolean).join(' · ');
+}
+
+// Lo que se entendió de cada fila, aunque tenga errores, para que el coach
+// compare con su Excel. Las filas con errores se marcan y muestran la celda.
 export function ExcelImportRowsTable({ rows }: { rows: ExcelImportRow[] }) {
   if (rows.length === 0) {
     return <p>El archivo no tiene filas de datos.</p>;
   }
-
   return (
     <div
       className="table-scroll"
       role="region"
-      aria-label="Tabla de datos"
+      aria-label="Filas del archivo"
       tabIndex={0}
     >
-      <table className="students-table">
+      <table className="students-table import-rows">
         <thead>
           <tr>
             <th>Fila</th>
-            <th>Estado</th>
-            <th>Programa / Bloque / Semana / Sesión</th>
+            <th>Bloque</th>
+            <th>Semana</th>
+            <th>Día</th>
             <th>Ejercicio</th>
-            <th>Prescripción</th>
-            <th>Resultado</th>
-            <th>Errores</th>
+            <th>Series × reps · carga</th>
+            <th>Estado</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
-            <tr key={row.id}>
+            <tr
+              key={row.id}
+              className={
+                row.status === 'INVALID' ? 'import-rows__invalid' : undefined
+              }
+            >
               <td>{row.rowNumber}</td>
+              <td>{row.data?.blockName ?? '—'}</td>
+              <td>{row.data?.weekNumber ?? '—'}</td>
+              <td>{row.data?.dayName ?? '—'}</td>
+              <td>{row.data?.exerciseName ?? '—'}</td>
+              <td>{prescription(row.data)}</td>
               <td>
-                <span
-                  className={
-                    row.status === 'VALID'
-                      ? 'badge badge--success'
-                      : 'badge badge--danger'
-                  }
-                >
-                  {row.status === 'VALID' ? 'Válida' : 'Inválida'}
-                </span>
-              </td>
-              <td>
-                {row.data?.programName ?? '—'} / {row.data?.blockName ?? '—'} /{' '}
-                {row.data?.weekNumber ?? '—'} / {row.data?.sessionName ?? '—'}
-              </td>
-              <td>
-                {row.data?.exerciseName ?? '—'}
-                {row.data?.exerciseOrder !== undefined
-                  ? ` (orden ${row.data.exerciseOrder})`
-                  : ''}
-              </td>
-              <td>
-                {row.data?.targetSets !== undefined
-                  ? `${row.data.targetSets}x`
-                  : '—'}
-                {row.data?.targetRepsMin !== undefined
-                  ? `${row.data.targetRepsMin}-${row.data.targetRepsMax ?? row.data.targetRepsMin}`
-                  : ''}
-              </td>
-              <td>
-                {row.resultSessionExerciseId ? (
-                  <span className="badge badge--success">
-                    Ejercicio programado
+                {row.status === 'VALID' ? (
+                  <span className="badge badge--success">Correcta</span>
+                ) : (
+                  <span className="badge badge--danger">
+                    Corregir{' '}
+                    {(row.errors ?? [])
+                      .map((error) => error.cell)
+                      .filter(Boolean)
+                      .join(', ')}
                   </span>
-                ) : (
-                  '—'
-                )}
-              </td>
-              <td>
-                {row.errors && row.errors.length > 0 ? (
-                  <ul className="field-error-list">
-                    {row.errors.map((error, index) => (
-                      <li key={`${row.id}-${index}`} role="alert">
-                        <strong>
-                          {FIELD_LABELS[error.field] ?? error.field}:
-                        </strong>{' '}
-                        {error.message}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  '—'
                 )}
               </td>
             </tr>

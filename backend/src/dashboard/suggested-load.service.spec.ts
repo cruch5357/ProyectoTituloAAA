@@ -11,6 +11,7 @@ const EXERCISE = 'exercise-1';
 function setup(dataScienceUrl = 'http://ds.local') {
   const prisma = {
     exercise: { findUnique: jest.fn().mockResolvedValue({ coachId: COACH }) },
+    suggestedLoadLog: { upsert: jest.fn().mockResolvedValue({}) },
     setLog: {
       findMany: jest.fn().mockResolvedValue([
         {
@@ -21,6 +22,7 @@ function setup(dataScienceUrl = 'http://ds.local') {
         {
           actualLoad: 62.5,
           actualReps: 6,
+          actualRpe: 8.5,
           workoutLog: { performedAt: new Date('2026-10-10T12:00:00Z') },
         },
         {
@@ -81,8 +83,8 @@ describe('SuggestedLoadService', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('envía solo fechas, cargas y repeticiones, y adapta la respuesta', async () => {
-    const { service } = setup();
+  it('envía solo fechas, cargas, repeticiones y RPE, y adapta la respuesta', async () => {
+    const { service, prisma } = setup();
     fetchMock.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -94,6 +96,8 @@ describe('SuggestedLoadService', () => {
         expected_change_pct: 2,
         based_on_sessions: 2,
         last_session: { date: '2026-10-10', load_kg: 62.5, reps: 6 },
+        suggested_load_range_kg: [62.5, 67.5],
+        adjustments: ['reserve_progression'],
         model_version: 'v1',
       }),
     } as Response);
@@ -105,7 +109,8 @@ describe('SuggestedLoadService', () => {
     expect(JSON.parse(init.body)).toEqual({
       history: [
         { date: '2026-10-10', load_kg: 60, reps: 5 },
-        { date: '2026-10-10', load_kg: 62.5, reps: 6 },
+        // El RPE solo se envía cuando se anotó.
+        { date: '2026-10-10', load_kg: 62.5, reps: 6, rpe: 8.5 },
         { date: '2026-10-07', load_kg: 60, reps: 8 },
       ],
       // Sin targetReps se usan las repeticiones de la mejor serie de la
@@ -121,8 +126,45 @@ describe('SuggestedLoadService', () => {
       expectedChangePct: 2,
       basedOnSessions: 2,
       lastSession: { date: '2026-10-10', loadKg: 62.5, reps: 6 },
+      suggestedLoadRangeKg: [62.5, 67.5],
+      adjustments: ['reserve_progression'],
       modelVersion: 'v1',
     });
+    // La predicción queda registrada para medir su acierto después.
+    const logged = prisma.suggestedLoadLog.upsert.mock.calls[0][0];
+    expect(logged.where).toEqual({
+      studentId_exerciseId_lastSessionDate_targetReps_modelVersion: {
+        studentId: STUDENT,
+        exerciseId: EXERCISE,
+        lastSessionDate: new Date('2026-10-10T00:00:00.000Z'),
+        targetReps: 6,
+        modelVersion: 'v1',
+      },
+    });
+    expect(Number(logged.create.predictedE1rmKg)).toBe(76.5);
+    expect(logged.create.adjustments).toEqual(['reserve_progression']);
+    expect(logged.update).toEqual({});
+  });
+
+  it('si no se puede registrar la predicción, igual entrega la sugerencia', async () => {
+    const { service, prisma } = setup();
+    prisma.suggestedLoadLog.upsert.mockRejectedValue(new Error('db caída'));
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        available: true,
+        suggested_load_kg: 65,
+        target_reps: 6,
+        last_e1rm_kg: 75,
+        predicted_e1rm_kg: 76.5,
+        last_session: { date: '2026-10-10', load_kg: 62.5, reps: 6 },
+        model_version: 'v1',
+      }),
+    } as Response);
+
+    await expect(
+      service.getSuggestedLoad(COACH, STUDENT, EXERCISE),
+    ).resolves.toMatchObject({ available: true, suggestedLoadKg: 65 });
   });
 
   it('si el servicio falla no rompe la página: devuelve no disponible', async () => {

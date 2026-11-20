@@ -4,6 +4,7 @@ import { useSuggestedLoadHighlights } from '../../api/dashboard';
 import type { SuggestedLoadHighlight } from '../../types/dashboard';
 import { Skeleton } from '../../components/ui/Primitives';
 import { StrengthSparkline } from '../../components/ui/StrengthSparkline';
+import { SuggestionDetails } from '../../components/coaching/SuggestionDetails';
 
 const number = (value: number, digits = 1) =>
   value.toLocaleString('es-CL', { maximumFractionDigits: digits });
@@ -155,6 +156,7 @@ function HighlightCard({ item }: { item: SuggestedLoadHighlight }) {
             {change > 0 ? '+' : ''}
             {number(change)} %)
           </p>
+          <SuggestionDetails suggestion={s} />
         </>
       ) : (
         <p className="ml-card__pending">

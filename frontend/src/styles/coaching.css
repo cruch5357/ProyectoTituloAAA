@@ -147,6 +147,7 @@ dialog.media-dialog { width: fit-content; max-width: 95vw; padding: .75rem; back
 .media-dialog__close { position: absolute; top: .5rem; right: .5rem; z-index: 1; min-width: 44px; min-height: 44px; font-size: 1.4rem; line-height: 1; }
 /* Calendario mensual compacto (estilo Google Calendar). */
 .month-calendar { max-width: 760px; }
+.month-calendar--wide { max-width: none; }
 .month-calendar__header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .75rem; }
 .month-calendar__header h2 { margin: 0; }
 .month-calendar__nav { display: flex; gap: .5rem; }

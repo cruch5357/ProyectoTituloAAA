@@ -8,66 +8,52 @@ import {
   useRejectExcelImport,
   useUploadExcelImport,
 } from '../../api/imports';
-import { ApiError } from '../../lib/apiClient';
+import { apiClient, ApiError } from '../../lib/apiClient';
+import type { ExcelImportBatch } from '../../types/excelImport';
 import { ExcelImportRowsTable } from './ExcelImportRowsTable';
+import { FIELD_LABELS } from './excelImportLabels';
+import { NoExercisesDialog } from './NoExercisesDialog';
 
-// Restricciones mostradas al coach ANTES de subir (PROMPT 13, punto 2 del
-// frontend). Son ayuda de UX únicamente: el backend vuelve a validar todo
-// de forma autoritativa (extensión real, magic bytes, tamaño, macros) — ver
-// backend/src/common/imports/excel-file-validation.ts. Nunca se confía en
-// esta validación del lado del cliente para decidir si algo es seguro.
+// Ayuda de UX únicamente: el backend vuelve a validar todo (extensión real,
+// contenido, tamaño y macros).
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_EXTENSION = '.xlsx';
+const MAX_LISTED_ERRORS = 100;
 
-const STATUS_LABELS: Record<string, string> = {
-  PENDING_REVIEW: 'Pendiente de revisión',
-  CONFIRMED: 'Confirmada',
-  REJECTED: 'Rechazada',
-};
+const plural = (n: number, one: string, many: string) =>
+  `${n} ${n === 1 ? one : many}`;
 
-// Pantalla "Importar Excel" del Coach. PROMPT 13 implementó la primera
-// mitad (subir, validar, vista previa). PROMPT 14 agrega la segunda mitad
-// (RF-19/RF-20): confirmar las filas válidas hacia Program/Block/Week/
-// Session/SessionExercise, o rechazar el batch completo — ambos botones ya
-// están conectados a los endpoints reales (antes "Confirmar importación"
-// era un estado visual deshabilitado, "disponible próximamente").
+// "Importar Excel" del coach: descarga la plantilla, sube el archivo, revisa
+// los errores (con su fila y celda) y, si no hay ninguno, confirma para crear
+// los bloques en la biblioteca de Bloques.
 export function ImportExcelPage() {
   const rejectDialog = useRef<HTMLDialogElement>(null);
   const backdropClose = useBackdropClose(rejectDialog);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [clientError, setClientError] = useState<string | null>(null);
+  // Vista previa recargada cuando la confirmación encuentra errores nuevos
+  // (por ejemplo, un ejercicio desactivado después de subir el archivo).
+  const [refreshed, setRefreshed] = useState<ExcelImportBatch | null>(null);
   const uploadMutation = useUploadExcelImport();
   const templateMutation = useDownloadExcelTemplate();
 
   const uploadedBatch = uploadMutation.data;
-  // Los hooks de mutación siempre se llaman (reglas de hooks) aunque todavía
-  // no exista un batch — `mutate()` nunca se invoca antes de que exista uno
-  // real, porque los botones que lo disparan solo se renderizan dentro del
-  // bloque `{batch && (...)}` de más abajo.
   const confirmMutation = useConfirmExcelImport(uploadedBatch?.id ?? '');
   const rejectMutation = useRejectExcelImport(uploadedBatch?.id ?? '');
-  // El batch mostrado es siempre el más reciente: si ya se confirmó o
-  // rechazó, `confirmMutation.data`/`rejectMutation.data` reflejan ese
-  // resultado (createdPrograms, status CONFIRMED/REJECTED); si no, se
-  // muestra la vista previa recién subida.
-  const batch = confirmMutation.data ?? rejectMutation.data ?? uploadedBatch;
+  const batch =
+    confirmMutation.data ?? rejectMutation.data ?? refreshed ?? uploadedBatch;
 
   function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     setClientError(null);
+    setRefreshed(null);
     uploadMutation.reset();
     confirmMutation.reset();
     rejectMutation.reset();
-
     if (!file) {
       setSelectedFile(null);
       return;
     }
-
-    // Validación de UX únicamente (ver comentario de cabecera): un archivo
-    // rechazado acá ni siquiera se intenta subir, para no gastar una
-    // petición en algo que el backend rechazaría igual, pero el mensaje
-    // final de "está bien o no" siempre lo da el backend.
     if (!file.name.toLowerCase().endsWith(ALLOWED_EXTENSION)) {
       setClientError(
         'Solo se aceptan archivos .xlsx (no se admiten .xlsm ni otros formatos).',
@@ -80,33 +66,54 @@ export function ImportExcelPage() {
       setSelectedFile(null);
       return;
     }
-
     setSelectedFile(file);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!selectedFile) return;
-    uploadMutation.mutate(selectedFile);
+    if (selectedFile) uploadMutation.mutate(selectedFile);
+  }
+
+  function confirm() {
+    if (!batch) return;
+    confirmMutation.mutate(undefined, {
+      onError: () => {
+        apiClient
+          .get<ExcelImportBatch>(`/imports/excel/${batch.id}`)
+          .then((response) => setRefreshed(response.data))
+          .catch(() => undefined);
+      },
+    });
   }
 
   const isPendingReview = batch?.status === 'PENDING_REVIEW';
-  const isConfirmed = batch?.status === 'CONFIRMED';
-  const isRejected = batch?.status === 'REJECTED';
+  const errors =
+    batch?.rows.flatMap((row) =>
+      (row.errors ?? []).map((error) => ({
+        ...error,
+        rowNumber: row.rowNumber,
+      })),
+    ) ?? [];
+  const rowsWithErrors = batch?.counts.invalidRows ?? 0;
+  const canConfirm =
+    isPendingReview &&
+    !batch.legacyTemplate &&
+    rowsWithErrors === 0 &&
+    batch.plan.length > 0;
 
   return (
-    <section>
+    <section className="excel-import">
+      <NoExercisesDialog />
       <dialog
         ref={rejectDialog}
         {...backdropClose}
         className="invite-dialog"
         aria-label="Confirmar rechazo"
       >
-        <h2>Rechazar importación</h2>
+        <h2>Descartar importación</h2>
         <p>
-          Se rechazará {batch?.originalFilename}. Este lote no podrá confirmarse
-          después. No se eliminarán programas existentes; podrás subir el
-          archivo nuevamente como otro lote.
+          Se descartará {batch?.originalFilename} sin crear ningún bloque.
+          Podrás subir el archivo de nuevo cuando quieras.
         </p>
         <div className="dialog-actions">
           <button
@@ -124,10 +131,11 @@ export function ImportExcelPage() {
               rejectMutation.mutate();
             }}
           >
-            Rechazar definitivamente
+            Descartar
           </button>
         </div>
       </dialog>
+
       <div className="page-header">
         <h1>Importar Excel</h1>
         <button
@@ -138,39 +146,51 @@ export function ImportExcelPage() {
           {templateMutation.isPending ? 'Descargando…' : 'Descargar plantilla'}
         </button>
       </div>
-
       {templateMutation.isError && (
         <p role="alert" className="field-error">
           No se pudo descargar la plantilla. Intenta nuevamente.
         </p>
       )}
 
-      <p>
-        Descarga la plantilla, completa tu planificación y súbela. El sistema
-        valida el archivo y muestra una vista previa con los errores de cada
-        fila antes de guardar nada.
+      <p className="excel-import__intro">
+        Arma tus bloques en Excel y súbelos: quedarán en{' '}
+        <strong>Bloques</strong>, listos para revisarlos y asignarlos con
+        &quot;Asignar ciclo&quot;.
       </p>
 
-      <ol className="import-steps">
+      <ol className="excel-import__steps">
         <li>
-          <strong>Cada fila es un ejercicio</strong> dentro de una sesión:
-          escribe el programa, bloque, semana, sesión y ejercicio en cada fila.
+          <strong>Descarga la plantilla.</strong> Trae tus ejercicios en una
+          lista desplegable y filas de ejemplo que puedes reemplazar.
         </li>
         <li>
-          <strong>El orden se toma de las filas:</strong> bloques, semanas,
-          sesiones y ejercicios quedan en el orden en que los escribas. No
-          necesitas numerarlos.
+          <strong>Escribe una fila por ejercicio.</strong> Obligatorio: Bloque,
+          Semana, Día y Ejercicio. Opcional: Series, Reps, Carga (kg), RPE y
+          Notas.
         </li>
         <li>
-          <strong>Los ejercicios deben existir en tu catálogo</strong> con el
-          mismo nombre. La plantilla trae una hoja &quot;Mis ejercicios&quot;
-          con los nombres exactos.
+          <strong>Sube el archivo.</strong> Si algo está mal, te indicamos la
+          fila y la celda exacta (por ejemplo D5) para que la corrijas.
         </li>
         <li>
-          Formato <code>.xlsx</code> de hasta 5 MB (no se aceptan archivos con
-          macros).
+          <strong>Confirma.</strong> Se crean los bloques y puedes editarlos
+          antes de asignarlos.
         </li>
       </ol>
+
+      <div className="excel-import__rule" role="note">
+        <p>
+          <strong>Importante:</strong> escribe el nombre de cada bloque y de
+          cada día <strong>exactamente igual</strong> en todas sus filas (mismas
+          tildes, mayúsculas y espacios). Si &quot;Fuerza base&quot; aparece
+          también como &quot;fuerza base&quot;, el Excel no se puede importar.
+        </p>
+        <p className="muted">
+          Atajo: deja Bloque, Semana y Día vacíos para repetir los de la fila de
+          arriba. Para series distintas (pirámides), escribe el mismo ejercicio
+          en filas seguidas.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="search-form">
         <label className="field">
@@ -186,7 +206,7 @@ export function ImportExcelPage() {
           type="submit"
           disabled={!selectedFile || uploadMutation.isPending}
         >
-          {uploadMutation.isPending ? 'Procesando…' : 'Subir archivo'}
+          {uploadMutation.isPending ? 'Revisando…' : 'Subir archivo'}
         </button>
       </form>
 
@@ -195,13 +215,8 @@ export function ImportExcelPage() {
           {clientError}
         </p>
       )}
-
-      {uploadMutation.isPending && (
-        <p>Procesando el archivo, por favor espera…</p>
-      )}
-
       {uploadMutation.isError && (
-        <p role="alert" className="field-error">
+        <p role="alert" className="excel-import__problem">
           {uploadMutation.error instanceof ApiError
             ? uploadMutation.error.message
             : 'No se pudo procesar el archivo.'}
@@ -210,113 +225,156 @@ export function ImportExcelPage() {
 
       {batch && (
         <div className="import-preview">
-          <h2>Vista previa de la importación</h2>
-          <p>
-            Archivo: <strong>{batch.originalFilename}</strong> — Estado:{' '}
-            <strong>{STATUS_LABELS[batch.status] ?? batch.status}</strong>
-          </p>
-          <p>
-            Total de filas: {batch.counts.totalRows} — Válidas:{' '}
-            {batch.counts.validRows} — Inválidas: {batch.counts.invalidRows}
+          <h2>Revisión de {batch.originalFilename}</h2>
+          <p className="muted">
+            {plural(batch.counts.totalRows, 'fila leída', 'filas leídas')} ·{' '}
+            {plural(batch.counts.validRows, 'correcta', 'correctas')} ·{' '}
+            {plural(rowsWithErrors, 'con errores', 'con errores')}
           </p>
 
-          <ExcelImportRowsTable rows={batch.rows} />
+          {isPendingReview && batch.legacyTemplate && (
+            <p role="alert" className="excel-import__problem">
+              Esta importación se subió con la plantilla anterior y ya no se
+              puede confirmar. Descarga la plantilla nueva, copia tu
+              planificación y súbela otra vez.
+            </p>
+          )}
 
-          {isPendingReview && (
-            <div className="import-preview__confirmation">
+          {isPendingReview && !batch.legacyTemplate && rowsWithErrors > 0 && (
+            <div className="excel-import__errors" role="alert">
+              <h3>
+                Corrige {plural(rowsWithErrors, 'fila', 'filas')} en tu Excel
+                antes de importar
+              </h3>
               <p>
-                Las filas inválidas <strong>no se importarán</strong>:
-                corrígelas en tu archivo y vuelve a subirlo si quieres que
-                también queden programadas. Una vez confirmada, la importación
-                pasa a formar parte de tu programación de inmediato y{' '}
-                <strong>la operación no debe repetirse</strong>.
+                El archivo solo se importa si todas sus filas están correctas.
+                Corrige estas celdas y vuelve a subirlo:
               </p>
-
-              <div className="import-preview__actions">
-                <button
-                  type="button"
-                  className="button--primary"
-                  onClick={() => confirmMutation.mutate()}
-                  disabled={
-                    batch.counts.validRows === 0 ||
-                    confirmMutation.isPending ||
-                    rejectMutation.isPending
-                  }
-                >
-                  {confirmMutation.isPending
-                    ? 'Confirmando…'
-                    : 'Confirmar importación'}
-                </button>
-                <button
-                  type="button"
-                  className="button--danger"
-                  onClick={() => rejectDialog.current?.showModal()}
-                  disabled={
-                    confirmMutation.isPending || rejectMutation.isPending
-                  }
-                >
-                  {rejectMutation.isPending
-                    ? 'Rechazando…'
-                    : 'Rechazar importación'}
-                </button>
-              </div>
-
-              {batch.counts.validRows === 0 && (
-                <p role="alert" className="field-error">
-                  El archivo no tiene ninguna fila válida: no hay nada que
-                  confirmar. Corrige los errores y vuelve a subirlo.
+              <ul>
+                {errors.slice(0, MAX_LISTED_ERRORS).map((error, index) => (
+                  <li key={`${error.rowNumber}-${error.field}-${index}`}>
+                    <strong>
+                      Fila {error.rowNumber}
+                      {error.cell ? ` · celda ${error.cell}` : ''} (
+                      {FIELD_LABELS[error.field] ?? error.field}):
+                    </strong>{' '}
+                    {error.message}
+                  </li>
+                ))}
+              </ul>
+              {errors.length > MAX_LISTED_ERRORS && (
+                <p className="muted">
+                  Y {errors.length - MAX_LISTED_ERRORS} errores más: corrige
+                  estos primero y vuelve a subirlo.
                 </p>
               )}
             </div>
           )}
 
+          {canConfirm && (
+            <div className="excel-import__ready">
+              <h3>Todo correcto. Se crearán estos bloques:</h3>
+              <ul>
+                {batch.plan.map((block) => (
+                  <li key={block.name}>
+                    <strong>{block.name}</strong>:{' '}
+                    {plural(block.weeks, 'semana', 'semanas')} ·{' '}
+                    {plural(block.days, 'día', 'días')} ·{' '}
+                    {plural(block.exercises, 'ejercicio', 'ejercicios')} ·{' '}
+                    {plural(block.sets, 'serie', 'series')}
+                    {block.alreadyExists && (
+                      <span className="excel-import__warning">
+                        {' '}
+                        Ya tienes un bloque con este nombre: se creará otro.
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {isPendingReview && (
+            <div className="import-preview__actions">
+              <button
+                type="button"
+                className="button--primary"
+                onClick={confirm}
+                disabled={
+                  !canConfirm ||
+                  confirmMutation.isPending ||
+                  rejectMutation.isPending
+                }
+              >
+                {confirmMutation.isPending
+                  ? 'Creando bloques…'
+                  : 'Confirmar importación'}
+              </button>
+              <button
+                type="button"
+                className="button--neutral"
+                onClick={() => rejectDialog.current?.showModal()}
+                disabled={confirmMutation.isPending || rejectMutation.isPending}
+              >
+                Descartar
+              </button>
+            </div>
+          )}
+
           {confirmMutation.isError && (
-            <p role="alert" className="field-error">
+            <p role="alert" className="excel-import__problem">
               {confirmMutation.error instanceof ApiError
                 ? confirmMutation.error.message
                 : 'No se pudo confirmar la importación.'}
             </p>
           )}
-
           {rejectMutation.isError && (
             <p role="alert" className="field-error">
               {rejectMutation.error instanceof ApiError
                 ? rejectMutation.error.message
-                : 'No se pudo rechazar la importación.'}
+                : 'No se pudo descartar la importación.'}
             </p>
           )}
 
-          {isConfirmed && (
-            <div className="import-preview__result" role="status">
+          {batch.status === 'CONFIRMED' && (
+            <div className="excel-import__ready" role="status">
               <h3>Importación confirmada</h3>
-              <p>
-                Esta importación ya está confirmada y forma parte de tu
-                programación. No es necesario (ni posible) repetir la
-                confirmación.
-              </p>
-              {batch.createdPrograms.length > 0 && (
-                <>
-                  <p>Programas creados a partir de este archivo:</p>
-                  <ul>
-                    {batch.createdPrograms.map((program) => (
-                      <li key={program.id}>{program.name}</li>
-                    ))}
-                  </ul>
-                </>
+              {batch.createdBlocks.length > 0 && (
+                <ul>
+                  {batch.createdBlocks.map((block) => (
+                    <li key={block.id}>
+                      <strong>{block.name}</strong>{' '}
+                      {block.programId ? (
+                        <Link to={`/programs/${block.programId}`}>
+                          Ver programa
+                        </Link>
+                      ) : (
+                        <Link to={`/block-library/${block.id}`}>
+                          Abrir y editar
+                        </Link>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
-              <Link to="/programs">Ir a Mis programas</Link>
+              <Link to="/blocks">Ir a Bloques</Link>
             </div>
           )}
 
-          {isRejected && (
+          {batch.status === 'REJECTED' && (
             <div className="import-preview__result" role="status">
-              <h3>Importación rechazada</h3>
-              <p>
-                Este batch fue rechazado: no se creó ninguna programación a
-                partir de él.
-              </p>
+              <h3>Importación descartada</h3>
+              <p>No se creó ningún bloque a partir de este archivo.</p>
             </div>
           )}
+
+          <details
+            className="excel-import__rows"
+            open={batch.rows.length <= 30}
+          >
+            <summary>Ver lo que se leyó de cada fila</summary>
+            <ExcelImportRowsTable rows={batch.rows} />
+          </details>
         </div>
       )}
     </section>

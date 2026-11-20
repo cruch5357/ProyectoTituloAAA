@@ -1,4 +1,4 @@
-import { PrismaClient, Role } from '@prisma/client';
+import { Prisma, PrismaClient, Role } from '@prisma/client';
 import { hash, argon2id } from 'argon2';
 import { createHash } from 'crypto';
 import { readFile, mkdir, writeFile, unlink } from 'fs/promises';
@@ -443,25 +443,20 @@ async function main() {
         for (const invalid of [false, true]) {
           const key = invalid ? 'import-invalid' : 'import-valid';
           const cells = {
-            program_name: 'Programa importado (presentación)',
-            duration_weeks: 1,
             block_name: 'Bloque importado',
-            block_order: 1,
             week_number: 1,
-            week_order: 1,
-            session_name: 'Sesión importada',
-            day_of_week: days[0],
-            session_order: 1,
+            day_name: 'Día importado',
             exercise_name: 'Sentadilla (presentación)',
-            exercise_order: 1,
-            target_sets: invalid ? -3 : 3,
-            target_reps_min: 6,
-            target_reps_max: 8,
-            target_rpe: 7,
-            target_rir: 2,
-            rest_seconds: 120,
+            sets: invalid ? -3 : 3,
+            reps: 6,
+            weight: 60,
+            rpe: 7,
           };
-          const { values, errors } = validateExcelRow(cells, id('exercise-7'));
+          const { values, errors } = validateExcelRow(cells, {
+            found: true,
+            id: id('exercise-7'),
+            name: 'Sentadilla (presentación)',
+          });
           await tx.excelImportBatch.upsert({
             where: { id: id(key) },
             update: {},
@@ -473,7 +468,10 @@ async function main() {
                 create: [
                   {
                     rowNumber: 2,
-                    rawData: { cells, normalized: values },
+                    rawData: {
+                      cells,
+                      normalized: { ...values },
+                    } as Prisma.InputJsonValue,
                     status: errors.length ? 'INVALID' : 'VALID',
                     errors: errors.map((error) => ({ ...error })),
                   },

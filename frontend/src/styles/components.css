@@ -533,6 +533,67 @@ dialog::backdrop {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  margin: 1rem 0;
+}
+.excel-import__intro {
+  color: var(--color-text-secondary);
+}
+.excel-import__steps {
+  display: grid;
+  gap: 0.4rem;
+  padding-left: 1.25rem;
+}
+.excel-import__rule {
+  padding: 0.9rem 1rem;
+  margin: 1rem 0;
+  border-left: 4px solid var(--color-warning);
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-md);
+}
+.excel-import__rule p {
+  margin: 0.25rem 0;
+}
+.excel-import__problem,
+.excel-import__errors {
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  color: var(--color-text);
+}
+.excel-import__errors h3,
+.excel-import__ready h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.excel-import__errors h3 {
+  color: var(--color-danger);
+}
+.excel-import__errors ul,
+.excel-import__ready ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+}
+.excel-import__ready {
+  padding: 0.9rem 1rem;
+  margin: 1rem 0;
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-md);
+}
+.excel-import__ready h3 {
+  color: var(--color-success);
+}
+.excel-import__warning {
+  color: var(--color-warning);
+}
+.excel-import__rows summary {
+  cursor: pointer;
+  margin: 0.75rem 0;
+  font-weight: 600;
+}
+.import-rows__invalid td {
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
 }
 .dashboard-greeting {
   font-size: 1.15rem;
@@ -970,4 +1031,22 @@ dialog.exercise-dialog {
 }
 .strength-sparkline__last-dot {
   fill: var(--color-primary);
+}
+
+/* Rango probable y ajustes por esfuerzo de la carga sugerida. */
+.suggestion-details {
+  display: grid;
+  gap: 0.25rem;
+}
+.suggestion-details p {
+  margin: 0;
+  font-size: 0.82rem;
+}
+.suggestion-details__range {
+  color: var(--color-text-secondary);
+}
+.suggestion-details__reason {
+  padding-left: 0.6rem;
+  border-left: 3px solid var(--color-primary);
+  color: var(--color-text-secondary);
 }

@@ -4,8 +4,16 @@ import pandas as pd
 import pytest
 from fastapi.testclient import TestClient
 
-from carga_sugerida.features import FEATURES, SessionPoint, build_examples, history_features, session_table
-from carga_sugerida.predictor import MAX_DECREASE, MAX_INCREASE, SetRecord, sessions_from_sets
+from carga_sugerida.features import (
+    FEATURES,
+    SessionPoint,
+    build_examples,
+    history_features,
+    session_table,
+    summarize_day,
+    without_spikes,
+)
+from carga_sugerida.predictor import MAX_DECREASE, MAX_INCREASE, SetRecord, autoregulate, sessions_from_sets
 from carga_sugerida.service import app
 from carga_sugerida.sources import load_strong_csv
 from carga_sugerida.strength import epley_1rm, load_for_reps, round_load
@@ -123,3 +131,73 @@ def test_health_informa_el_modelo():
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["data"]["ejemplos"] > 0
+
+
+def test_quita_picos_aislados_pero_nunca_la_ultima_sesion():
+    # 60, 61, 62 → 75 (prueba de máximo) → 63: el 75 es un pico aislado.
+    points = _points([60, 61, 62, 75, 63])
+    assert [p.e1rm for p in without_spikes(points)] == [60, 61, 62, 63]
+    # Si el salto es lo último registrado, todavía no se sabe si es un pico.
+    assert [p.e1rm for p in without_spikes(points[:4])] == [60, 61, 62, 75]
+    # Una subida sostenida no es un pico.
+    assert len(without_spikes(_points([60, 61, 62, 75, 76]))) == 5
+
+
+def test_la_evaluacion_conserva_los_picos_que_el_entrenamiento_descarta():
+    loads = [60, 61, 62, 75, 63, 64]
+    sets = pd.DataFrame(
+        {
+            "athlete_id": "p",
+            "exercise": "squat",
+            "date": pd.to_datetime([f"2024-01-{1 + 2 * i:02d}" for i in range(6)]),
+            "set_order": 1,
+            "load_kg": loads,
+            "reps": 1,
+        }
+    )
+    sessions = session_table(sets)
+    train_X, _, _ = build_examples(sessions)
+    eval_X, _, _ = build_examples(sessions, skip_spikes=False)
+    assert len(eval_X) == 4 and len(train_X) == 2
+
+
+def test_resumen_del_dia_mide_si_se_sostuvo_la_carga_y_el_esfuerzo():
+    day = date(2024, 1, 1)
+    full = summarize_day(day, [(60, 8, 7.0), (60, 8, 7.5), (60, 8, 8.0), (40, 12, 6.0)])
+    assert (full.top_sets, full.rep_drop, full.top_rpe) == (3, 0.0, 8.0)
+    dropped = summarize_day(day, [(60, 8), (60, 8), (60, 6)])
+    assert dropped.rep_drop == pytest.approx(0.25)
+    assert dropped.top_rpe is None
+
+
+def _last(rpe, reps=(8, 8, 8)):
+    return summarize_day(date(2024, 1, 1), [(60, r, rpe) for r in reps])
+
+
+def test_autorregulacion_permite_subir_con_margen_y_frena_con_esfuerzo_maximo():
+    # Sin RPE no hay ajuste: decide solo el modelo.
+    assert autoregulate(0.0, _last(None)) == (0.0, [])
+    # 3x8 completas a RPE 7: se permite subir un disco (2,5 kg sobre 60 kg).
+    change, adjustments = autoregulate(0.0, _last(7.0))
+    assert change == pytest.approx(2.5 / 60) and adjustments == ["reserve_progression"]
+    # Si el modelo ya sube lo mismo o más, la regla no actúa ni se informa.
+    assert autoregulate(0.06, _last(7.0)) == (0.06, [])
+    assert autoregulate(2.5 / 60 - 0.001, _last(7.0)) == (2.5 / 60 - 0.001, [])
+    # Series incompletas no activan la subida.
+    assert autoregulate(0.0, _last(7.0, reps=(8, 8, 6))) == (0.0, [])
+    # Esfuerzo máximo: no se sube, aunque el modelo lo prediga.
+    assert autoregulate(0.05, _last(10.0)) == (0.0, ["max_effort_hold"])
+    assert autoregulate(-0.02, _last(10.0)) == (-0.02, [])
+
+
+def test_servicio_entrega_rango_y_aplica_el_rpe():
+    history = [
+        {"date": str(date(2024, 1, 1) + timedelta(days=3 * i)), "load_kg": 60, "reps": 8, "rpe": 7}
+        for i in range(6)
+        for _ in range(3)
+    ]
+    body = client.post("/v1/suggested-load", json={"history": history, "target_reps": 8}).json()
+    low, high = body["suggested_load_range_kg"]
+    assert low <= body["suggested_load_kg"] <= high
+    # 3x8 a RPE 7 durante seis sesiones: al menos un disco más que 60 kg.
+    assert body["suggested_load_kg"] >= 62.5

@@ -1,7 +1,7 @@
 import { Skeleton } from '../../components/ui/Primitives';
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useExercises, useUpdateExerciseStatus } from '../../api/exercises';
 import { ApiError } from '../../lib/apiClient';
 import { ExerciseStatusBadge } from './ExerciseStatusBadge';
@@ -32,6 +32,8 @@ function muscleGroupText(exercise: Exercise): string {
 // El coachId que filtra el catálogo nunca aparece acá — lo resuelve el
 // backend a partir del token (ver ExercisesController).
 export function ExercisesListPage() {
+  // `?nuevo=1` abre directamente el formulario de nuevo ejercicio.
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
@@ -67,7 +69,7 @@ export function ExercisesListPage() {
     <section>
       <div className="page-header">
         <h1>Catálogo de ejercicios</h1>
-        <ExerciseFormDialog />
+        <ExerciseFormDialog openOnMount={searchParams.get('nuevo') === '1'} />
       </div>
 
       <form onSubmit={handleSearchSubmit} className="search-form">

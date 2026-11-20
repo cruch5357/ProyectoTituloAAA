@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSuggestedLoad } from '../../api/dashboard';
+import { SuggestionDetails } from './SuggestionDetails';
 
 function kg(value: number | undefined): string {
   return value === undefined
@@ -82,6 +83,7 @@ export function SuggestedLoadCard({
             {kg(data.predictedE1rmKg)} ({formatPct(data.expectedChangePct)}).
             Basado en {data.basedOnSessions} sesiones.
           </p>
+          <SuggestionDetails suggestion={data} />
           <p className="muted suggested-load__note">
             Sugerencia del modelo como apoyo: la decisión final es del coach.
           </p>

@@ -407,6 +407,18 @@ describe('Evolución coaching', () => {
     expect(screen.queryByText('Novedad 1')).toBeNull();
     expect(screen.getByText(/Ves las 4 más recientes/)).toBeInTheDocument();
   });
+  it('Requieren atención muestra como máximo 3 alumnos', async () => {
+    const attention = Array.from({ length: 7 }, (_, i) => ({ id: `s${i + 1}`, name: `Alumno ${i + 1}`, reasons: ['Sin entrenamiento finalizado en 7 días'] }));
+    const defaultGet = vi.mocked(apiClient.get).getMockImplementation()!;
+    vi.mocked(apiClient.get).mockImplementation(async (path, options) =>
+      path === '/dashboard/operations' ? { data: { competitions: [], attention, workoutsThisWeek: 0, assignedActivity: [] }, error: null, meta: {} } : defaultGet(path, options));
+    renderUser(<CoachOperations />);
+    expect(await screen.findByText('Alumno 1')).toBeInTheDocument();
+    for (const n of [2, 3]) expect(screen.getByText(`Alumno ${n}`)).toBeInTheDocument();
+    expect(screen.queryByText('Alumno 4')).toBeNull();
+    expect(screen.getByText(/Ves 3 de 7 alumnos/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mis alumnos' })).toHaveAttribute('href', '/students');
+  });
   it('el chat baja al último mensaje al enviar', async () => {
     const older = { id: 'm1', senderId: 'coach1', body: 'Hola', createdAt: '2026-10-07T10:00:00Z', readAt: null, attachments: [] };
     const sent = { id: 'm2', senderId: 's1', body: 'Listo', createdAt: '2026-10-07T10:05:00Z', readAt: null, attachments: [] };

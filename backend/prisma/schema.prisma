@@ -72,22 +72,22 @@ enum ExcelImportRowStatus {
 // ---------------------------------------------------------------------------
 
 model User {
-  assignedBlocks ProgramAssignment[] @relation("BlockAssignedBy")
-  libraryBlocks Block[] @relation("LibraryBlocks")
-  blockFolders BlockFolder[]
+  assignedBlocks    ProgramAssignment[] @relation("BlockAssignedBy")
+  libraryBlocks     Block[]             @relation("LibraryBlocks")
+  blockFolders      BlockFolder[]
   exerciseModifiers ExerciseModifier[]
-  id           String   @id @default(cuid())
-  email        String   @unique
-  passwordHash String   @map("password_hash")
-  role         Role
-  name         String
-  isActive     Boolean  @default(true) @map("is_active")
+  id                String              @id @default(cuid())
+  email             String              @unique
+  passwordHash      String              @map("password_hash")
+  role              Role
+  name              String
+  isActive          Boolean             @default(true) @map("is_active")
 
   // Mecanismo de invalidacion de refresh tokens (docs/security.md, punto 12:
   // "version de token en la tabla User"). Incrementarlo invalida todos los
   // refresh tokens emitidos previamente (logout global, cambio de clave).
   // No se usa todavia: la logica de autenticacion se implementa en PROMPT 03.
-  tokenVersion Int      @default(0) @map("token_version")
+  tokenVersion Int @default(0) @map("token_version")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -97,28 +97,29 @@ model User {
   coach    User?   @relation("CoachStudents", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
   students User[]  @relation("CoachStudents")
 
-  exercisesOwned      Exercise[]          @relation("CoachExercises")
-  programsOwned       Program[]           @relation("CoachPrograms")
-  assignmentsAsStudent ProgramAssignment[] @relation("StudentAssignments")
-  workoutLogs         WorkoutLog[]        @relation("StudentWorkoutLogs")
-  excelImportBatches  ExcelImportBatch[]  @relation("CoachImportBatches")
-  sentMessages        Message[]           @relation("SentMessages")
-  receivedMessages    Message[]           @relation("ReceivedMessages")
-  auditLogs           AuditLog[]          @relation("ActorAuditLogs")
-  profile             UserProfile?
-  competitions        Competition[]
-  scheduleChanges     SessionScheduleOverride[]
-  notifications       Notification[]
+  exercisesOwned              Exercise[]                 @relation("CoachExercises")
+  programsOwned               Program[]                  @relation("CoachPrograms")
+  assignmentsAsStudent        ProgramAssignment[]        @relation("StudentAssignments")
+  workoutLogs                 WorkoutLog[]               @relation("StudentWorkoutLogs")
+  excelImportBatches          ExcelImportBatch[]         @relation("CoachImportBatches")
+  sentMessages                Message[]                  @relation("SentMessages")
+  receivedMessages            Message[]                  @relation("ReceivedMessages")
+  auditLogs                   AuditLog[]                 @relation("ActorAuditLogs")
+  profile                     UserProfile?
+  competitions                Competition[]
+  scheduleChanges             SessionScheduleOverride[]
+  notifications               Notification[]
   workoutCorrectionsAsStudent WorkoutCorrectionRequest[] @relation("CorrectionStudent")
   workoutCorrectionsAsCoach   WorkoutCorrectionRequest[] @relation("CorrectionCoach")
   workoutCorrectionsReviewed  WorkoutCorrectionRequest[] @relation("CorrectionReviewer")
   trainingSessionDismissals   TrainingSessionDismissal[]
   trainingWeekPlans           TrainingWeekPlan[]
+  suggestedLoadLogs           SuggestedLoadLog[]
 
   // Autenticacion / autorizacion (PROMPT 03, ver docs/security.md).
   passwordResetTokens PasswordResetToken[]
-  refreshSessions    RefreshSession[]
-  studentInvitations StudentInvitation[]
+  refreshSessions     RefreshSession[]
+  studentInvitations  StudentInvitation[]
 
   @@index([coachId])
   @@map("users")
@@ -151,7 +152,8 @@ model Exercise {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  sessionExercises SessionExercise[]
+  sessionExercises  SessionExercise[]
+  suggestedLoadLogs SuggestedLoadLog[]
 
   @@index([coachId])
   @@map("exercises")
@@ -163,22 +165,22 @@ model Exercise {
 
 model Program {
   isAssignmentSnapshot Boolean @default(false) @map("is_assignment_snapshot")
-  id            String   @id @default(cuid())
-  coachId       String   @map("coach_id")
-  coach         User     @relation("CoachPrograms", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  name          String
-  description   String?
-  durationWeeks Int?     @map("duration_weeks")
+  id                   String  @id @default(cuid())
+  coachId              String  @map("coach_id")
+  coach                User    @relation("CoachPrograms", fields: [coachId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  name                 String
+  description          String?
+  durationWeeks        Int?    @map("duration_weeks")
 
   // PROMPT 08: mismo criterio ya aplicado a Exercise.isActive (PROMPT 07) y
   // a User.isActive (PROMPT 02) — "cambiar su estado" de un programa se
   // resuelve como baja logica reversible, nunca como DELETE fisico, para no
   // poder romper jamas una asignacion (ProgramAssignment) o una prescripcion
   // (Block/Week/Session/SessionExercise) que ya dependa de este programa.
-  isActive      Boolean  @default(true) @map("is_active")
+  isActive Boolean @default(true) @map("is_active")
 
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   blocks      Block[]
   assignments ProgramAssignment[]
@@ -188,20 +190,20 @@ model Program {
 }
 
 model Block {
-  sourceAssignments ProgramAssignment[] @relation("AssignmentSource")
+  sourceAssignments   ProgramAssignment[] @relation("AssignmentSource")
   snapshotAssignments ProgramAssignment[] @relation("AssignmentSnapshot")
-  id        String   @id @default(cuid())
-  programId String?   @map("program_id")
-  program   Program?  @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  coachId String? @map("coach_id")
-  coach User? @relation("LibraryBlocks", fields: [coachId], references: [id], onDelete: Restrict)
-  folderId String? @map("folder_id")
-  folder BlockFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  revision Int @default(0)
-  name      String
-  order     Int
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                  String              @id @default(cuid())
+  programId           String?             @map("program_id")
+  program             Program?            @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  coachId             String?             @map("coach_id")
+  coach               User?               @relation("LibraryBlocks", fields: [coachId], references: [id], onDelete: Restrict)
+  folderId            String?             @map("folder_id")
+  folder              BlockFolder?        @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  revision            Int                 @default(0)
+  name                String
+  order               Int
+  createdAt           DateTime            @default(now()) @map("created_at")
+  updatedAt           DateTime            @updatedAt @map("updated_at")
 
   weeks Week[]
 
@@ -230,14 +232,14 @@ model Week {
 }
 
 model Session {
-  id        String    @id @default(cuid())
-  weekId    String    @map("week_id")
-  week      Week      @relation(fields: [weekId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id        String   @id @default(cuid())
+  weekId    String   @map("week_id")
+  week      Week     @relation(fields: [weekId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   name      String
-  dayOfWeek Int?      @map("day_of_week")
+  dayOfWeek Int?     @map("day_of_week")
   order     Int
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   sessionExercises   SessionExercise[]
   correctionRequests WorkoutCorrectionRequest[]
@@ -245,9 +247,9 @@ model Session {
   // Restrict: ver relacion inversa en WorkoutLog. Una Session con historial
   // real no puede eliminarse (docs/database.md, seccion "Integridad y
   // constraints").
-  workoutLogs      WorkoutLog[]
-  scheduleOverrides SessionScheduleOverride[]
-  contextMessages  Message[]
+  workoutLogs        WorkoutLog[]
+  scheduleOverrides  SessionScheduleOverride[]
+  contextMessages    Message[]
 
   @@unique([weekId, order])
   @@index([weekId])
@@ -255,16 +257,16 @@ model Session {
 }
 
 model SessionExercise {
-  frozenExercise Json? @map("frozen_exercise")
-  modifiers Json @default("[]")
-  programmedSets ProgrammedSet[]
+  frozenExercise       Json?                 @map("frozen_exercise")
+  modifiers            Json                  @default("[]")
+  programmedSets       ProgrammedSet[]
   workoutPrescriptions WorkoutPrescription[]
-  id         String   @id @default(cuid())
-  sessionId  String   @map("session_id")
-  session    Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  exerciseId String   @map("exercise_id")
-  exercise   Exercise @relation(fields: [exerciseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  order      Int
+  id                   String                @id @default(cuid())
+  sessionId            String                @map("session_id")
+  session              Session               @relation(fields: [sessionId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  exerciseId           String                @map("exercise_id")
+  exercise             Exercise              @relation(fields: [exerciseId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  order                Int
 
   targetSets Int? @map("target_sets")
 
@@ -274,7 +276,7 @@ model SessionExercise {
   targetRepsMin Int? @map("target_reps_min")
   targetRepsMax Int? @map("target_reps_max")
 
-  targetRpe   Decimal? @db.Decimal(3, 1) @map("target_rpe")
+  targetRpe   Decimal? @map("target_rpe") @db.Decimal(3, 1)
   targetRir   Int?     @map("target_rir")
   restSeconds Int?     @map("rest_seconds")
   notes       String?
@@ -284,8 +286,8 @@ model SessionExercise {
 
   // Restrict: no se puede eliminar una prescripcion de ejercicio si ya tiene
   // series realmente registradas por el alumno.
-  setLogs     SetLog[]
-  importRows  ExcelImportRow[]
+  setLogs            SetLog[]
+  importRows         ExcelImportRow[]
   contextMessages    Message[]
   correctionRequests WorkoutCorrectionRequest[]
 
@@ -295,23 +297,25 @@ model SessionExercise {
 }
 
 model BlockFolder {
-  id String @id @default(cuid())
-  coachId String @map("coach_id")
-  coach User @relation(fields: [coachId], references: [id], onDelete: Cascade)
-  name String
-  normalizedName String @map("normalized_name")
-  blocks Block[]
+  id             String  @id @default(cuid())
+  coachId        String  @map("coach_id")
+  coach          User    @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  name           String
+  normalizedName String  @map("normalized_name")
+  blocks         Block[]
+
   @@unique([coachId, normalizedName])
   @@map("block_folders")
 }
 
 model ExerciseModifier {
-  id String @id @default(cuid())
-  coachId String @map("coach_id")
-  coach User @relation(fields: [coachId], references: [id], onDelete: Cascade)
-  name String
+  id             String @id @default(cuid())
+  coachId        String @map("coach_id")
+  coach          User   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  name           String
   normalizedName String @map("normalized_name")
-  category String
+  category       String
+
   @@unique([coachId, normalizedName])
   @@map("exercise_modifiers")
 }
@@ -323,14 +327,15 @@ enum SetPriority {
 }
 
 model ProgrammedSet {
-  id String @id @default(cuid())
-  sessionExerciseId String @map("session_exercise_id")
-  sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
-  order Int
-  weight Decimal? @db.Decimal(6, 2)
-  reps Int?
-  rpe Decimal? @db.Decimal(3, 1)
-  priority SetPriority @default(low)
+  id                String          @id @default(cuid())
+  sessionExerciseId String          @map("session_exercise_id")
+  sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Cascade)
+  order             Int
+  weight            Decimal?        @db.Decimal(6, 2)
+  reps              Int?
+  rpe               Decimal?        @db.Decimal(3, 1)
+  priority          SetPriority     @default(low)
+
   @@unique([sessionExerciseId, order])
   @@map("programmed_sets")
 }
@@ -341,27 +346,27 @@ model ProgrammedSet {
 
 model ProgramAssignment {
   // Block assignments reuse this table so logs, calendars and statistics keep their identity.
-  sourceBlockId String? @map("source_block_id")
-  sourceBlock Block? @relation("AssignmentSource", fields: [sourceBlockId], references: [id], onDelete: SetNull)
-  snapshotBlockId String? @map("snapshot_block_id")
-  snapshotBlock Block? @relation("AssignmentSnapshot", fields: [snapshotBlockId], references: [id], onDelete: Restrict)
-  assignedByCoachId String? @map("assigned_by_coach_id")
-  assignedByCoach User? @relation("BlockAssignedBy", fields: [assignedByCoachId], references: [id], onDelete: SetNull)
-  workoutLogs WorkoutLog[]
-  scheduleOverrides  SessionScheduleOverride[]
-  correctionRequests WorkoutCorrectionRequest[]
+  sourceBlockId             String?                    @map("source_block_id")
+  sourceBlock               Block?                     @relation("AssignmentSource", fields: [sourceBlockId], references: [id], onDelete: SetNull)
+  snapshotBlockId           String?                    @map("snapshot_block_id")
+  snapshotBlock             Block?                     @relation("AssignmentSnapshot", fields: [snapshotBlockId], references: [id], onDelete: Restrict)
+  assignedByCoachId         String?                    @map("assigned_by_coach_id")
+  assignedByCoach           User?                      @relation("BlockAssignedBy", fields: [assignedByCoachId], references: [id], onDelete: SetNull)
+  workoutLogs               WorkoutLog[]
+  scheduleOverrides         SessionScheduleOverride[]
+  correctionRequests        WorkoutCorrectionRequest[]
   dismissedTrainingSessions TrainingSessionDismissal[]
-  trainingWeekPlans TrainingWeekPlan[]
-  startDate  DateTime? @db.Date @map("start_date")
-  id         String                  @id @default(cuid())
-  programId  String                  @map("program_id")
-  program    Program                 @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  studentId  String                  @map("student_id")
-  student    User                    @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  status     ProgramAssignmentStatus @default(ACTIVE)
-  assignedAt DateTime                @default(now()) @map("assigned_at")
-  createdAt  DateTime                @default(now()) @map("created_at")
-  updatedAt  DateTime                @updatedAt @map("updated_at")
+  trainingWeekPlans         TrainingWeekPlan[]
+  startDate                 DateTime?                  @map("start_date") @db.Date
+  id                        String                     @id @default(cuid())
+  programId                 String                     @map("program_id")
+  program                   Program                    @relation(fields: [programId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  studentId                 String                     @map("student_id")
+  student                   User                       @relation("StudentAssignments", fields: [studentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  status                    ProgramAssignmentStatus    @default(ACTIVE)
+  assignedAt                DateTime                   @default(now()) @map("assigned_at")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+  updatedAt                 DateTime                   @updatedAt @map("updated_at")
 
   // La restriccion que evita una asignacion ACTIVA duplicada del mismo
   // programa al mismo alumno es un indice unico PARCIAL (solo WHERE status =
@@ -377,25 +382,24 @@ model ProgramAssignment {
 // ---------------------------------------------------------------------------
 
 model WorkoutLog {
-  structuredExecution Boolean @default(false) @map("structured_execution")
-  revision Int @default(0)
-  omittedSets Json @default("[]") @map("omitted_sets")
-  programAssignmentId String? @map("program_assignment_id")
-  programAssignment ProgramAssignment? @relation(fields: [programAssignmentId], references: [id], onDelete: SetNull)
-  @@index([programAssignmentId, sessionId])
-  prescriptionCapturedAt DateTime? @map("prescription_captured_at")
-  prescriptions WorkoutPrescription[]
-  id        String  @id @default(cuid())
-  sessionId String  @map("session_id")
+  structuredExecution    Boolean               @default(false) @map("structured_execution")
+  revision               Int                   @default(0)
+  omittedSets            Json                  @default("[]") @map("omitted_sets")
+  programAssignmentId    String?               @map("program_assignment_id")
+  programAssignment      ProgramAssignment?    @relation(fields: [programAssignmentId], references: [id], onDelete: SetNull)
+  prescriptionCapturedAt DateTime?             @map("prescription_captured_at")
+  prescriptions          WorkoutPrescription[]
+  id                     String                @id @default(cuid())
+  sessionId              String                @map("session_id")
   // Restrict: protege el principio central del modelo. Ver docs/database.md.
-  session   Session @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  studentId String  @map("student_id")
-  student   User    @relation("StudentWorkoutLogs", fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  session                Session               @relation(fields: [sessionId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  studentId              String                @map("student_id")
+  student                User                  @relation("StudentWorkoutLogs", fields: [studentId], references: [id], onDelete: Restrict, onUpdate: Cascade)
 
   performedAt      DateTime                @default(now()) @map("performed_at")
   finishedAt       DateTime?               @map("finished_at")
   completionStatus WorkoutCompletionStatus @map("completion_status")
-  overallRpe       Decimal?                @db.Decimal(3, 1) @map("overall_rpe")
+  overallRpe       Decimal?                @map("overall_rpe") @db.Decimal(3, 1)
   fatigue          Int?
   comments         String?
   durationMinutes  Int?                    @map("duration_minutes")
@@ -406,27 +410,28 @@ model WorkoutLog {
   setLogs            SetLog[]
   correctionRequests WorkoutCorrectionRequest[]
 
+  @@index([programAssignmentId, sessionId])
   @@index([studentId, performedAt])
   @@index([sessionId])
   @@map("workout_logs")
 }
 
 model WorkoutPrescription {
-  id String @id @default(cuid())
-  workoutLogId String @map("workout_log_id")
-  workoutLog WorkoutLog @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
-  sessionExerciseId String @map("session_exercise_id")
-  sessionExercise SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Restrict)
-  exerciseId String @map("exercise_id")
-  exerciseName String @map("exercise_name")
-  order Int
-  targetSets Int? @map("target_sets")
-  targetRepsMin Int? @map("target_reps_min")
-  targetRepsMax Int? @map("target_reps_max")
-  targetRpe Decimal? @db.Decimal(3, 1) @map("target_rpe")
-  targetRir Int? @map("target_rir")
-  restSeconds Int? @map("rest_seconds")
-  notes String?
+  id                String          @id @default(cuid())
+  workoutLogId      String          @map("workout_log_id")
+  workoutLog        WorkoutLog      @relation(fields: [workoutLogId], references: [id], onDelete: Cascade)
+  sessionExerciseId String          @map("session_exercise_id")
+  sessionExercise   SessionExercise @relation(fields: [sessionExerciseId], references: [id], onDelete: Restrict)
+  exerciseId        String          @map("exercise_id")
+  exerciseName      String          @map("exercise_name")
+  order             Int
+  targetSets        Int?            @map("target_sets")
+  targetRepsMin     Int?            @map("target_reps_min")
+  targetRepsMax     Int?            @map("target_reps_max")
+  targetRpe         Decimal?        @map("target_rpe") @db.Decimal(3, 1)
+  targetRir         Int?            @map("target_rir")
+  restSeconds       Int?            @map("rest_seconds")
+  notes             String?
 
   @@unique([workoutLogId, sessionExerciseId])
   @@index([sessionExerciseId])
@@ -443,8 +448,8 @@ model SetLog {
 
   setNumber  Int      @map("set_number")
   actualReps Int?     @map("actual_reps")
-  actualLoad Decimal? @db.Decimal(6, 2) @map("actual_load")
-  actualRpe  Decimal? @db.Decimal(3, 1) @map("actual_rpe")
+  actualLoad Decimal? @map("actual_load") @db.Decimal(6, 2)
+  actualRpe  Decimal? @map("actual_rpe") @db.Decimal(3, 1)
   actualRir  Int?     @map("actual_rir")
   comments   String?
 
@@ -504,12 +509,12 @@ model ExcelImportRow {
 
 model Message {
   attachments MessageAttachment[]
-  id         String   @id @default(cuid())
-  senderId   String   @map("sender_id")
-  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  receiverId String   @map("receiver_id")
-  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Restrict, onUpdate: Cascade)
-  body       String
+  id          String              @id @default(cuid())
+  senderId    String              @map("sender_id")
+  sender      User                @relation("SentMessages", fields: [senderId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  receiverId  String              @map("receiver_id")
+  receiver    User                @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  body        String
 
   sessionId         String?          @map("session_id")
   session           Session?         @relation(fields: [sessionId], references: [id], onDelete: SetNull, onUpdate: Cascade)
@@ -603,15 +608,15 @@ model TrainingWeekPlan {
 // ---------------------------------------------------------------------------
 
 model AuditLog {
-  id     String @id @default(cuid())
+  id         String   @id @default(cuid())
   // Nullable + SetNull: el registro de auditoria debe sobrevivir aunque el
   // usuario actor sea eliminado en el futuro (no aplica el mismo principio
   // de proteccion que el historial de entrenamiento, que usa Restrict).
-  actorId    String? @map("actor_id")
-  actor      User?   @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  actorId    String?  @map("actor_id")
+  actor      User?    @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
   action     String
-  entityType String  @map("entity_type")
-  entityId   String  @map("entity_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
   metadata   Json?
   createdAt  DateTime @default(now()) @map("created_at")
 
@@ -677,13 +682,14 @@ model StudentInvitation {
 }
 
 model PasswordResetToken {
-  id String @id @default(cuid())
-  userId String @map("user_id")
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tokenHash String @unique @map("token_hash")
-  expiresAt DateTime @map("expires_at")
-  usedAt DateTime? @map("used_at")
-  createdAt DateTime @default(now()) @map("created_at")
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
   @@index([userId, expiresAt])
   @@map("password_reset_tokens")
 }
@@ -717,85 +723,116 @@ enum NotificationType {
 }
 
 model Competition {
-  id String @id @default(cuid())
-  studentId String @map("student_id")
-  student User @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  name String
-  eventDate DateTime @db.Date @map("event_date")
-  type CompetitionType?
-  category String
-  location String?
-  goal String?
-  coachGoal String? @map("coach_goal")
-  notes String?
-  status CompetitionStatus @default(UPCOMING)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id        String            @id @default(cuid())
+  studentId String            @map("student_id")
+  student   User              @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  name      String
+  eventDate DateTime          @map("event_date") @db.Date
+  type      CompetitionType?
+  category  String
+  location  String?
+  goal      String?
+  coachGoal String?           @map("coach_goal")
+  notes     String?
+  status    CompetitionStatus @default(UPCOMING)
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
   @@index([studentId, status, eventDate])
   @@map("competitions")
 }
 
 model UserProfile {
-  id String @id @default(cuid())
-  userId String @unique @map("user_id")
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  displayName String? @map("display_name")
-  avatarUrl String? @map("avatar_url")
-  phone String?
-  birthDate DateTime? @db.Date @map("birth_date")
-  city String?
-  sport String?
-  bio String?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String    @id @default(cuid())
+  userId      String    @unique @map("user_id")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String?   @map("display_name")
+  avatarUrl   String?   @map("avatar_url")
+  phone       String?
+  birthDate   DateTime? @map("birth_date") @db.Date
+  city        String?
+  sport       String?
+  bio         String?
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
   @@map("user_profiles")
 }
 
 model MessageAttachment {
-  id String @id @default(cuid())
-  messageId String @map("message_id")
-  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
-  type AttachmentType
-  storageKey String @unique @map("storage_key")
-  mimeType String @map("mime_type")
-  originalFilename String @map("original_filename")
-  sizeBytes Int @map("size_bytes")
-  createdAt DateTime @default(now()) @map("created_at")
+  id               String         @id @default(cuid())
+  messageId        String         @map("message_id")
+  message          Message        @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  type             AttachmentType
+  storageKey       String         @unique @map("storage_key")
+  mimeType         String         @map("mime_type")
+  originalFilename String         @map("original_filename")
+  sizeBytes        Int            @map("size_bytes")
+  createdAt        DateTime       @default(now()) @map("created_at")
+
   @@index([messageId])
   @@map("message_attachments")
 }
 
 model Notification {
-  id String @id @default(cuid())
-  userId String @map("user_id")
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  type NotificationType
-  title String
-  body String
-  readAt DateTime? @map("read_at")
-  resourceType String? @map("resource_type")
-  resourceId String? @map("resource_id")
-  dedupeKey String? @unique @map("dedupe_key")
-  createdAt DateTime @default(now()) @map("created_at")
+  id           String           @id @default(cuid())
+  userId       String           @map("user_id")
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         NotificationType
+  title        String
+  body         String
+  readAt       DateTime?        @map("read_at")
+  resourceType String?          @map("resource_type")
+  resourceId   String?          @map("resource_id")
+  dedupeKey    String?          @unique @map("dedupe_key")
+  createdAt    DateTime         @default(now()) @map("created_at")
+
   @@index([userId, readAt, createdAt])
   @@map("notifications")
 }
 
 model SessionScheduleOverride {
-  id String @id @default(cuid())
-  programAssignmentId String @map("program_assignment_id")
-  programAssignment ProgramAssignment @relation(fields: [programAssignmentId], references: [id], onDelete: Cascade)
-  sessionId String @map("session_id")
-  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  originalDate DateTime @db.Date @map("original_date")
-  scheduledDate DateTime @db.Date @map("scheduled_date")
-  reason String?
-  createdByUserId String @map("created_by_user_id")
-  createdByUser User @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id                  String            @id @default(cuid())
+  programAssignmentId String            @map("program_assignment_id")
+  programAssignment   ProgramAssignment @relation(fields: [programAssignmentId], references: [id], onDelete: Cascade)
+  sessionId           String            @map("session_id")
+  session             Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  originalDate        DateTime          @map("original_date") @db.Date
+  scheduledDate       DateTime          @map("scheduled_date") @db.Date
+  reason              String?
+  createdByUserId     String            @map("created_by_user_id")
+  createdByUser       User              @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
   @@unique([programAssignmentId, sessionId])
   @@index([sessionId])
   @@index([createdByUserId])
   @@map("session_schedule_overrides")
+}
+
+// Predicciones del modelo de carga sugerida, para medir su acierto real:
+// se comparan después con la sesión siguiente del ejercicio
+// (prisma/evaluate-suggested-loads.ts). Una fila por historial y versión del
+// modelo: volver a ver la misma sugerencia no duplica registros.
+model SuggestedLoadLog {
+  id              String   @id @default(cuid())
+  studentId       String   @map("student_id")
+  student         User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  exerciseId      String   @map("exercise_id")
+  exercise        Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  lastSessionDate DateTime @map("last_session_date") @db.Date
+  targetReps      Int      @map("target_reps")
+  suggestedLoadKg Decimal  @map("suggested_load_kg") @db.Decimal(6, 2)
+  rangeLowKg      Decimal? @map("range_low_kg") @db.Decimal(6, 2)
+  rangeHighKg     Decimal? @map("range_high_kg") @db.Decimal(6, 2)
+  lastE1rmKg      Decimal  @map("last_e1rm_kg") @db.Decimal(6, 2)
+  predictedE1rmKg Decimal  @map("predicted_e1rm_kg") @db.Decimal(6, 2)
+  adjustments     String[] @default([])
+  modelVersion    String   @map("model_version")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@unique([studentId, exerciseId, lastSessionDate, targetReps, modelVersion])
+  @@index([studentId, exerciseId])
+  @@map("suggested_load_logs")
 }

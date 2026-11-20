@@ -32,7 +32,8 @@
     "email:verify": "node ../scripts/email-verify.cjs",
     "storage:check": "node ../scripts/storage-check.cjs",
     "demo:flexible": "node --env-file=.env -r ts-node/register prisma/setup-flexible-demo.ts",
-    "demo:ml-history": "node --env-file=.env -r ts-node/register prisma/setup-ml-history-demo.ts"
+    "demo:ml-history": "node --env-file=.env -r ts-node/register prisma/setup-ml-history-demo.ts",
+    "ml:evaluate": "node --env-file=.env -r ts-node/register prisma/evaluate-suggested-loads.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

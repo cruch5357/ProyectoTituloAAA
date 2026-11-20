@@ -30,7 +30,9 @@ function buildBatch(
     confirmedAt: null,
     counts: { totalRows: 0, validRows: 0, invalidRows: 0 },
     rows: [],
-    createdPrograms: [],
+    legacyTemplate: false,
+    plan: [],
+    createdBlocks: [],
     ...overrides,
   };
 }

@@ -27,6 +27,33 @@ beforeEach(() => {
   vi.restoreAllMocks();
 });
 
+describe('ExercisesListPage - llegar a crear un ejercicio', () => {
+  it('con ?nuevo=1 abre directamente el formulario de nuevo ejercicio', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: [],
+      error: null,
+      meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+    renderWithProviders(<ExercisesListPage />, { route: '/exercises?nuevo=1' });
+    expect(
+      await screen.findByRole('dialog', { name: 'Nuevo ejercicio' }),
+    ).toHaveAttribute('open');
+  });
+
+  it('sin el parámetro, el formulario queda cerrado', async () => {
+    vi.spyOn(apiClient, 'get').mockResolvedValue({
+      data: [],
+      error: null,
+      meta: { page: 1, limit: 20, total: 0, totalPages: 0 },
+    });
+    renderWithProviders(<ExercisesListPage />, { route: '/exercises' });
+    await screen.findByText(/Todavía no tienes ejercicios/);
+    expect(
+      screen.queryByRole('dialog', { name: 'Nuevo ejercicio' }),
+    ).toBeNull();
+  });
+});
+
 // PROMPT 07 — "renderizado de catálogo" + "carga de ejercicios".
 describe('ExercisesListPage', () => {
   it('carga y renderiza los ejercicios del catálogo', async () => {
